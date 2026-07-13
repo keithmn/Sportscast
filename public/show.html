@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Show — The Sportscast</title>
+  <meta property="og:image" content="/images/og-default.jpg" id="og-image">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+  <div id="nav-placeholder"></div>
+
+  <header class="show-header" id="show-header">
+    <img class="show-header-photo" id="show-header-photo" src="" alt="" style="display:none;" onerror="this.style.display='none'">
+    <div class="container">
+      <span class="show-header-sport" id="show-sport"></span>
+      <h1 class="page-title" id="show-title">Show</h1>
+      <p class="show-header-desc" id="show-desc"></p>
+    </div>
+  </header>
+
+  <div class="page-body">
+    <div class="container" id="show-root">
+      <div class="empty-state">Loading…</div>
+    </div>
+  </div>
+
+  <div id="footer-placeholder"></div>
+
+  <script src="/js/site.js"></script>
+  <script src="/js/shows-data.js"></script>
+  <script src="/js/show.js"></script>
+</body>
+</html>

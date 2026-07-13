@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>News & Articles — The Sportscast</title>
+  <meta name="description" content="Fast updates and full features from Kenyan sport, categorized by sport — kept permanently, not a feed to keep up with.">
+  <meta property="og:image" content="/images/og-default.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+  <div id="nav-placeholder"></div>
+
+  <header class="page-header">
+    <div class="container">
+      <h1 class="page-title">News &amp; Articles</h1>
+      <p class="page-sub">The fast updates and the deep features, both kept — not a feed to keep up with, a record you can come back to.</p>
+    </div>
+  </header>
+
+  <div class="page-body">
+    <div class="container">
+      <div class="filter-row" id="news-filters"></div>
+
+      <section style="margin-bottom:3.5rem;">
+        <span class="section-label">Latest</span>
+        <div class="archive-list" id="latest-root">
+          <div class="empty-state">Loading…</div>
+        </div>
+      </section>
+
+      <section>
+        <span class="section-label">Stories</span>
+        <div class="card-grid" id="stories-root">
+          <div class="empty-state">Loading…</div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div id="footer-placeholder"></div>
+
+  <script src="/js/site.js"></script>
+  <script src="/js/news.js"></script>
+</body>
+</html>

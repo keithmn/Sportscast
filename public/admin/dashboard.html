@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Newsroom Dashboard — The Sportscast</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="admin-sidebar">
+      <div class="nav-logo" style="margin-bottom:2rem;">
+        <div><span class="nav-logo-mark" style="font-size:1.1rem;">THE SPORTSCAST</span><br><span style="font-family:'Inter',sans-serif; font-size:0.7rem; color:var(--text-secondary);">Newsroom</span></div>
+      </div>
+      <a href="/admin/dashboard.html" class="active">Dashboard</a>
+      <a href="/admin/articles.html">Articles</a>
+      <a href="/admin/scores.html">Scores &amp; Fixtures</a>
+      <a href="/admin/submissions.html">Submissions</a>
+      <a href="/index.html">View Site</a>
+      <a href="#" id="logout-link">Log Out</a>
+    </aside>
+    <main class="admin-main">
+      <div class="admin-topbar">
+        <h1 class="page-title" style="font-size:1.75rem;">Dashboard</h1>
+        <span id="whoami" class="page-sub"></span>
+      </div>
+      <div id="dashboard-root"></div>
+    </main>
+  </div>
+
+  <script src="/js/site.js"></script>
+  <script src="/admin/js/guard.js"></script>
+  <script src="/admin/js/dashboard.js"></script>
+</body>
+</html>

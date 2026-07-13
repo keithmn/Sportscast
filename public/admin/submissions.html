@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Submissions — The Sportscast Newsroom</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="admin-sidebar">
+      <div class="nav-logo" style="margin-bottom:2rem;">
+        <div><span class="nav-logo-mark" style="font-size:1.1rem;">THE SPORTSCAST</span><br><span style="font-family:'Inter',sans-serif; font-size:0.7rem; color:var(--text-secondary);">Newsroom</span></div>
+      </div>
+      <a href="/admin/dashboard.html">Dashboard</a>
+      <a href="/admin/articles.html">Articles</a>
+      <a href="/admin/scores.html">Scores &amp; Fixtures</a>
+      <a href="/admin/submissions.html" class="active">Submissions</a>
+      <a href="/index.html">View Site</a>
+      <a href="#" id="logout-link">Log Out</a>
+    </aside>
+    <main class="admin-main">
+      <div class="admin-topbar">
+        <h1 class="page-title" style="font-size:1.75rem;">Submissions</h1>
+        <span id="whoami" class="page-sub"></span>
+      </div>
+      <p class="page-sub" style="margin-bottom:2rem;">Contact messages, news tips, partnership inquiries, and shop-waitlist signups from the homepage — all in one inbox, distinguished by type.</p>
+      <div id="access-denied" class="form-error" style="display:none;">You don't have permission to view this.</div>
+      <div id="submissions-app" style="display:none;">
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Type</th><th>Name</th><th>Email</th><th>Message</th><th>Received</th><th>Status</th><th></th></tr></thead>
+            <tbody id="submissions-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/site.js"></script>
+  <script src="/admin/js/guard.js"></script>
+  <script src="/admin/js/submissions.js"></script>
+</body>
+</html>

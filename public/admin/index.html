@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Newsroom Login — The Sportscast</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+  <div class="login-shell">
+    <div class="login-card" id="login-card">
+      <h1 class="page-title" style="font-size:1.75rem; margin-bottom:0.25rem;">The Sportscast Newsroom</h1>
+      <p class="page-sub" style="margin-bottom:1.5rem;">Sign in to manage shows and the archive.</p>
+
+      <form id="login-form" class="form-grid">
+        <div class="form-field">
+          <label for="email">Email</label>
+          <input type="email" id="email" required>
+        </div>
+        <div class="form-field">
+          <label for="password">Password</label>
+          <input type="password" id="password" required>
+        </div>
+        <p class="form-error" id="login-error" style="display:none;"></p>
+        <button type="submit" class="btn-red">Sign In</button>
+      </form>
+
+      <p class="source-note" style="margin-top:1.5rem;">
+        Demo logins (password <code>underdoggs2026</code>):<br>
+        admin@underdoggs.co.ke · editor@underdoggs.co.ke
+      </p>
+    </div>
+  </div>
+
+  <script src="/js/site.js"></script>
+  <script src="/admin/js/login.js"></script>
+</body>
+</html>

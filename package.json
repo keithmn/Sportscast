@@ -1,0 +1,28 @@
+{
+  "name": "underdoggs-sports-cast",
+  "version": "1.0.0",
+  "description": "Underdoggs Sports Cast — CMS, articles, and Kenyan sports database backend",
+  "private": true,
+  "scripts": {
+    "dev": "node server/index.js",
+    "start": "node server/index.js",
+    "prisma:migrate": "prisma migrate dev --name init",
+    "prisma:generate": "prisma generate",
+    "seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.19.1",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.6.1",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0"
+  },
+  "devDependencies": {
+    "prisma": "^5.19.1"
+  },
+  "allowScripts": {
+    "@prisma/client@5.22.0": true,
+    "@prisma/engines@5.22.0": true,
+    "prisma@5.22.0": true
+  }
+}

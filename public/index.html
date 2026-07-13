@@ -1,0 +1,1528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="The Sportscast, by Underdawgs — Where Kenyan sports live. The flagship show, five sport-specific weeklies, and a growing archive of Kenyan sport.">
+  <title>The Sportscast — Where Kenyan Sports Live.</title>
+  <meta property="og:title" content="The Sportscast, by Underdawgs">
+  <meta property="og:description" content="Where Kenyan sports live. The flagship show, five sport-specific weeklies, and a growing archive of Kenyan sport.">
+  <meta property="og:image" content="/images/og-default.jpg">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* ===================== VARIABLES ===================== */
+    :root {
+      --bg-primary:    #1E1E1E;
+      --bg-surface:    #252525;
+      --bg-elevated:   #2E2E2E;
+      --brand-gold:    #FBBC1E;
+      --brand-brown:   #8B5E3C;
+      --danger:        #C13422;
+      --text-primary:  #F5F0E8;
+      --text-secondary:#9A9A9A;
+      --border:        #383838;
+
+      --text-hero:    clamp(4.5rem, 11vw, 9.5rem);
+      --text-display: clamp(2rem, 5vw, 3.75rem);
+      --text-heading: clamp(1.25rem, 2.5vw, 1.875rem);
+      --text-body:    1rem;
+      --text-small:   0.875rem;
+      --text-micro:   0.72rem;
+
+      --max-width:    1280px;
+      --px:           clamp(1.25rem, 5vw, 3rem);
+    }
+
+    /* ===================== RESET ===================== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: var(--text-body);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+    a { text-decoration: none; color: inherit; }
+    button { cursor: pointer; border: none; background: none; font-family: inherit; }
+    ul { list-style: none; }
+    img { display: block; max-width: 100%; }
+
+    /* ===================== UTILITIES ===================== */
+    .container {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding-left: var(--px);
+      padding-right: var(--px);
+    }
+
+    .section-label {
+      font-family: 'Inter', sans-serif;
+      font-size: var(--text-micro);
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--brand-gold);
+      display: block;
+      margin-bottom: 2rem;
+    }
+
+    /* Hero items animate on load via keyframe; below-fold items use JS class */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .hero-animate {
+      opacity: 0;
+      animation: fadeUp 0.55s ease-out forwards;
+    }
+
+    .fade-up {
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity 0.45s ease-out, transform 0.45s ease-out;
+    }
+    .fade-up.visible { opacity: 1; transform: none; }
+
+    /* ===================== NAVIGATION ===================== */
+    .nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.25rem var(--px);
+      transition: background 0.3s ease, border-color 0.3s ease, backdrop-filter 0.3s ease;
+      border-bottom: 1px solid transparent;
+    }
+    .nav.scrolled {
+      background: rgba(18, 24, 32, 0.96);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-color: var(--border);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      padding-left: 0.75rem;
+      border-left: 3px solid var(--brand-gold);
+      line-height: 1;
+    }
+    .logo-wrap {
+      position: relative;
+      display: inline-block;
+      line-height: 1;
+    }
+    .nav-logo-mark {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900;
+      font-size: 1.45rem;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: var(--text-primary);
+    }
+    .logo-badge {
+      position: absolute;
+      top: -0.1rem;
+      right: -0.15rem;
+      transform: translateY(-100%);
+      display: flex;
+      align-items: baseline;
+      gap: 0.2em;
+      white-space: nowrap;
+    }
+    .logo-badge-by {
+      font-family: 'Inter', sans-serif;
+      font-weight: 400;
+      font-size: 0.42rem;
+      letter-spacing: 0.02em;
+      color: var(--text-secondary);
+      opacity: 0.5;
+    }
+    .logo-badge-brand {
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      font-size: 0.62rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      opacity: 0.85;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 2.25rem;
+      align-items: center;
+    }
+    .nav-links a {
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+      font-size: var(--text-small);
+      color: var(--text-secondary);
+      letter-spacing: 0.02em;
+      transition: color 0.18s;
+    }
+    .nav-links a:hover { color: var(--text-primary); }
+
+    .nav-cta {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 0.9rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-primary);
+      background: var(--brand-brown);
+      padding: 0.6rem 1.4rem;
+      transition: background 0.18s, transform 0.12s;
+    }
+    .nav-cta:hover { background: #6E4A2E; transform: scale(1.02); }
+
+    /* Hamburger */
+    .hamburger {
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      padding: 4px;
+      cursor: pointer;
+    }
+    .hamburger span {
+      display: block;
+      width: 22px;
+      height: 2px;
+      background: var(--text-primary);
+      transition: transform 0.25s, opacity 0.25s;
+    }
+    .hamburger.is-open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .hamburger.is-open span:nth-child(2) { opacity: 0; }
+    .hamburger.is-open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+    /* Mobile menu */
+    .mobile-menu {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 199;
+      background: var(--bg-surface);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2rem;
+    }
+    .mobile-menu.is-open { display: flex; }
+    .mobile-menu a {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 800;
+      font-size: clamp(2rem, 8vw, 3rem);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-primary);
+      transition: color 0.18s;
+    }
+    .mobile-menu a:hover { color: var(--brand-gold); }
+
+    @media (max-width: 768px) {
+      .nav-links, .nav-cta { display: none; }
+      .hamburger { display: flex; }
+    }
+
+    /* ===================== HERO ===================== */
+    .hero {
+      position: relative;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding-top: 4.75rem; /* nav offset */
+      background: var(--bg-primary);
+      overflow: hidden;
+    }
+    .hero-bg-photo {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+      opacity: 0.4;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      background: linear-gradient(180deg, rgba(9,11,15,0.55) 0%, rgba(9,11,15,0.8) 55%, var(--bg-primary) 100%);
+      pointer-events: none;
+    }
+    .hero .hero-body { position: relative; z-index: 1; }
+
+    .hero-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 4rem var(--px);
+      gap: 1rem;
+    }
+
+    .hero-eyebrow {
+      font-family: 'Inter', sans-serif;
+      font-size: var(--text-micro);
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      animation-delay: 0.05s;
+    }
+
+    .hero-hl {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900;
+      font-size: var(--text-hero);
+      line-height: 0.88;
+      color: var(--text-primary);
+      text-transform: uppercase;
+      letter-spacing: 0.01em;
+      max-width: 1100px;
+      animation-delay: 0.2s;
+    }
+
+    .hero-sub {
+      font-family: 'Inter', sans-serif;
+      font-weight: 400;
+      font-size: clamp(0.95rem, 1.6vw, 1.1rem);
+      color: var(--text-secondary);
+      max-width: 500px;
+      line-height: 1.75;
+      margin-top: 0.5rem;
+      animation-delay: 0.35s;
+    }
+
+    .hero-ctas {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 0.75rem;
+      animation-delay: 0.5s;
+    }
+
+    .btn-red {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-primary);
+      background: var(--brand-brown);
+      padding: 0.875rem 2.25rem;
+      display: inline-block;
+      transition: background 0.18s, transform 0.12s;
+    }
+    .btn-red:hover { background: #6E4A2E; transform: scale(1.02); }
+
+    .btn-ghost {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-primary);
+      background: transparent;
+      border: 2px solid rgba(245, 240, 232, 0.35);
+      padding: 0.875rem 2.25rem;
+      display: inline-block;
+      transition: background 0.18s, color 0.18s, border-color 0.18s;
+    }
+    .btn-ghost:hover {
+      background: var(--text-primary);
+      color: var(--bg-primary);
+      border-color: var(--text-primary);
+    }
+
+    /* ===================== SPORTS CATEGORIES ===================== */
+    .sports-section {
+      padding: 5rem 0;
+      border-top: 1px solid var(--border);
+    }
+    .sports-grid {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 0.75rem;
+    }
+    .sport-tile {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid transparent;
+      padding: 1.5rem 0.75rem 1.25rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.65rem;
+      cursor: pointer;
+      transition: transform 0.12s ease, background 0.12s ease, border-left-color 0.12s ease;
+    }
+    .sport-tile:hover, .sport-tile:focus-visible {
+      transform: translateY(-3px);
+      background: var(--bg-elevated);
+      border-left-color: var(--brand-gold);
+      outline: none;
+    }
+    .sport-mark {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900;
+      font-size: 1.5rem;
+      color: var(--brand-gold);
+      line-height: 1;
+      width: 2rem;
+      height: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .sport-name {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 800;
+      font-size: 0.78rem;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--text-primary);
+      line-height: 1.2;
+    }
+
+    @media (max-width: 1100px) { .sports-grid { grid-template-columns: repeat(4, 1fr); } }
+    @media (max-width: 600px)  { .sports-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    /* ===================== EPISODE SECTION ===================== */
+    .episode-section {
+      padding: 5rem 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .episode-card {
+      display: grid;
+      grid-template-columns: 2fr 3fr;
+      gap: 0;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    /* Featured carousel — plain scroll-snap, no library. One episode-card
+       per slide; arrows/dots just scroll the container, native touch swipe
+       already works for free. Degrades to a single static card if JS never
+       replaces the fallback markup, or if only one episode exists. */
+    .episode-carousel-wrap { position: relative; margin-bottom: 1rem; }
+    .episode-carousel {
+      display: flex;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scrollbar-width: none;
+    }
+    .episode-carousel::-webkit-scrollbar { display: none; }
+    .episode-carousel .episode-card { flex: 0 0 100%; scroll-snap-align: start; }
+    .carousel-arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 3;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.55);
+      color: var(--text-primary);
+      font-size: 1.6rem;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.18s, color 0.18s;
+    }
+    .carousel-arrow:hover { background: var(--brand-gold); color: #000; }
+    .carousel-prev { left: 0.75rem; }
+    .carousel-next { right: 0.75rem; }
+    .carousel-dots { display: flex; justify-content: center; gap: 0.5rem; }
+    .carousel-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--border); cursor: pointer; transition: background 0.18s;
+    }
+    .carousel-dot.active { background: var(--brand-gold); }
+    @media (max-width: 640px) { .carousel-arrow { display: none; } }
+
+    /* CSS-only podcast art */
+    .ep-art {
+      aspect-ratio: 1;
+      background: var(--bg-elevated);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .ep-art::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 28px 28px;
+      opacity: 0.6;
+    }
+    .ep-art::after {
+      content: 'EP. 001';
+      position: absolute;
+      bottom: 1rem;
+      right: 1rem;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 800;
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+      color: var(--brand-gold);
+    }
+    .ep-art-photo {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 2;
+    }
+    .ep-art-inner {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 1rem;
+    }
+    .ep-art-inner .a1 {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900;
+      font-size: clamp(1.1rem, 2.5vw, 1.75rem);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-primary);
+      display: block;
+      line-height: 1;
+    }
+    .ep-art-inner .a2 {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 600;
+      font-size: 0.65rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      display: block;
+      margin-top: 0.25rem;
+    }
+    .ep-art-line {
+      display: block;
+      width: 2.5rem;
+      height: 2px;
+      background: var(--brand-gold);
+      margin: 0.75rem auto;
+    }
+
+    .ep-info {
+      padding: 2.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 0.875rem;
+      border-left: 1px solid var(--border);
+    }
+    .ep-tag {
+      font-family: 'Inter', sans-serif;
+      font-size: var(--text-micro);
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--brand-gold);
+    }
+    .ep-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 800;
+      font-size: clamp(1.5rem, 3vw, 2.25rem);
+      color: var(--text-primary);
+      line-height: 1.08;
+    }
+    .ep-guest {
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+      font-size: var(--text-small);
+      color: var(--brand-gold);
+    }
+    .ep-desc {
+      font-family: 'Inter', sans-serif;
+      font-weight: 400;
+      font-size: var(--text-small);
+      color: var(--text-secondary);
+      line-height: 1.75;
+    }
+    .ep-meta {
+      font-family: 'Inter', sans-serif;
+      font-weight: 300;
+      font-size: var(--text-micro);
+      color: var(--text-secondary);
+      letter-spacing: 0.05em;
+    }
+    .ep-actions { display: flex; gap: 0.875rem; flex-wrap: wrap; margin-top: 0.25rem; }
+
+    .btn-outline-sm {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 0.85rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      padding: 0.6rem 1.25rem;
+      display: inline-block;
+      transition: color 0.18s, border-color 0.18s;
+    }
+    .btn-outline-sm:hover { color: var(--text-primary); border-color: var(--text-secondary); }
+
+    /* Small episode cards */
+    .ep-mini-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+    }
+    .ep-mini {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid transparent;
+      padding: 1.25rem;
+      cursor: pointer;
+      transition: transform 0.12s, background 0.12s, border-left-color 0.12s;
+    }
+    .ep-mini:hover {
+      transform: translateY(-2px);
+      background: var(--bg-elevated);
+      border-left-color: var(--brand-gold);
+    }
+    .em-num {
+      font-family: 'Inter', sans-serif;
+      font-size: var(--text-micro);
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--brand-gold);
+      margin-bottom: 0.5rem;
+    }
+    .em-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--text-primary);
+      line-height: 1.2;
+      margin-bottom: 0.4rem;
+    }
+    .em-guest {
+      font-family: 'Inter', sans-serif;
+      font-size: var(--text-micro);
+      color: var(--text-secondary);
+      font-weight: 300;
+    }
+    .em-runtime {
+      font-family: 'Inter', sans-serif;
+      font-size: var(--text-micro);
+      font-weight: 300;
+      color: var(--text-secondary);
+      margin-top: 0.875rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 860px) {
+      .episode-card { grid-template-columns: 1fr; }
+      .ep-art { aspect-ratio: 16/7; }
+      .ep-info { border-left: none; border-top: 1px solid var(--border); padding: 1.75rem; }
+    }
+    @media (max-width: 600px) {
+      .ep-mini-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ===================== STORIES ===================== */
+    .stories-section {
+      padding: 5rem 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .stories-r1 {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+    .stories-r1-col {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .stories-r2 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+    }
+
+    .story {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid transparent;
+      padding: 1.5rem;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      transition: transform 0.12s, background 0.12s, border-left-color 0.12s;
+    }
+    .story:hover {
+      transform: translateY(-2px);
+      background: var(--bg-elevated);
+      border-left-color: var(--brand-gold);
+    }
+    .story--lg { padding: 2rem; }
+
+    .story-cat {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 600;
+      font-size: var(--text-micro);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--brand-gold);
+    }
+    .story-hl {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 800;
+      color: var(--text-primary);
+      line-height: 1.12;
+      font-size: clamp(1rem, 2vw, 1.35rem);
+    }
+    .story--lg .story-hl { font-size: clamp(1.4rem, 2.8vw, 2rem); }
+    .story-desc {
+      font-family: 'Inter', sans-serif;
+      font-weight: 400;
+      font-size: var(--text-small);
+      color: var(--text-secondary);
+      line-height: 1.65;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .story-foot {
+      margin-top: auto;
+      padding-top: 0.875rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .story-author {
+      font-family: 'Inter', sans-serif;
+      font-size: var(--text-micro);
+      font-weight: 400;
+      color: var(--text-secondary);
+    }
+    .story-dot { color: var(--border); }
+    .story-time {
+      font-family: 'Inter', sans-serif;
+      font-size: var(--text-micro);
+      font-weight: 300;
+      color: var(--text-secondary);
+      margin-left: auto;
+    }
+
+    @media (max-width: 1024px) {
+      .stories-r1 { grid-template-columns: 1fr; }
+      .stories-r1-col { flex-direction: row; }
+    }
+    @media (max-width: 700px) {
+      .stories-r1-col { flex-direction: column; }
+      .stories-r2 { grid-template-columns: 1fr; }
+    }
+
+    /* ===================== SHOWS (flagship + niche) ===================== */
+    .shows-section { padding: 5rem 0; border-top: 1px solid var(--border); }
+    .niche-shows-head { margin-top: 0; }
+    .niche-shows-sub {
+      font-family: 'Inter', sans-serif;
+      font-size: var(--text-small);
+      color: var(--text-secondary);
+      max-width: 34rem;
+      margin-top: -1.25rem;
+    }
+    .niche-shows-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.75rem;
+      margin-top: 1.75rem;
+    }
+    .niche-show-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-top: 3px solid var(--show-accent, var(--brand-gold));
+      padding: 1.5rem 1.1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      transition: transform 0.12s ease, background 0.12s ease;
+    }
+    .niche-show-card:hover { transform: translateY(-3px); background: var(--bg-elevated); }
+    .niche-show-thumb {
+      display: block;
+      width: calc(100% + 2.2rem);
+      height: 90px;
+      object-fit: cover;
+      margin: -1.5rem -1.1rem 0.6rem -1.1rem;
+      background: var(--bg-elevated);
+    }
+    .niche-show-sport {
+      font-family: 'Inter', sans-serif;
+      font-size: var(--text-micro);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+    .niche-show-name {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 800;
+      font-size: 1.15rem;
+      text-transform: uppercase;
+      color: var(--text-primary);
+      line-height: 1.15;
+    }
+    .niche-show-tagline {
+      font-family: 'Inter', sans-serif;
+      font-size: var(--text-micro);
+      color: var(--text-secondary);
+    }
+    .niche-show-latest {
+      font-family: 'Inter', sans-serif;
+      font-size: var(--text-micro);
+      font-weight: 600;
+      color: var(--brand-gold);
+      margin-top: 0.5rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid var(--border);
+    }
+    @media (max-width: 1024px) { .niche-shows-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 620px)  { .niche-shows-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    /* ===================== ARCHIVE TEASER (calm, not a feed) ===================== */
+    .archive-teaser-section { padding: 5rem 0; border-top: 1px solid var(--border); }
+    .archive-teaser-sub {
+      font-family: 'Inter', sans-serif;
+      font-size: var(--text-small);
+      color: var(--text-secondary);
+      max-width: 36rem;
+      margin-top: -1.25rem;
+    }
+    .archive-teaser-sub a { color: var(--brand-gold); }
+    .archive-list {
+      margin-top: 2rem;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ===================== SHOP PROMO (deliberately distinct from the
+       calm dark teasers above it — this one's allowed to pop a little) ===================== */
+    .shop-promo-section {
+      padding: 4.5rem 0;
+      border-top: 1px solid var(--border);
+      background: linear-gradient(120deg, var(--bg-surface) 0%, var(--bg-elevated) 100%);
+      position: relative;
+      overflow: hidden;
+    }
+    .shop-promo-section::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 85% 30%, rgba(251,188,30,0.10), transparent 55%);
+      pointer-events: none;
+    }
+    .shop-promo-inner {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 2.5rem;
+      align-items: center;
+    }
+    .shop-promo-hl {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900;
+      font-size: clamp(1.6rem, 3.2vw, 2.25rem);
+      text-transform: uppercase;
+      line-height: 1.05;
+      margin-bottom: 0.75rem;
+    }
+    .shop-promo-sub { color: var(--text-secondary); max-width: 46ch; }
+    .shop-promo-form { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .shop-promo-input {
+      flex: 1;
+      min-width: 220px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 0.875rem 1.1rem;
+      font-family: 'Inter', sans-serif;
+      font-size: var(--text-small);
+      outline: none;
+    }
+    .shop-promo-input:focus { border-color: var(--brand-gold); }
+    .shop-promo-input::placeholder { color: var(--text-secondary); }
+    @media (max-width: 760px) {
+      .shop-promo-inner { grid-template-columns: 1fr; }
+    }
+    .archive-item {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1.5rem;
+      padding: 1.35rem 0;
+      border-bottom: 1px solid var(--border);
+      transition: opacity 0.12s ease;
+    }
+    .archive-item:hover { opacity: 0.75; }
+    .archive-item-main { display: flex; flex-direction: column; gap: 0.35rem; }
+    .archive-item-cat {
+      font-family: 'Inter', sans-serif;
+      font-size: var(--text-micro);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--brand-gold);
+    }
+    .archive-item-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 1.15rem;
+      color: var(--text-primary);
+    }
+    .archive-item-date {
+      font-family: 'Inter', sans-serif;
+      font-size: var(--text-micro);
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+    @media (max-width: 600px) {
+      .archive-item { flex-direction: column; gap: 0.4rem; }
+    }
+
+    /* ===================== MISSION ===================== */
+    .contact-section {
+      padding: 7rem 0;
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border);
+    }
+    .mission-quote {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900;
+      font-size: clamp(2.25rem, 5vw, 3.75rem);
+      color: var(--text-primary);
+      line-height: 1.06;
+      text-transform: uppercase;
+    }
+    .mission-quote .hl { color: var(--brand-gold); }
+
+    .contact-tabs { display: flex; gap: 0.5rem; margin: 1.5rem 0 2rem; flex-wrap: wrap; }
+    .contact-tab {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 0.9rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      padding: 0.7rem 1.4rem;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .contact-tab.active { color: var(--text-primary); border-color: var(--brand-gold); }
+    .contact-form { max-width: 640px; display: grid; gap: 1rem; }
+    .contact-form .form-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .contact-form .form-field { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 0.35rem; }
+    .contact-form label { font-family: 'Inter', sans-serif; font-size: var(--text-small); color: var(--text-secondary); }
+    .contact-form input, .contact-form textarea {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 0.7rem 0.9rem;
+      font-family: 'Inter', sans-serif;
+      font-size: var(--text-small);
+      outline: none;
+    }
+    .contact-form input:focus, .contact-form textarea:focus { border-color: var(--brand-gold); }
+    .contact-form textarea { min-height: 140px; resize: vertical; }
+    .contact-success {
+      max-width: 640px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--brand-gold);
+      padding: 2rem;
+    }
+    .contact-success h3 {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 800;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+      color: var(--text-primary);
+    }
+    .contact-success p { color: var(--text-secondary); }
+
+    /* ===================== NEWSLETTER ===================== */
+    .newsletter-section {
+      padding: 7rem 0;
+      background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-surface) 100%);
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+    .nl-eyebrow {
+      font-family: 'Inter', sans-serif;
+      font-size: var(--text-micro);
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--brand-gold);
+      display: block;
+      margin-bottom: 1.25rem;
+    }
+    .nl-hl {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 800;
+      font-size: var(--text-display);
+      color: var(--text-primary);
+      line-height: 1;
+      margin-bottom: 1rem;
+    }
+    .nl-sub {
+      font-family: 'Inter', sans-serif;
+      font-weight: 400;
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      max-width: 440px;
+      margin: 0 auto 2.5rem;
+      line-height: 1.75;
+    }
+    .nl-form {
+      display: flex;
+      max-width: 460px;
+      margin: 0 auto 1rem;
+    }
+    .nl-input {
+      flex: 1;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-right: none;
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: var(--text-small);
+      padding: 0.875rem 1.25rem;
+      outline: none;
+      transition: border-color 0.18s;
+    }
+    .nl-input:focus { border-color: var(--brand-gold); }
+    .nl-input::placeholder { color: var(--text-secondary); }
+    .nl-btn {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 0.9rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-primary);
+      background: var(--brand-brown);
+      padding: 0.875rem 1.75rem;
+      border: 1px solid var(--brand-brown);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.18s;
+    }
+    .nl-btn:hover { background: #6E4A2E; }
+    .nl-fine {
+      font-family: 'Inter', sans-serif;
+      font-weight: 300;
+      font-size: var(--text-micro);
+      color: var(--text-secondary);
+    }
+    @media (max-width: 540px) {
+      .nl-form { flex-direction: column; }
+      .nl-input { border-right: 1px solid var(--border); border-bottom: none; }
+    }
+
+    /* ===================== FOOTER ===================== */
+    .footer {
+      background: #000;
+      border-top: 1px solid var(--border);
+      padding: 4rem 0 2.5rem;
+    }
+    .footer-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 2.5rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2rem;
+    }
+    .footer-logo {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900;
+      font-size: 1.35rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-primary);
+      display: block;
+      margin-bottom: 0.2rem;
+    }
+    .footer-tl {
+      font-family: 'Inter', sans-serif;
+      font-size: var(--text-small);
+      color: var(--text-secondary);
+      font-weight: 400;
+    }
+    .footer-socials {
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+    }
+    .footer-socials a { display: block; }
+    .footer-socials svg { width: 26px; height: 26px; fill: var(--text-primary); transition: fill 0.3s; }
+    .footer-socials a:hover svg { fill: var(--brand-gold); }
+
+    .footer-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem 2.5rem;
+      padding-bottom: 2.5rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2rem;
+    }
+    .footer-nav a {
+      font-family: 'Inter', sans-serif;
+      font-weight: 400;
+      font-size: var(--text-small);
+      color: var(--text-secondary);
+      transition: color 0.18s;
+    }
+    .footer-nav a:hover { color: var(--text-primary); }
+
+    .footer-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .footer-copy {
+      font-family: 'Inter', sans-serif;
+      font-weight: 300;
+      font-size: var(--text-micro);
+      color: var(--text-secondary);
+    }
+    .footer-echo {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 600;
+      font-size: var(--text-small);
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+
+    @media (max-width: 640px) {
+      .footer-top { flex-direction: column; align-items: flex-start; gap: 1.5rem; }
+      .footer-bottom { flex-direction: column; }
+    }
+
+    /* ===================== REDUCED MOTION ===================== */
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+      .hero-animate, .fade-up { opacity: 1; transform: none; }
+      .fade-up.visible { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- =========================================================
+     NAVIGATION
+     ========================================================= -->
+<nav class="nav" id="main-nav" role="navigation" aria-label="Main navigation">
+  <a href="/" class="nav-logo" aria-label="The Sportscast — Home">
+    <span class="logo-wrap">
+      <span class="nav-logo-mark">THE SPORTSCAST</span>
+      <span class="logo-badge"><span class="logo-badge-by">by</span><span class="logo-badge-brand">Underdawgs</span></span>
+    </span>
+  </a>
+
+  <ul class="nav-links" role="list">
+    <li><a href="/shows.html">Shows</a></li>
+    <li><a href="/news.html">News &amp; Articles</a></li>
+    <li><a href="/scores.html">Scores &amp; Fixtures</a></li>
+    <li><a href="/shop.html">Shop</a></li>
+    <li><a href="#about">Contact</a></li>
+  </ul>
+
+  <a href="#flagship" class="nav-cta">Listen Now</a>
+
+  <button class="hamburger" id="hamburger" aria-label="Open navigation" aria-expanded="false" aria-controls="mobile-menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- Mobile menu -->
+<div class="mobile-menu" id="mobile-menu" role="dialog" aria-modal="true" aria-label="Navigation">
+  <a href="/shows.html" id="mm-shows">Shows</a>
+  <a href="/news.html" id="mm-news">News</a>
+  <a href="/scores.html" id="mm-scores">Scores</a>
+  <a href="/shop.html" id="mm-shop">Shop</a>
+  <a href="#about"   id="mm-about">Contact</a>
+  <a href="#flagship" class="btn-red" style="margin-top:0.5rem; font-size:1rem;">Listen Now</a>
+</div>
+
+
+<!-- =========================================================
+     HERO
+     ========================================================= -->
+<section class="hero" aria-label="Hero banner">
+  <img class="hero-bg-photo" src="/images/hero.jpg" alt="" aria-hidden="true" onerror="this.remove()">
+
+  <!-- Hero content -->
+  <div class="hero-body">
+    <span class="hero-eyebrow hero-animate" style="animation-delay:0.05s">Kenya's Sports Media House</span>
+    <h1 class="hero-hl hero-animate" style="animation-delay:0.2s">Where Kenyan<br>Sports Live.</h1>
+    <p class="hero-sub hero-animate" style="animation-delay:0.35s">
+      One flagship conversation. Five sport-specific shows. A growing archive of every story
+      worth keeping — not a feed to keep up with, a record you can go back to.
+    </p>
+    <div class="hero-ctas hero-animate" style="animation-delay:0.5s">
+      <a href="#flagship" class="btn-red">Watch The Sportscast</a>
+      <a href="/shows.html" class="btn-ghost">Explore the Shows</a>
+    </div>
+  </div>
+</section>
+
+
+<!-- =========================================================
+     THE SPORTSCAST — FLAGSHIP + NICHE SHOWS
+     ========================================================= -->
+<section class="shows-section" id="flagship" aria-label="Shows">
+  <div class="container">
+    <span class="section-label fade-up">The Sportscast</span>
+
+    <!-- Featured carousel: up to 4 recent flagship episodes, populated live
+         by js/home.js. This single card is the no-JS/loading fallback —
+         home.js replaces #episode-carousel's contents wholesale once data
+         loads, so it doubles as the "only one episode exists yet" state. -->
+    <div class="episode-carousel-wrap fade-up">
+      <div class="episode-carousel" id="episode-carousel">
+        <div class="episode-card" id="latest-episode">
+          <div class="ep-art" aria-label="Episode cover art">
+            <img class="ep-art-photo" src="/images/shows/the-sportscast.jpg" alt="" onerror="this.style.display='none'">
+            <div class="ep-art-inner">
+              <span class="a1">THE SPORTSCAST</span>
+              <span class="ep-art-line"></span>
+              <span class="a2">by Underdawgs</span>
+            </div>
+          </div>
+          <div class="ep-info">
+            <span class="ep-tag">Episode 001</span>
+            <h2 class="ep-title">The State of Kenyan Football: Where Are We Headed?</h2>
+            <p class="ep-guest">Feat. guests from the KPL coaching and player community</p>
+            <p class="ep-desc">
+              We open with the hard question: what does Kenyan football actually look like right now? We talk club football, Harambee Stars, what's working in the KPL, and what needs to change. No sugarcoating. No borrowed narratives. Just Kenyan football, from people who know it.
+            </p>
+            <p class="ep-meta">58 min &nbsp;·&nbsp; The Flagship Conversation</p>
+            <div class="ep-actions">
+              <a href="#" class="btn-red">Watch Now</a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <button class="carousel-arrow carousel-prev" id="carousel-prev" aria-label="Previous episode">&lsaquo;</button>
+      <button class="carousel-arrow carousel-next" id="carousel-next" aria-label="Next episode">&rsaquo;</button>
+    </div>
+    <div class="carousel-dots" id="carousel-dots"></div>
+
+    <div class="niche-shows-head fade-up">
+      <span class="section-label" style="margin-top:3.5rem;">Five Shows. Five Communities.</span>
+      <p class="niche-shows-sub">A weekly, sport-specific conversation for people who only want that sport — all under one roof.</p>
+    </div>
+    <div class="niche-shows-grid fade-up" id="niche-shows-grid">
+      <a class="niche-show-card" href="/show.html?slug=the-hydration-break" style="--show-accent:#3a7d3a;" data-video-series="The Hydration Break">
+        <img class="niche-show-thumb" src="/images/shows/the-hydration-break.jpg" alt="" onerror="this.remove()">
+        <span class="niche-show-sport">Football</span>
+        <span class="niche-show-name">The Hydration Break</span>
+        <span class="niche-show-tagline">The weekend, in 15 minutes.</span>
+        <span class="niche-show-latest" data-latest-badge>Loading…</span>
+      </a>
+      <a class="niche-show-card" href="/show.html?slug=the-ruck" style="--show-accent:#1F7A6C;" data-video-series="The Ruck">
+        <img class="niche-show-thumb" src="/images/shows/the-ruck.jpg" alt="" onerror="this.remove()">
+        <span class="niche-show-sport">Rugby</span>
+        <span class="niche-show-name">The Ruck</span>
+        <span class="niche-show-tagline">A fast 7-minute rundown.</span>
+        <span class="niche-show-latest" data-latest-badge>Loading…</span>
+      </a>
+      <a class="niche-show-card" href="/show.html?slug=bully-off" style="--show-accent:#3d6fa3;" data-video-series="Bully Off">
+        <img class="niche-show-thumb" src="/images/shows/bully-off.jpg" alt="" onerror="this.remove()">
+        <span class="niche-show-sport">Hockey</span>
+        <span class="niche-show-name">Bully Off</span>
+        <span class="niche-show-tagline">The weekly hockey digest.</span>
+        <span class="niche-show-latest" data-latest-badge>Loading…</span>
+      </a>
+      <a class="niche-show-card" href="/show.html?slug=fast-break" style="--show-accent:#a35b3d;" data-video-series="Fast Break">
+        <img class="niche-show-thumb" src="/images/shows/fast-break.jpg" alt="" onerror="this.remove()">
+        <span class="niche-show-sport">Basketball</span>
+        <span class="niche-show-name">Fast Break</span>
+        <span class="niche-show-tagline">The weekly basketball digest.</span>
+        <span class="niche-show-latest" data-latest-badge>Loading…</span>
+      </a>
+      <a class="niche-show-card" href="/show.html?slug=the-circuit" style="--show-accent:#7a4a9e;" data-video-series="The Circuit">
+        <img class="niche-show-thumb" src="/images/shows/the-circuit.jpg" alt="" onerror="this.remove()">
+        <span class="niche-show-sport">Athletics · Boxing · Martial Arts</span>
+        <span class="niche-show-name">The Circuit</span>
+        <span class="niche-show-tagline">Every individual sport, one show.</span>
+        <span class="niche-show-latest" data-latest-badge>Loading…</span>
+      </a>
+    </div>
+    <div style="margin-top:1.5rem;">
+      <a href="/shows.html" class="btn-outline-sm">See all shows</a>
+    </div>
+  </div>
+</section>
+
+
+<!-- =========================================================
+     FROM THE ARCHIVE
+     ========================================================= -->
+<section class="archive-teaser-section" id="stories" aria-label="Latest news">
+  <div class="container">
+    <span class="section-label fade-up">Latest</span>
+    <p class="archive-teaser-sub fade-up">Quick, factual updates — not a firehose, just the day-to-day. <a href="/news.html">See all news &amp; articles →</a></p>
+
+    <!-- populated live from /api/articles by js/home.js -->
+    <div class="archive-list fade-up" id="archive-list"></div>
+  </div>
+</section>
+
+<section class="archive-teaser-section" id="scores-teaser" aria-label="Football scores">
+  <div class="container">
+    <span class="section-label fade-up">Scores &amp; Fixtures — Football</span>
+    <p class="archive-teaser-sub fade-up">Kenyan Premier League standings. Rugby and athletics aren't live yet — we're building that coverage from scratch. <a href="/scores.html">See fixtures &amp; the full table →</a></p>
+
+    <!-- populated live from /api/leagues by js/home.js -->
+    <div class="archive-list fade-up" id="scores-teaser-root"></div>
+  </div>
+</section>
+
+<section class="shop-promo-section" aria-label="Shop">
+  <div class="container shop-promo-inner">
+    <div class="shop-promo-copy fade-up">
+      <span class="section-label" style="margin-bottom:0.75rem;">Coming Soon</span>
+      <h2 class="shop-promo-hl">The Sportscast Shop</h2>
+      <p class="shop-promo-sub">Official club merchandise, made in partnership with the teams you follow — plus sporting equipment, supplied directly. Not live yet.</p>
+    </div>
+    <form class="shop-promo-form fade-up" id="shop-promo-form">
+      <input type="email" class="shop-promo-input" placeholder="your@email.com" aria-label="Email address" required>
+      <button type="submit" class="btn-red">Notify Me</button>
+    </form>
+  </div>
+</section>
+
+
+<!-- =========================================================
+     CONTACT / SUBMIT A TIP / WORK WITH US
+     (replaces the old About/mission section — 2026-07-09)
+     ========================================================= -->
+<section class="contact-section" id="about" aria-label="Contact, submit a tip, or work with us">
+  <div class="container">
+    <p class="mission-quote fade-up">Kenya's stories.<br>Kenya's sport.<br><span class="hl">Finally,<br>a home.</span></p>
+
+    <span class="section-label fade-up" style="margin-top:3rem;">Get In Touch</span>
+    <div class="contact-tabs fade-up" role="tablist">
+      <button class="contact-tab active" data-type="CONTACT" role="tab" aria-selected="true">Contact</button>
+      <button class="contact-tab" data-type="TIP" role="tab" aria-selected="false">Submit a Tip</button>
+      <button class="contact-tab" data-type="PARTNERSHIP" role="tab" aria-selected="false">Work With Us</button>
+    </div>
+
+    <form class="contact-form fade-up" id="contact-form" data-type="CONTACT">
+      <div class="form-row">
+        <div class="form-field">
+          <label for="c-name">Name</label>
+          <input type="text" id="c-name" required>
+        </div>
+        <div class="form-field">
+          <label for="c-email">Email</label>
+          <input type="email" id="c-email" required>
+        </div>
+      </div>
+      <div class="form-field">
+        <label for="c-message" id="c-message-label">Message</label>
+        <textarea id="c-message" rows="5" required></textarea>
+      </div>
+      <button type="submit" class="btn-red" style="width:fit-content;">Send</button>
+      <p class="form-error" id="contact-error" style="display:none;"></p>
+    </form>
+    <div class="contact-success fade-up" id="contact-success" style="display:none;">
+      <h3>Message received.</h3>
+      <p id="contact-success-text"></p>
+    </div>
+  </div>
+</section>
+
+
+<!-- =========================================================
+     NEWSLETTER
+     ========================================================= -->
+<section class="newsletter-section" id="newsletter" aria-label="Newsletter signup">
+  <div class="container">
+    <span class="nl-eyebrow fade-up">Stay in the Game</span>
+    <h2 class="nl-hl fade-up">Get Kenyan sports delivered.</h2>
+    <p class="nl-sub fade-up">
+      Match coverage, stories, interviews, and the weekly podcast. No noise. Just sport.
+    </p>
+    <div class="nl-form fade-up" role="form" aria-label="Email subscription">
+      <input class="nl-input" type="email" placeholder="your@email.com" aria-label="Email address">
+      <button class="nl-btn" type="button">Subscribe</button>
+    </div>
+    <p class="nl-fine fade-up">No spam. Unsubscribe anytime.</p>
+  </div>
+</section>
+
+
+<!-- =========================================================
+     FOOTER
+     ========================================================= -->
+<footer class="footer" aria-label="Site footer">
+  <div class="container">
+    <div class="footer-top">
+      <div>
+        <span class="logo-wrap">
+          <a href="/" class="footer-logo">The Sportscast</a>
+          <span class="logo-badge"><span class="logo-badge-by">by</span><span class="logo-badge-brand">Underdawgs</span></span>
+        </span>
+        <span class="footer-tl" style="display:block; margin-top:0.5rem;">Where Kenyan sports live.</span>
+      </div>
+      <div class="footer-socials" aria-label="Social media links">
+        <!-- X / Twitter -->
+        <a href="#" aria-label="Follow us on X">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.748l7.73-8.836L2.25 2.25h6.977l4.26 5.63zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        </a>
+        <!-- YouTube -->
+        <a href="#" aria-label="Watch on YouTube">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+        </a>
+        <!-- Instagram -->
+        <a href="#" aria-label="Follow us on Instagram">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg>
+        </a>
+        <!-- Spotify -->
+        <a href="#" aria-label="Listen on Spotify">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+        </a>
+      </div>
+    </div>
+
+    <nav class="footer-nav" aria-label="Footer navigation">
+      <a href="/shows.html">Shows</a>
+      <a href="#flagship">The Sportscast</a>
+      <a href="/news.html">News &amp; Articles</a>
+      <a href="/scores.html">Scores &amp; Fixtures</a>
+      <a href="/shop.html">Shop</a>
+      <a href="#about">Contact</a>
+      <a href="#newsletter">Newsletter</a>
+      <a href="/admin/index.html">Newsroom Login</a>
+    </nav>
+
+    <div class="footer-bottom">
+      <span class="footer-copy">&copy; 2026 The Sportscast, by Underdawgs. All rights reserved.</span>
+      <span class="footer-echo">Where Kenyan Sports Live.</span>
+    </div>
+  </div>
+</footer>
+
+
+<!-- =========================================================
+     JAVASCRIPT
+     ========================================================= -->
+<script>
+  // ---- Sticky nav ----
+  const nav = document.getElementById('main-nav');
+  window.addEventListener('scroll', () => {
+    nav.classList.toggle('scrolled', window.scrollY > 60);
+  }, { passive: true });
+
+  // ---- Hamburger / mobile menu ----
+  const hamburger = document.getElementById('hamburger');
+  const mobileMenu = document.getElementById('mobile-menu');
+  const mobileLinks = mobileMenu.querySelectorAll('a');
+
+  function openMenu() {
+    hamburger.classList.add('is-open');
+    mobileMenu.classList.add('is-open');
+    hamburger.setAttribute('aria-expanded', 'true');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeMenu() {
+    hamburger.classList.remove('is-open');
+    mobileMenu.classList.remove('is-open');
+    hamburger.setAttribute('aria-expanded', 'false');
+    document.body.style.overflow = '';
+  }
+
+  hamburger.addEventListener('click', () => {
+    mobileMenu.classList.contains('is-open') ? closeMenu() : openMenu();
+  });
+
+  mobileLinks.forEach(link => link.addEventListener('click', closeMenu));
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && mobileMenu.classList.contains('is-open')) closeMenu();
+  });
+
+  // ---- Scroll-triggered fade-up ----
+  const fadeEls = document.querySelectorAll('.fade-up');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+  fadeEls.forEach(el => observer.observe(el));
+
+  // ---- Newsletter submit ----
+  const nlBtn = document.querySelector('.nl-btn');
+  const nlInput = document.querySelector('.nl-input');
+  if (nlBtn && nlInput) {
+    nlBtn.addEventListener('click', () => {
+      const val = nlInput.value.trim();
+      if (!val || !val.includes('@')) {
+        nlInput.style.borderColor = '#C13422';
+        nlInput.focus();
+        return;
+      }
+      nlBtn.textContent = 'Subscribed ✓';
+      nlBtn.style.background = '#2D7A55';
+      nlBtn.style.borderColor = '#2D7A55';
+      nlInput.value = '';
+      nlInput.disabled = true;
+      nlBtn.disabled = true;
+    });
+  }
+</script>
+<script src="/js/site.js"></script>
+<script src="/js/home.js"></script>
+</body>
+</html>

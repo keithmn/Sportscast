@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Articles — The Sportscast Newsroom</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="admin-sidebar">
+      <div class="nav-logo" style="margin-bottom:2rem;">
+        <div><span class="nav-logo-mark" style="font-size:1.1rem;">THE SPORTSCAST</span><br><span style="font-family:'Inter',sans-serif; font-size:0.7rem; color:var(--text-secondary);">Newsroom</span></div>
+      </div>
+      <a href="/admin/dashboard.html">Dashboard</a>
+      <a href="/admin/articles.html" class="active">Articles</a>
+      <a href="/admin/scores.html">Scores &amp; Fixtures</a>
+      <a href="/admin/submissions.html">Submissions</a>
+      <a href="/index.html">View Site</a>
+      <a href="#" id="logout-link">Log Out</a>
+    </aside>
+    <main class="admin-main">
+      <div class="admin-topbar">
+        <h1 class="page-title" style="font-size:1.75rem;">Articles</h1>
+        <span id="whoami" class="page-sub"></span>
+      </div>
+
+      <div id="access-denied" style="display:none;" class="empty-state">Your role does not have access to article management.</div>
+
+      <div id="articles-app" style="display:none;">
+        <button class="btn-sm-red" id="new-article-btn" style="margin-bottom:1.5rem;">+ New Article</button>
+
+        <form id="article-form" class="form-grid" style="display:none; margin-bottom:3rem; background:var(--bg-surface); padding:1.5rem; border:1px solid var(--border);">
+          <input type="hidden" id="article-id">
+          <div class="form-field">
+            <label for="title">Title</label>
+            <input type="text" id="title" required>
+          </div>
+          <div class="form-field">
+            <label for="dek">Dek (one-line summary)</label>
+            <input type="text" id="dek" required>
+          </div>
+          <div class="form-field">
+            <label for="body">Body</label>
+            <textarea id="body" required></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label for="sportId">Sport</label>
+              <select id="sportId" required></select>
+            </div>
+            <div class="form-field">
+              <label for="authorId">Author</label>
+              <select id="authorId" required></select>
+            </div>
+          </div>
+          <div class="form-field">
+            <label>Tags</label>
+            <div id="tags-checkboxes" class="form-row"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label for="status">Status</label>
+              <select id="status">
+                <option value="DRAFT">Draft</option>
+                <option value="PUBLISHED">Published</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label for="contentType">Content Type</label>
+              <select id="contentType">
+                <option value="ARTICLE">Article</option>
+                <option value="VIDEO_POST">Video Post</option>
+              </select>
+            </div>
+          </div>
+          <div class="checkbox-row">
+            <input type="checkbox" id="featured">
+            <label for="featured">Feature this article on the homepage hero</label>
+          </div>
+          <div class="checkbox-row">
+            <input type="checkbox" id="isBrief">
+            <label for="isBrief">This is a News brief (short, fast update — shows on /news.html, not the main Archive feature list)</label>
+          </div>
+          <div class="form-field">
+            <label for="coverImageUrl">Cover image URL (optional)</label>
+            <input type="url" id="coverImageUrl">
+          </div>
+          <div id="video-fields" style="display:none;">
+            <div class="form-row">
+              <div class="form-field">
+                <label for="youtubeId">YouTube video ID</label>
+                <input type="text" id="youtubeId" placeholder="e.g. aqz-KE-bpKQ">
+              </div>
+              <div class="form-field">
+                <label for="videoSeries">Series name</label>
+                <input type="text" id="videoSeries" placeholder="The Sportscast">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label for="episodeLabel">Episode label</label>
+                <input type="text" id="episodeLabel" placeholder="Episode 002">
+              </div>
+              <div class="form-field">
+                <label for="runtimeLabel">Runtime label</label>
+                <input type="text" id="runtimeLabel" placeholder="52 min">
+              </div>
+            </div>
+          </div>
+          <p class="form-error" id="article-form-error" style="display:none;"></p>
+          <div class="form-row">
+            <button type="submit" class="btn-red">Save</button>
+            <button type="button" class="btn-outline-sm" id="cancel-edit-btn">Cancel</button>
+          </div>
+        </form>
+
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Title</th><th>Sport</th><th>Type</th><th>Status</th><th>Featured</th><th>Actions</th></tr></thead>
+            <tbody id="articles-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/site.js"></script>
+  <script src="/admin/js/guard.js"></script>
+  <script src="/admin/js/articles.js"></script>
+</body>
+</html>

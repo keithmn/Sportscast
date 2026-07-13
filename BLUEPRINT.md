@@ -1,0 +1,269 @@
+# The Sportscast — Project Blueprint & Handover Manual
+
+**Written:** 2026-07-09
+**For:** whoever picks this codebase up next
+**What this document is:** the context a new coder needs that isn't visible just by reading the code — why things are shaped the way they are, what's deliberately *not* built yet, and where this is all supposed to go. Read this before changing anything structural.
+
+---
+
+## 1. What This Actually Is
+
+**The company:** Underdawgs Rising Group is the parent — a small, founder-run group building several ventures (this media property, plus separate things like "The Rabbitat" and "A Million Bees"). Underdawgs is the producer/owner, not the consumer-facing brand.
+
+**This repo:** "The Sportscast" — the flagship media property. It is **not** called "Underdawgs Sportscast." The brand hierarchy is deliberate: **The Sportscast is the dominant name everywhere** (nav, footer, meta tags); "by Underdawgs" appears only as a small attribution badge. If you find yourself making Underdawgs bigger or more prominent than The Sportscast anywhere, you've broken a specific, repeatedly-confirmed decision — don't "fix" it back without asking.
+
+**The positioning — this has evolved, read carefully:** the site was originally built around **not being a news feed.** The founder's own early words: *"we are not bombarding everyone with every news but creating a true archive for every story, where we can look back, track impact and even follow up."* That produced a deliberately calm, sparse homepage — one flagship carousel, a static show grid, a 3-item news pointer, nothing else.
+
+**That positioning was explicitly reversed on 2026-07-09,** after a structural critique against ESPN, Sky Sports, and SuperSport (§13) found every established sports-media reference runs dense, multi-section homepages — none of them are calm/sparse the way this site was. The founder's own words on seeing that data: *"let's go with industry level chaos but creatively so."* This is a real, deliberate decision, not scope creep — **don't revert the homepage to its earlier sparse state without a similarly explicit instruction to do so.** "Creatively" is still doing real work in that sentence: dense is now the target, generic is not — see §13's recommendations and the specific execution in §14 for what "creative" meant in practice (a distinctly-styled Shop promo band, not just another copy of the same teaser pattern, for one example).
+
+**Shows remain the core engagement vehicle** regardless of homepage density — one flagship long-form conversation (The Sportscast) plus five sport-specific weekly shows, distributed short-form on social and long-form on YouTube. That part of the identity didn't change; only how much else surrounds it on the homepage did.
+
+---
+
+## 2. Architecture, As Built
+
+**Stack:** Node.js + Express + Prisma (SQLite) + vanilla HTML/CSS/JS. No frontend framework, no build step. This is intentional — the site is simple enough that a framework would be overhead, and it means anyone can open a `.html` file and understand the whole page.
+
+```
+server/
+  index.js              — app entrypoint, route mounting, static file serving
+  db.js                 — Prisma client singleton
+  middleware/auth.js     — requireRole() session-based auth guard
+  routes/
+    auth.js              — login/logout/me
+    articles.js          — full CRUD for articles (public GET, admin-gated writes)
+    taxonomy.js          — sports/tags/authors (read + admin-write)
+    scores.js            — leagues/standings/fixtures (public GET, admin-gated writes) — see §12
+  utils/slugify.js
+
+prisma/
+  schema.prisma          — User, Author, Sport, Tag, Article (CMS-only, see §7), League/StandingRow/Fixture (see §12)
+  seed.js                — demo data: sports, authors, articles, show episodes, news briefs, empty league shell
+  dev.db                 — SQLite file (gitignored, regenerate via migrate+seed)
+
+public/
+  index.html             — homepage (own inline <style>, doesn't use site.css)
+  shows.html             — Shows hub (flagship + 5 niche show cards)
+  show.html?slug=X        — per-show episode archive
+  news.html               — News & Articles: "Latest" briefs strip + "Stories" features grid, one shared sport filter — see §11
+  scores.html              — standings/fixtures, football-only — see §12
+  article.html            — single article/episode view
+  sport.html?sport=X       — per-sport article listing (see §7 for what this lost)
+  css/site.css             — shared stylesheet for every page except index.html
+  js/
+    site.js                — renderNav()/renderFooter(), shared across all pages but index.html
+    home.js, shows.js, show.js, sport.js, article.js, news.js, scores.js — per-page logic
+    shows-data.js           — the fixed show taxonomy (not a DB model, see §5)
+  admin/                   — newsroom CMS (login, dashboard, article editor, scores.html for standings/fixtures entry)
+  images/                  — real photography, see §6
+```
+
+**Why index.html doesn't share site.css:** it was built first, with its own animation/hero treatment, before site.css existed as a shared file. This means **any brand/color/nav change has to be made in two places** — `index.html`'s own `<style>` block *and* `site.css`. This is real, known duplication, not an oversight. Grep before you edit; check both.
+
+**Run it:**
+```bash
+npm install
+npm run prisma:migrate   # or: npx prisma migrate deploy (schema already exists)
+npm run seed
+npm run dev              # http://localhost:3000
+```
+Demo logins (password `underdoggs2026`): `admin@underdoggs.co.ke`, `editor@underdoggs.co.ke`.
+
+**Env vars** (`.env`): `DATABASE_URL`, `SESSION_SECRET`, `PORT`. `DATA_SERVICE_URL` still exists in `.env` but is **dead** — leftover from the removed data-service integration (§7). Harmless, but delete it if you're cleaning up.
+
+---
+
+## 3. Brand System — The Visual Code
+
+A separate document, **"The Underdawgs Visual Code v1.0,"** governs the whole company's visual identity (not just this site) — logo construction, mascot rules, color/type DNA. If you're doing any brand/logo work, read that doc first; it's the source of truth for the *family* system. This section covers what's actually implemented in *this* codebase, including where it deliberately diverges from that doc.
+
+**Color system** (`:root` in both `site.css` and `index.html`):
+```css
+--bg-primary:    #090B0F;   --bg-surface:   #121820;   --bg-elevated: #1A2233;
+--brand-gold:    #F2A20C;   --brand-brown:  #8B5E3C;   --border:      #1E2535;
+--text-primary:  #F5F0E8;   --text-secondary: #7A8494; --success:     #2D7A55;
+--danger:        #C13422;
+```
+**There is no brand-red.** It was removed deliberately (2026-07-07) once the Visual Code doc established the real family palette (gold/brown/black/white, pulled from the parent bulldog mark's coat colors). `--danger` keeps the old red *hex value* but is scoped **only** to two true UI-semantic states — form validation errors and "disputed" data-confidence pills — not brand identity. Don't add red anywhere else; don't remove `--danger` either, it's doing a real job.
+
+`--brand-gold` is for text accents, thin borders, decorative lines (works because it's on a dark background). `--brand-brown` is for solid button fills (gold-background-with-light-text has bad contrast; brown doesn't).
+
+**Logo lockup** ("Type B" in Visual Code terms): "THE SPORTSCAST" wordmark, with a small "by Underdawgs" badge **floating above the top-right corner** — not stacked below, not a "kicker" above the headline. This was tried both ways (three different treatments, actually) and the corner-badge was the founder's confirmed final choice after comparing them side by side. **The written Visual Code doc still describes a different structure (kicker-above-headline) — the doc is stale, not the code.** If you're asked to formalize the doc, update it to match what's shipped, not the reverse.
+
+Implementation: `.logo-wrap` (`position: relative`) wraps the wordmark; `.logo-badge` (`position: absolute; top; right; transform: translateY(-100%)`) floats the badge. Exists in `site.css`, `index.html`'s own styles, and the markup `renderNav()` generates in `site.js`.
+
+**Typography:** Barlow Condensed (900 weight for headlines/wordmarks) + Inter (body/UI). Both loaded via Google Fonts `<link>` tags in every page's `<head>`.
+
+---
+
+## 4. Content Model
+
+Everything is one Prisma model — `Article` — differentiated by fields, not separate tables:
+
+| Field | Meaning |
+|---|---|
+| `contentType` | `ARTICLE` (a written feature) or `VIDEO_POST` (an episode) |
+| `videoSeries` | which show this episode belongs to — e.g. `"The Sportscast"`, `"The Ruck"` — **this is the entire mechanism that makes "Shows" work**, there is no Show database table |
+| `sportId` | the sport this content is tagged under — see §5 for why this is a *different* dimension from Show |
+| `episodeLabel`, `runtimeLabel` | `"Episode 023"`, `"15 min"` — display-only, video posts |
+| `tags` | many-to-many; current tags are `Feature`, `Transfers`, `Analysis`, `Interview` |
+
+**Querying:** `GET /api/articles?contentType=VIDEO_POST&videoSeries=The%20Sportscast&limit=1` is how the homepage finds "the latest flagship episode." Every show page works this exact way — filter by `videoSeries`.
+
+---
+
+## 5. Shows vs. Sports — Read This Before Touching Either
+
+This distinction has come up repeatedly and is easy to get backwards:
+
+- **A Show is a packaging/product decision.** It's what you'd pitch to a sponsor or put on a YouTube thumbnail. Defined entirely in `public/js/shows-data.js` — a plain array, **not a database model**. Six shows, fixed: The Sportscast (flagship), The Hydration Break (football), The Ruck (rugby), Bully Off (hockey), Fast Break (basketball), The Circuit (athletics + boxing + martial arts + darts — deliberately one show covering four disciplines).
+- **A Sport is a data-tagging dimension**, kept granular even when a Show bundles several. Boxing, Martial Arts, and Darts each have their own `Sport` row in the database even though they all ship under one show (The Circuit) — collapsing them would make search/stats for boxing specifically impossible.
+
+If a seventh show gets added: add an entry to `shows-data.js` (slug, name, videoSeries, color, tagline, description, coverImageUrl), *not* a migration. If an eighth sport gets added (say, swimming): add it to the `sportNames` array in `seed.js`/create it via the taxonomy API — it doesn't need a show.
+
+**Show accent colors** (used for card borders, header banners): gold `#f2a20c` (flagship), green `#3a7d3a` (football), teal `#1F7A6C` (rugby — was red originally, changed to stay off the removed brand-red), blue `#3d6fa3` (hockey), brown `#a35b3d` (basketball), purple `#7a4a9e` (circuit).
+
+---
+
+## 6. Images
+
+Convention documented in `public/images/README.md` — read it, it's short. Summary: drop a file at an exact expected path (`hero.jpg`, `og-default.jpg`, `shows/<slug>.jpg`) and it appears automatically; every slot has a graceful CSS fallback if the file is missing, so nothing breaks if you don't have a photo yet.
+
+**Current state is honest, not finished:** the flagship, hero, and two niche shows (Hydration Break, The Ruck) have *real, correctly-matched* photography (actual Kabras Sugar rugby and Gor Mahia FC shots, plus the actual Sportscast team's own planning-session photo on the flagship card). **Bully Off, Fast Break, and The Circuit have real photos that are NOT sport-matched** — they're rugby-event photos used as placeholders because they were the only real (non-stock) photos on hand at the time, with an explicit understanding they'd be swapped later. Don't mistake "there's a photo there" for "this is correct" on those three.
+
+**A real, recurring gotcha:** phone photos arrive sideways with no reliable EXIF orientation tag, and the correction isn't consistent — different shots from the same phone/session have needed 90°, 180°, or 270° rotation via `sips -r`. Always visually re-check the result; never assume one rotation value works across a batch.
+
+---
+
+## 7. What Was Deliberately Removed (and why it might come back differently)
+
+Until 2026-07-08, this site proxied to a **separate service**, "Underdoggs Data" (a different app, different port, different database — `/Users/test/Downloads/underdoggs-data`), for team/player/transfer/standings data. That included: `transfers.html`, `team.html`, `player.html`, five proxy routes, a `dataService.js` utility, and sections of `sport.html`.
+
+**All of it was removed.** The founder's call: this site should be a **purely media/content property**, with zero live dependency on a second service. If you're asked to add "team pages" or "player profiles" or "a transfers page" back — that's a real architectural decision to re-litigate, not a default. Ask first.
+
+The underlying ambition **isn't dead, it's reframed** — see §10. The local Prisma schema was already CMS-only before this removal (Article/Sport/Author/Tag/User) — there was never a Team/Player/Transfer table *in this database* to begin with, so removing the proxy left no orphaned schema behind.
+
+**Known small leftovers from the removal**, safe to clean up whenever convenient, not urgent:
+- `DATA_SERVICE_URL` in `.env` is unused.
+- `taxonomy.js` still checks for a `STEWARD` role in one `requireRole()` call — a leftover from when the (now-separate) data service had its own steward accounts. Harmless since no user ever has that role, but dead reference.
+- `confidencePill()`/`formatMoney()` helper functions in `site.js` are now unused (they existed to render transfer-confidence pills and money amounts).
+
+---
+
+## 8. Naming Debt (cosmetic, not urgent)
+
+CSS classes `.btn-red`, `.btn-sm-red`, `.nl-btn` render **brown**, not red — they kept their original names when the color system changed rather than triggering a repo-wide rename. Functionally fine, just don't be confused reading the class name.
+
+Similarly, the homepage's small news teaser still uses `.archive-list`/`.archive-teaser-*`/`.archive-item*` CSS class names and an `#archive-list` element id, left over from when that section was called "From the Archive" and Archive was still its own page (§11). It now shows briefs, not archive features. Functionally fine, same story as above — don't be confused by the name.
+
+---
+
+## 9. Do / Don't, Distilled
+
+**Do:**
+- Keep `site.js`'s `renderNav()`/`renderFooter()` as the single source of truth for nav/footer on every page except `index.html` (which hardcodes its own).
+- Check `shows-data.js` before assuming a show needs a database change.
+- Keep the Archive/Shows-as-engagement model; resist adding homepage feed-style sections.
+- When adding a color, ask whether it's brand identity (gold/brown family) or UI-semantic (danger/success) — don't blend the two purposes.
+
+**Don't:**
+- Don't reintroduce red as a brand color.
+- Don't re-wire a separate data service into this site without treating it as a real decision.
+- Don't make "by Underdawgs" bigger, bolder, or more prominent than "The Sportscast."
+- Don't add a literal "News" section/feed to the homepage.
+- Don't assume the written Visual Code doc's Type B lockup spec matches this code — it doesn't, this code is the current truth (see §3).
+
+---
+
+## 10. Roadmap — Toward "God Mode Sports Tech Vendor"
+
+This is the long-horizon vision, sequenced so a lean team can actually get there instead of drowning in scope. Four ideas were deliberately scoped and then **shelved** by the founder until the core media operation (this repo) is running smoothly with a real show cadence. Don't proactively build these — but understand them, because the current architecture was shaped with them in mind.
+
+### Phase 0 — Where we are: stabilize the core media house
+Full show cadence across all six shows, real (sport-matched) photography everywhere, the Archive genuinely accumulating stories. This phase isn't fully done — three shows still have mismatched placeholder photos (§6) — but the News and Scores & Fixtures gap is now resolved; see §11–§12.
+
+### Phase 1 — Cheapest upgrades first (from the venture roadmap)
+1. **AI-assisted clipping pipeline.** Transcribe existing show recordings (Whisper), have an LLM flag the 3–5 most shareable 30–75s moments, cut with ffmpeg, burn in captions. Serves the "flagship podcast, widely distributed in short-form" strategy directly, costs almost nothing, and becomes the production engine for #2.
+2. **Athlete media pilot.** Use the clipping pipeline to produce personal highlight packages for ~5 real athletes already appearing on the shows, co-branded, given to them to post under their own name — no fee, no platform yet, just validating whether there's commercial appetite before building anything bigger.
+
+### Phase 2 — The data venture, reframed (the big moat play)
+Originally scoped as a "digitized scouting/stats layer," this has since been reframed more ambitiously as a **scouting / agency / information silo about players** — not just passive stats, but potentially: (a) scouting data clubs/agents would pay for, (b) an athlete-agency function connecting directly back to Phase 1's athlete-media work, (c) a sellable reference product independent of the media site. This is explicitly the *separate* "Underdoggs Data" venture (§7) — build it as its own product with its own database, don't re-wire it into this site casually. The realistic entry point: pick one currently-undocumented competition (e.g. Kenya's National Super League, since KPL already has partial external coverage from providers like TheSportsDB), and have journalists already covering it file a basic structured stat sheet as a byproduct of being there. This only pays off after multiple seasons of accumulated depth — start it early, expect zero near-term revenue.
+
+### Phase 3 — Public-funds / governance data tooling
+The most category-defining and least-contested idea on the list — nobody globally has this well solved, so building it isn't catching up to competitors, it's originating a category. Don't start by building a tool; start with **one real investigative story** (a specific county stadium project, a specific Sports Fund grant cycle) using the newsroom's own journalism. Only build a recurring public database/dashboard if that story surfaces genuinely structured, reusable data. Highest legal/reputational sensitivity of anything on this roadmap — needs real editorial rigor, likely legal review before publishing.
+
+### Phase 4 — The actual "god mode" end-state
+What "god mode sports tech vendor" concretely means, once Phases 1–3 compound rather than stay separate: **the entity Kenyan sport runs on** — media distribution (the shows), proprietary structured data no one else has (Phase 2), direct athlete relationships (Phases 1+2 together), and public-interest credibility (Phase 3) reinforcing each other. Concretely, capabilities worth aiming at once the foundation exists (informed by what exists in mature markets but not yet in Africa):
+- Structured scouting data covering leagues Wyscout/InStat don't reach — the single highest-leverage, least-contested gap identified.
+- A verified athlete directory letting brands find and sponsor players directly, bypassing today's opaque agent arrangements.
+- AI-assisted highlight generation as a service other African media houses could license, not just an internal tool.
+- **Deliberately avoid** chasing live-tracking/wearables hardware or betting-data-feed infrastructure near-term — both pull the company from being a media/data business into being a hardware or regulated-data-vendor business, which is a different (and harder) company to run. If either ever gets pursued, treat it as a distinct, deliberate strategic choice, not a natural extension.
+
+---
+
+## 11. News & Articles (formerly split into "News" + "Archive")
+
+Added 2026-07-09 as two separate pages (News for briefs, Archive for features) to resolve the "do we need a news section" question. **Merged into one page the same day** once it became obvious the two pages were visually indistinguishable as shipped — same row template, same filter mechanism, the only difference (`isBrief` true/false) invisible to a visitor. Two lookalike nav items was worse than one honest one.
+
+**Current shape — one page, `/news.html`, two visually distinct zones, one shared sport filter:**
+- **Latest** — brief-flagged articles (`isBrief: true`), compact dense rows, no images, timestamp-forward. The fast lane.
+- **Stories** — everything else (`isBrief: false`, `contentType: ARTICLE`), richer image-forward cards. The deep, produced features — this zone *is* what used to be the standalone Archive page; the "permanent record, not a feed" philosophy still applies here, it just doesn't have its own nav item anymore.
+- Still nothing new in the database beyond the one `isBrief` boolean — no new model, one page instead of two.
+
+**The homepage's small teaser** (`#stories` section, `archive-list`/`archive-teaser-*` CSS class names — yes, the class names still say "archive," that's cosmetic naming debt now, see §8) was deliberately narrowed to **briefs only, 3 items, nothing else** — a considered decision, not a default, made explicitly to avoid the homepage quietly re-accumulating a features carousel on top of it. If a future request pushes to also tease Stories on the homepage, that's reopening a question that's now been visited four times in this project's life; treat it as a real, deliberate decision each time, not a small addition.
+
+**Guardrail worth repeating if this comes up again:** News is meant to stay editorially written by the newsroom, not become an automated wire-scrape of third-party headlines. That's a materially different (and riskier — rights, editorial-voice dilution) decision, not a natural next step for this feature.
+
+## 12. Scores & Fixtures
+
+Also added 2026-07-09, in response to a real gap: visitors expecting "the home of Kenyan sport" want live standings and fixtures, which the media-only site had nothing for after the Underdoggs Data removal (§7). Rather than re-wiring that removed service back in, or waiting on a paid third-party API, this shipped as **new, lightweight, site-native models**: `League`, `StandingRow`, `Fixture` (see `prisma/schema.prisma`).
+
+**Deliberately minimal, on purpose:** teams are plain strings on each row (`teamName`, `homeTeam`/`awayTeam`), not linked `Team` records — reviving a Team entity is exactly the complexity §7 removed, and it's not needed just to show a table and a fixture list. That's the separate data venture's job (§10, Phase 2) if it ever happens.
+
+**Why this shape, specifically:** the same internal shape (`StandingRow`/`Fixture`) can be populated two different ways without the frontend or admin UI knowing or caring which: manual entry via `/admin/scores.html` (the only option today, and the *only ever* option for sports with no public data feed, like rugby and athletics), or — later, only if/when a paid API is actually subscribed to — a server-side job that fetches from a provider and writes into the same tables. **Nothing here currently calls an external API.** Football was chosen as the only sport covered because it's the only one with realistic third-party data options confirmed by earlier research in this project (TheSportsDB, API-Football); rugby and athletics have no official feed, full stop — don't build toward faking coverage for them.
+
+**Honesty was a deliberate constraint on the seed data, not an oversight:** `seed.js` creates the "Kenyan Premier League" league record but seeds **zero** standings rows and **zero** fixtures — fabricating current-looking scores to make a demo look populated would be exactly the "faking comprehensiveness" this feature was built to avoid. Real data goes in via `/admin/scores.html`, entered by the newsroom, whenever this actually ships to a real audience. If you find yourself wanting to seed "realistic" scores for a demo, don't — leave the honest empty state and note it in the sub-copy instead, exactly as the current `/scores.html` does ("Standings haven't been entered for this league yet").
+
+The nav is: **Shows, News & Articles, Scores & Fixtures** — plus About. (Archive as a separate nav item is gone — folded into News & Articles, §11.)
+
+---
+
+## 13. GRM Daily Reference (2026-07-09)
+
+Keith asked to study grmdaily.com (an established UK music/street-culture outlet) for color code and structural ideas. Findings, and what was actually done with them:
+
+**Color palette** — pulled from GRM's live theme CSS directly (not guessed from a screenshot): primary bg `#1e1e1e`, surface `#252525`, accent gold `#fbbc1e`, secondary text `#aaa`, all warm-neutral with no blue tint. Our previous tones (`#090B0F`/`#121820`/`#7A8494`) had a cool navy undertone. **Adopted GRM's exact tones** into our existing variable structure: `--bg-primary: #1E1E1E`, `--bg-surface: #252525`, `--bg-elevated: #2E2E2E`, `--brand-gold: #FBBC1E`, `--text-secondary: #9A9A9A`, `--border: #383838` — in both `site.css` and `index.html`'s duplicated `:root`, plus the flagship show's accent in `shows-data.js`. `--brand-brown` and `--danger` untouched (GRM only has one accent color; we kept our gold+brown family from the Visual Code doc rather than collapsing to their single-accent pattern). Worth noting: an established real outlet in an adjacent space independently converged on almost the same "dark charcoal + gold" formula already chosen from the bulldog logo — validation, not coincidence to ignore.
+
+**Footer social icons** — copied GRM's specific treatment: bigger icons (26px, was 18px), full-color by default (`--text-primary`, was muted `--text-secondary`), simple color-only hover transition to gold (removed the lift/translateY we had), more generous spacing (2rem gap, was 1.25rem). Also copied their footer-darker-than-body grounding effect — `.footer` background is now pure `#000` instead of `--bg-surface` (which was actually *lighter* than the page, the opposite of GRM's intent). Scoped to `index.html` only — secondary pages use the much simpler `.footer-simple` (site.css), no social icons there to begin with.
+
+**Featured carousel** — GRM's homepage leads with a 4-item featured carousel above their latest-stories feed. Replaced the single static flagship-episode card with a scroll-snap carousel of up to 4 recent flagship episodes (`js/home.js`'s `loadFlagshipCarousel`, `limit=4`). Built with **plain CSS scroll-snap + manual `scrollTo()` — no carousel library** (Swiper, Splide, etc.), consistent with this repo's stated no-framework/no-build-step architecture (§2). Degrades gracefully to 1–3 slides if fewer episodes exist; arrows hide under 640px width since native touch swipe covers mobile. Seeded 3 additional flagship episodes (`prisma/seed.js`) specifically so this has real slides to test, not just the fallback markup.
+
+**Not done, presented as options only:** GRM's nav has 10 flat (non-dropdown) items — noted as "copy the flatness, not the volume," no nav changes made. Their YouTube presence is just a small icon in header+footer, no dedicated section — already matches this site's approach, no change needed.
+
+**Known verification gap:** the carousel was checked at the code level only — HTML tag balance, exact ID matching between markup and `home.js`, and CSS selector scoping were all manually traced and confirmed correct, and the API confirms 4 episodes return in the right order. It was **not** visually screenshotted in a real browser — Playwright's Chromium has been unreliable in this environment all session (corrupted/incomplete downloads, confirmed non-functional as recently as this same task). If picking this up and something looks visually off in the carousel despite the API/DOM checks passing, that's the most likely gap to check first.
+
+---
+
+## 14. Executing the "Industry Chaos, Creatively" Decision (2026-07-09)
+
+Same day as §13's critique, in one continuous round of changes, acting on its recommendations plus two new business-line asks:
+
+**Both tickers now gone.** The sports-category one (§13) and the athlete/team-names one that shared its CSS — removed on the strength of the 0-for-3 finding across every reference site checked. CSS fully cleaned up, not just hidden.
+
+**"Latest episode" signal on every niche show card.** A shared `loadLatestBadges()` helper (`site.js`) fetches each show's most recent episode and injects "Episode 023 · 3 days ago" — used identically by `shows.js` (shows.html) and `home.js` (homepage), so both surfaces got the fix from one function. Falls back to removing the badge slot entirely if a show has no episodes yet, never shows a broken/empty badge.
+
+**A small homepage Scores teaser** — top-3 standings rows, football-only, explicitly labeled, same visual weight as the News strip (reuses `.archive-item` styling directly). Honest empty state ("Standings haven't been entered yet") since the league still has zero seeded rows, exactly per the no-fake-data rule in §12.
+
+**Shop — a coming-soon page, deliberately not a commerce build.** The founder floated a real vision (club merch partnerships + direct equipment supply) but that's a large, separate scope — payments, inventory, club agreements — that deserves its own dedicated conversation, the same way the data venture (§10 Phase 2) got its own scoping rather than being built ad-hoc. What shipped: `/shop.html` (explicitly says "not live yet, nothing for sale"), an email-waitlist capture, and a visually distinct homepage promo band (`.shop-promo-section` — gradient background, radial gold glow, two-column layout) deliberately styled differently from the site's other flat teaser sections, per the "creatively" half of the founder's instruction. **If asked to "build the shop," clarify whether that means the real commerce backend (a genuinely large scope) or another pass on this waitlist page** — don't assume.
+
+**About section replaced with Contact / Submit a Tip / Work With Us.** One tabbed form (`.contact-tabs`), three `type` values (`CONTACT`/`TIP`/`PARTNERSHIP`) posting to the same endpoint — switching tabs just changes what the message field asks for and what type gets submitted, not the underlying mechanism. The old mission copy's short quote ("Kenya's stories. Kenya's sport. Finally, a home.") was kept as a lead-in for brand continuity; the longer paragraphs and the three stat blocks (6 Shows, Season One, Mission) were dropped, since the section's job changed from "explain who we are" to "let people reach us."
+
+**New backend: `Submission` model, one shared inbox for all four types** (the three above plus `SHOP_INTEREST` from the Shop waitlist) — `type` is the only thing distinguishing a contact message from a tip from a partnership inquiry from a waitlist signup, deliberately, rather than four separate tables. `server/routes/submissions.js` (public POST, admin-gated GET/PUT), `admin/submissions.html` + `admin/js/submissions.js` (a table with a "Mark Reviewed" action). Tested end-to-end with real submissions through every path (waitlist form, all three contact tabs, admin mark-reviewed) before being cleaned back out of the dev database — same discipline as the Scores & Fixtures test data in §12.
+
+**Nav is now:** Shows, News & Articles, Scores & Fixtures, Shop, Contact.
+
+---
+
+## 15. If You Only Read One Section
+
+§1 and §2's "don't" list, plus this: **the founder is deliberately running this as a lean media house, not a funded startup with a large team.** Every architecture decision in this codebase — vanilla JS over a framework, one Article model instead of five content-type tables, the data-service separation — optimizes for "one or two people can hold this whole system in their head," not "scale to a large engineering team." Match that when you extend it.

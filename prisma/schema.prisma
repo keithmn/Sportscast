@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ===================== AUTH =====================
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String // ADMIN | EDITOR
+  createdAt    DateTime @default(now())
+}
+
+// ===================== CMS / ARTICLES (Phase 1) =====================
+
+model Author {
+  id       String    @id @default(cuid())
+  name     String
+  slug     String    @unique
+  bio      String?
+  photoUrl String?
+  articles Article[]
+}
+
+// Article-tagging taxonomy only. Underdoggs Data (a separate service) keeps
+// its own independent Sport table for organizing teams/players — the two
+// are kept consistent by slug convention, not a shared database, since an
+// 8-row lookup list isn't worth coupling two products over.
+model Sport {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  slug     String    @unique
+  articles Article[]
+  leagues  League[]
+}
+
+model Tag {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  slug     String    @unique
+  articles Article[]
+}
+
+model Article {
+  id            String    @id @default(cuid())
+  title         String
+  slug          String    @unique
+  dek           String
+  body          String
+  coverImageUrl String?
+  sportId       String
+  sport         Sport     @relation(fields: [sportId], references: [id])
+  authorId      String
+  author        Author    @relation(fields: [authorId], references: [id])
+  tags          Tag[]
+  status        String    @default("DRAFT") // DRAFT | PUBLISHED
+  featured      Boolean   @default(false)
+  contentType   String    @default("ARTICLE") // ARTICLE | VIDEO_POST
+  // A brief is a short, fast-turnaround factual update (a signing, a fixture
+  // reschedule) — it still lives in the same Archive as full features, just
+  // surfaced separately via the News view so it doesn't get lost among them.
+  isBrief       Boolean   @default(false)
+  youtubeId     String?
+  videoSeries   String?
+  episodeLabel  String? // "Episode 001"
+  runtimeLabel  String? // "58 min"
+  publishedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// ===================== SCORES & FIXTURES (football-first) =====================
+// Deliberately minimal — no revived Team/Player entities (that's the separate,
+// shelved data venture's job). Teams here are plain strings on each row/fixture,
+// not linked records. The point is one internal shape that works whether the
+// data behind it comes from a paid API (realistic for football) or manual
+// newsroom entry (the only option for sports with no public feed, like rugby
+// and athletics) — the same admin form and public page serve either source.
+model League {
+  id          String       @id @default(cuid())
+  name        String // "Kenyan Premier League"
+  slug        String       @unique
+  sportId     String
+  sport       Sport        @relation(fields: [sportId], references: [id])
+  source      String       @default("MANUAL") // MANUAL | API — how standings/fixtures are populated
+  standings   StandingRow[]
+  fixtures    Fixture[]
+}
+
+model StandingRow {
+  id             String  @id @default(cuid())
+  leagueId       String
+  league         League  @relation(fields: [leagueId], references: [id])
+  position       Int
+  teamName       String
+  played         Int     @default(0)
+  won            Int     @default(0)
+  drawn          Int     @default(0)
+  lost           Int     @default(0)
+  goalsFor       Int     @default(0)
+  goalsAgainst   Int     @default(0)
+  points         Int     @default(0)
+  updatedAt      DateTime @updatedAt
+}
+
+model Fixture {
+  id         String    @id @default(cuid())
+  leagueId   String
+  league     League    @relation(fields: [leagueId], references: [id])
+  homeTeam   String
+  awayTeam   String
+  kickoff    DateTime
+  homeScore  Int?
+  awayScore  Int?
+  status     String    @default("SCHEDULED") // SCHEDULED | LIVE | FINISHED | POSTPONED
+  updatedAt  DateTime  @updatedAt
+}
+
+// ===================== SUBMISSIONS (Contact / Tips / Partnerships / Shop) =====================
+// One shared inbox instead of four separate ones — `type` is the only thing
+// that distinguishes a general contact message from a news tip, a "work with
+// us" partnership inquiry, or a shop-waitlist signup.
+model Submission {
+  id        String   @id @default(cuid())
+  type      String // CONTACT | TIP | PARTNERSHIP | SHOP_INTEREST
+  name      String?
+  email     String
+  message   String?
+  status    String   @default("NEW") // NEW | REVIEWED
+  createdAt DateTime @default(now())
+}
