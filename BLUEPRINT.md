@@ -267,3 +267,63 @@ Same day as §13's critique, in one continuous round of changes, acting on its r
 ## 15. If You Only Read One Section
 
 §1 and §2's "don't" list, plus this: **the founder is deliberately running this as a lean media house, not a funded startup with a large team.** Every architecture decision in this codebase — vanilla JS over a framework, one Article model instead of five content-type tables, the data-service separation — optimizes for "one or two people can hold this whole system in their head," not "scale to a large engineering team." Match that when you extend it.
+
+## 16. Toggle Navigation, Global Scores, Live Shop Rebuild (2026-08-19, in progress)
+
+A client-directed rebuild, staged across five phases (A–E). Phases A–C are
+done as of this writing; Shop (D) and checkout (E) are not yet built.
+
+**Phase A — shared infra.** The footer is consolidated: `index.html` used
+to hardcode its own rich footer (logo, socials, footer-nav) while every
+other page got a bare one-line `.footer-simple` from `renderFooter()` in
+`site.js`. Now `renderFooter()` is the one shared footer everywhere, and it
+also carries the Contact/Tip/Partnership form (`initContactForm()`,
+relocated from `home.js`) — Contact dropped out of top-level nav in favor
+of living in the footer on every page. `index.html` now links `/css/site.css`
+(it never did before) so the shared footer/contact CSS actually applies to
+it; its own inline `<style>` still wins on anything it redeclares itself
+(nav, buttons, colors), since it loads after. New `category-toggle.js`: a
+shared "pick a category, see its items" component (top-level pills reuse
+the exact filter-pill mechanism `news.js` already had; the nested items
+panel underneath is the new part) — built once, used by Shows, Scores, and
+eventually Shop, rather than three one-off implementations. `League` gained
+`region` (KENYA | GLOBAL), `externalProvider`/`externalId` (which API,
+which competition code), `lastSyncedAt`/`syncStatus`. `Fixture` gained a
+`(leagueId, homeTeam, awayTeam, kickoff)` unique constraint so a sync job
+can upsert instead of wholesale-replacing fixtures the way standings do.
+
+**Phase B — Shows + News toggles.** Shows now groups its 5 niche shows by
+sport category (Football/Rugby/Hockey/Basketball/the Circuit bundle) using
+`category-toggle.js`; the flagship stays a separate, always-visible card
+above it, exactly as before — never part of the toggle. News needed no
+code change: its existing sport-only filter-pill already did exactly what
+was asked, and the client explicitly said no location/country dimension
+should be added to it.
+
+**Phase C — Scores schema + sync.** Seeded a second Kenyan league,
+National Super League (football's second tier — shares the existing
+Football `Sport` row, since Sport means "what sport," not "what tier"),
+plus 12 `region: GLOBAL`, `source: API` leagues mapped to football-data.org
+competition codes (their free tier: 12 competitions, 10 calls/minute,
+delayed not live data — reconfirm this list against their current coverage
+before relying on it long-term, free-tier lists do change). New
+`server/jobs/syncLeagues.js`: paces calls ~6.5s apart to stay under the
+rate limit, standings via the same delete-all-then-recreate transaction
+the admin route already used, fixtures via upsert (so POSTPONED/manual
+edits on a synced fixture survive the next sync). Only ever touches
+`source: API` leagues — KPL/NSL are never written to by this job. No-ops
+with a warning (doesn't crash) if `FOOTBALL_DATA_API_KEY` isn't set — see
+`.env`, get a free key at football-data.org. Scheduled via `node-cron`
+every 30 minutes from `server/index.js`; also runnable directly via
+`npm run sync:leagues`. **`/scores.html` rebuilt**: sport-category toggle
+at the top (today that's just "Football," since no other sport has real
+league data yet); within a sport, Kenyan leagues render fully expanded by
+default (not hidden behind a click — the client's explicit ask was that
+they not get lost in a longer global list), with global leagues reachable
+via a secondary single-select picker underneath, lazy-loaded one at a time
+rather than fetching all 12 upfront.
+
+**Not yet built**: Shop (Team/Kit models, sport→team→kit browsing) and
+checkout (Order/OrderItem, Flutterwave integration) — Phases D and E.
+Blocked on nothing structural, but E specifically needs a real Flutterwave
+merchant account from the client before it can go past test-mode keys.

@@ -287,24 +287,67 @@ async function main() {
     });
   }
 
-  // ---------------- Scores & Fixtures: league shell only ----------------
+  // ---------------- Scores & Fixtures: league shells only ----------------
   // Deliberately no standings/fixtures rows here — seeding fake scores would
   // be exactly the "faking comprehensiveness" this section was built to avoid.
-  // The newsroom enters real data via /admin/scores.html once this ships.
+  // Kenyan leagues (region: KENYA) are entered by the newsroom via
+  // /admin/scores.html. Global leagues (region: GLOBAL) are API-sourced —
+  // populated by server/jobs/syncLeagues.js, never by hand — their
+  // externalId is football-data.org's free-tier competition code as of
+  // 2026-08-19; reconfirm against their current coverage before relying on
+  // this list long-term, since free-tier competition lists do change.
   await prisma.league.create({
     data: {
       name: 'Kenyan Premier League',
       slug: slugify('Kenyan Premier League'),
       sportId: sports['Football'].id,
       source: 'MANUAL',
+      region: 'KENYA',
     },
   });
+  await prisma.league.create({
+    data: {
+      name: 'National Super League',
+      slug: slugify('National Super League'),
+      sportId: sports['Football'].id, // second tier of the same sport, not a separate Sport row
+      source: 'MANUAL',
+      region: 'KENYA',
+    },
+  });
+
+  const globalLeagues = [
+    { name: 'Premier League', code: 'PL' },
+    { name: 'Championship', code: 'ELC' },
+    { name: 'La Liga', code: 'PD' },
+    { name: 'Bundesliga', code: 'BL1' },
+    { name: 'Serie A', code: 'SA' },
+    { name: 'Ligue 1', code: 'FL1' },
+    { name: 'Eredivisie', code: 'DED' },
+    { name: 'Primeira Liga', code: 'PPL' },
+    { name: 'UEFA Champions League', code: 'CL' },
+    { name: 'European Championship', code: 'EC' },
+    { name: 'FIFA World Cup', code: 'WC' },
+    { name: 'Campeonato Brasileiro Série A', code: 'BSA' },
+  ];
+  for (const l of globalLeagues) {
+    await prisma.league.create({
+      data: {
+        name: l.name,
+        slug: slugify(l.name),
+        sportId: sports['Football'].id,
+        source: 'API',
+        region: 'GLOBAL',
+        externalProvider: 'football-data.org',
+        externalId: l.code,
+      },
+    });
+  }
 
   console.log('Seed complete.');
   console.log('Demo logins (password: underdoggs2026):');
   console.log('  admin@underdoggs.co.ke   (ADMIN)');
   console.log('  editor@underdoggs.co.ke  (EDITOR)');
-  console.log('Scores & Fixtures: Kenyan Premier League shell created with no standings/fixtures — add real data via /admin/scores.html.');
+  console.log('Scores & Fixtures: KPL + NSL shells created (manual entry via /admin/scores.html); 12 global leagues seeded for football-data.org sync (run `npm run sync:leagues`).');
 }
 
 main()

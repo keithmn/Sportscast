@@ -128,6 +128,12 @@ model Fixture {
   awayScore  Int?
   status     String    @default("SCHEDULED") // SCHEDULED | LIVE | FINISHED | POSTPONED
   updatedAt  DateTime  @updatedAt
+
+  // Lets the league sync job upsert instead of wholesale delete+recreate
+  // (unlike standings, blowing fixtures away every run would lose
+  // POSTPONED/manual annotations) — same two teams don't play each other
+  // at the same kickoff twice within one league, manual or synced.
+  @@unique([leagueId, homeTeam, awayTeam, kickoff])
 }
 
 // ===================== SUBMISSIONS (Contact / Tips / Partnerships / Shop) =====================

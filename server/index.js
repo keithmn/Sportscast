@@ -2,12 +2,14 @@ require('dotenv').config();
 const path = require('path');
 const express = require('express');
 const session = require('express-session');
+const cron = require('node-cron');
 
 const authRoutes = require('./routes/auth');
 const articleRoutes = require('./routes/articles');
 const taxonomyRoutes = require('./routes/taxonomy');
 const scoresRoutes = require('./routes/scores');
 const submissionRoutes = require('./routes/submissions');
+const { syncLeagues } = require('./jobs/syncLeagues');
 
 const app = express();
 
@@ -35,4 +37,13 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Underdoggs Sports Cast running at http://localhost:${PORT}`);
+});
+
+// Global (API-sourced) league standings/fixtures — never Kenyan leagues,
+// which stay newsroom-entered. Runs every 30 minutes; syncLeagues() itself
+// no-ops with a warning if FOOTBALL_DATA_API_KEY isn't set, so this is safe
+// to leave scheduled even before that key exists.
+const SYNC_INTERVAL_CRON = process.env.SYNC_INTERVAL_CRON || '*/30 * * * *';
+cron.schedule(SYNC_INTERVAL_CRON, () => {
+  syncLeagues().catch((err) => console.error('[syncLeagues] Unhandled error:', err));
 });
