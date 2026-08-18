@@ -39,6 +39,7 @@ model Sport {
   slug     String    @unique
   articles Article[]
   leagues  League[]
+  teams    Team[]
 }
 
 model Tag {
@@ -97,6 +98,7 @@ model League {
   syncStatus       String? // OK | ERROR — set by the sync job, surfaced in admin only
   standings        StandingRow[]
   fixtures         Fixture[]
+  teams            Team[]
 
   @@unique([externalProvider, externalId])
 }
@@ -134,6 +136,40 @@ model Fixture {
   // POSTPONED/manual annotations) — same two teams don't play each other
   // at the same kickoff twice within one league, manual or synced.
   @@unique([leagueId, homeTeam, awayTeam, kickoff])
+}
+
+// ===================== SHOP (Team merch — kits, sold directly per club) =====================
+// Deliberately lightweight: a Team here is a shop-catalog entry, not the
+// full club entity the removed "Underdoggs Data" service would have had —
+// no roster, no history, just what's needed to sell kit. leagueId is
+// optional/informational (which league the team plays in, for admin
+// grouping) — the public sport→team toggle only needs sportId.
+model Team {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  sportId   String
+  sport     Sport    @relation(fields: [sportId], references: [id])
+  leagueId  String?
+  league    League?  @relation(fields: [leagueId], references: [id])
+  crestUrl  String? // fixed convention: /images/teams/<slug>.jpg
+  kits      Kit[]
+  createdAt DateTime @default(now())
+}
+
+// Open-ended per team — most have Home + Away, some more (a third/alternate
+// kit) — label is free text, not a fixed enum, so that's just another row,
+// not a special case.
+model Kit {
+  id             String   @id @default(cuid())
+  teamId         String
+  team           Team     @relation(fields: [teamId], references: [id])
+  label          String // "Home" | "Away" | "Third" | ... — admin-entered, open-ended
+  photoUrl       String? // nullable — same honest-empty-state pattern as Article.coverImageUrl; renders a placeholder, not fake data
+  priceKesCents  Int // integer minor-unit KES — avoids float rounding, matches Flutterwave's amount handling
+  sizesAvailable String? // CSV, e.g. "S,M,L,XL" — not modeled as rows in v1
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
 }
 
 // ===================== SUBMISSIONS (Contact / Tips / Partnerships / Shop) =====================

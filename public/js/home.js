@@ -125,26 +125,9 @@ async function loadScoresTeaser() {
     : '<p class="empty-state">Standings haven\'t been entered yet — check back soon.</p>';
 }
 
-function initShopPromoForm() {
-  const form = document.getElementById('shop-promo-form');
-  if (!form) return;
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const input = form.querySelector('.shop-promo-input');
-    const email = input.value.trim();
-    if (!email || !email.includes('@')) { input.style.borderColor = '#C13422'; input.focus(); return; }
-    try {
-      await api('/api/submissions', { method: 'POST', body: JSON.stringify({ type: 'SHOP_INTEREST', email }) });
-      form.innerHTML = '<p style="color:var(--brand-gold); font-weight:600;">You\'re on the list — we\'ll email you when the shop opens.</p>';
-    } catch (err) {
-      input.style.borderColor = '#C13422';
-    }
-  });
-}
-
-// initContactForm()/CONTACT_TAB_COPY moved to site.js 2026-08-19 — the
-// Contact/Tip/Partnership form now lives in the shared footer on every
-// page, not just here.
+// initShopPromoForm()/initContactForm()/CONTACT_TAB_COPY removed 2026-08-19
+// — the homepage Shop band now just links to the live /shop.html (no more
+// waitlist form), and Contact/Tip/Partnership lives in the shared footer.
 
 document.addEventListener('DOMContentLoaded', () => {
   loadFlagshipCarousel().catch((err) => console.warn('Could not load flagship carousel:', err));
@@ -152,5 +135,4 @@ document.addEventListener('DOMContentLoaded', () => {
   loadScoresTeaser().catch((err) => console.warn('Could not load scores teaser:', err));
   const nicheGrid = document.getElementById('niche-shows-grid');
   if (nicheGrid) loadLatestBadges(nicheGrid).catch((err) => console.warn('Could not load show badges:', err));
-  initShopPromoForm();
 });

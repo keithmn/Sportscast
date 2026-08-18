@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teams — The Sportscast Newsroom</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/site.css">
+  <style>
+    .kit-row-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
+  </style>
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="admin-sidebar">
+      <div class="nav-logo" style="margin-bottom:2rem;">
+        <div><span class="nav-logo-mark" style="font-size:1.1rem;">THE SPORTSCAST</span><br><span style="font-family:'Inter',sans-serif; font-size:0.7rem; color:var(--text-secondary);">Newsroom</span></div>
+      </div>
+      <a href="/admin/dashboard.html">Dashboard</a>
+      <a href="/admin/articles.html">Articles</a>
+      <a href="/admin/scores.html">Scores &amp; Fixtures</a>
+      <a href="/admin/teams.html" class="active">Teams</a>
+      <a href="/admin/submissions.html">Submissions</a>
+      <a href="/index.html">View Site</a>
+      <a href="#" id="logout-link">Log Out</a>
+    </aside>
+    <main class="admin-main">
+      <div class="admin-topbar">
+        <h1 class="page-title" style="font-size:1.75rem;">Teams &amp; Kits</h1>
+        <span id="whoami" class="page-sub"></span>
+      </div>
+      <p class="page-sub" style="margin-bottom:2rem;">The Shop's catalog — one entry per team, each with its own kits (Home, Away, and any others). Add a team below, then add kits to it.</p>
+      <div id="access-denied" class="form-error" style="display:none;">You don't have permission to manage this.</div>
+      <div id="teams-app" style="display:none;">
+        <div id="new-team-form" class="form-grid" style="max-width:480px; margin-bottom:3rem;">
+          <span class="section-label">Add a Team</span>
+          <div class="form-row">
+            <div class="form-field">
+              <label for="team-name">Team name</label>
+              <input type="text" id="team-name" placeholder="Gor Mahia FC">
+            </div>
+            <div class="form-field">
+              <label for="team-sport">Sport</label>
+              <select id="team-sport"></select>
+            </div>
+          </div>
+          <div class="form-field">
+            <label for="team-league">League (optional)</label>
+            <select id="team-league"><option value="">— none —</option></select>
+          </div>
+          <div class="form-field">
+            <label for="team-crest">Crest image URL (optional)</label>
+            <input type="text" id="team-crest" placeholder="/images/teams/gor-mahia.jpg">
+          </div>
+          <button type="button" class="btn-red" id="add-team-btn" style="width:fit-content;">Add Team</button>
+        </div>
+
+        <div id="teams-root"></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/site.js"></script>
+  <script src="/admin/js/guard.js"></script>
+  <script src="/admin/js/teams.js"></script>
+</body>
+</html>

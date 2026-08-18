@@ -327,3 +327,47 @@ rather than fetching all 12 upfront.
 checkout (Order/OrderItem, Flutterwave integration) — Phases D and E.
 Blocked on nothing structural, but E specifically needs a real Flutterwave
 merchant account from the client before it can go past test-mode keys.
+
+## 17. Phase D — Shop Catalog Goes Live (2026-08-19)
+
+The Shop is no longer a waitlist page. New models: `Team` (name, slug,
+sportId, optional leagueId, optional crestUrl) and `Kit` (teamId, label —
+free text, open-ended, not fixed to Home/Away — priceKesCents, optional
+photoUrl, optional sizesAvailable CSV). `Kit.photoUrl` is nullable
+deliberately, matching `Article.coverImageUrl`'s existing honest-empty-
+state pattern — a missing kit photo renders "Kit photo to be added," not a
+broken image or a faked one.
+
+New `server/routes/shop.js` (`/api/shop`): public `GET /teams` (optional
+`?sport=` filter) and `GET /teams/:slug`, admin CRUD for both Team and Kit
+— same `requireRole('ADMIN','EDITOR')` gate as everything else. New admin
+page `admin/teams.html` + `admin/js/teams.js`, matching `admin/scores.html`'s
+visual/structural pattern exactly (a "card" per team, inline editable rows
+for its kits, add/save/delete per row) — added to every existing admin
+page's sidebar.
+
+**Public `/shop.html` rebuilt**: sport-category toggle (via
+`category-toggle.js`, same component Shows and Scores use) → a team card
+grid → clicking a team lazy-loads and expands its kit tiles (photo, label,
+price) in place, no page navigation. **Checkout is not built yet** — the
+page copy says so explicitly ("Checkout is coming soon — browse what's
+available now"), matching this project's consistent refusal to imply a
+capability that doesn't exist. The homepage's Shop promo band, previously
+a waitlist form ("Coming Soon"), now just links to `/shop.html` ("Now
+Open") — `initShopPromoForm()` and the old `#shop-promo-form` markup are
+gone; the old dedicated `shop.js` waitlist-only script was replaced
+outright (not extended) since the whole page's job changed. `SHOP_INTEREST`
+stays a valid `Submission` type (Contact/footer form dropdown) even though
+nothing currently posts to it automatically — a person could still submit
+one through the general Contact channel if they want to.
+
+**Seeded 4 real KPL teams** (Gor Mahia FC, AFC Leopards, Tusker FC,
+Kakamega Homeboyz — the same four clubs already named in this seed data's
+articles/episodes, kept consistent) each with Home + Away kits at a
+placeholder price (KES 4,500) and no photo yet. NSL teams deliberately
+NOT seeded — left for the admin to add once a confirmed current-season
+roster is in hand, rather than guessing at lower-tier club names.
+
+**Not yet built**: Phase E — `Order`/`OrderItem` models, Flutterwave
+checkout (cart → order → hosted payment → webhook confirmation). Needs a
+real Flutterwave merchant account before it can go past test-mode keys.

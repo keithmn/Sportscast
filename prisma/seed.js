@@ -296,7 +296,7 @@ async function main() {
   // externalId is football-data.org's free-tier competition code as of
   // 2026-08-19; reconfirm against their current coverage before relying on
   // this list long-term, since free-tier competition lists do change.
-  await prisma.league.create({
+  const kpl = await prisma.league.create({
     data: {
       name: 'Kenyan Premier League',
       slug: slugify('Kenyan Premier League'),
@@ -340,6 +340,28 @@ async function main() {
         externalProvider: 'football-data.org',
         externalId: l.code,
       },
+    });
+  }
+
+  // ---------------- Shop: KPL teams + kits ----------------
+  // Reuses the same 4 real KPL clubs already referenced elsewhere in this
+  // seed data's articles/episodes, for continuity. Kit photos are left
+  // empty (honest placeholder, not fake — see Kit.photoUrl's comment in
+  // the schema) since no real product photography exists yet; prices are
+  // realistic placeholders for a demo, not confirmed retail figures — the
+  // newsroom sets real prices via /admin/teams.html once these are actual
+  // club deals. NSL teams aren't seeded here — left for the admin to add
+  // once a confirmed current-season roster is in hand.
+  const kplTeams = ['Gor Mahia FC', 'AFC Leopards', 'Tusker FC', 'Kakamega Homeboyz'];
+  for (const name of kplTeams) {
+    const team = await prisma.team.create({
+      data: { name, slug: slugify(name), sportId: sports['Football'].id, leagueId: kpl.id },
+    });
+    await prisma.kit.createMany({
+      data: [
+        { teamId: team.id, label: 'Home', priceKesCents: 450000 },
+        { teamId: team.id, label: 'Away', priceKesCents: 450000 },
+      ],
     });
   }
 

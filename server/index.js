@@ -9,6 +9,7 @@ const articleRoutes = require('./routes/articles');
 const taxonomyRoutes = require('./routes/taxonomy');
 const scoresRoutes = require('./routes/scores');
 const submissionRoutes = require('./routes/submissions');
+const shopRoutes = require('./routes/shop');
 const { syncLeagues } = require('./jobs/syncLeagues');
 
 const app = express();
@@ -26,6 +27,7 @@ app.use('/api/articles', articleRoutes);
 app.use('/api', taxonomyRoutes); // /api/sports, /api/tags, /api/authors
 app.use('/api/leagues', scoresRoutes);
 app.use('/api/submissions', submissionRoutes);
+app.use('/api/shop', shopRoutes);
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
