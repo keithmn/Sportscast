@@ -178,8 +178,6 @@ table.data-table td.num { text-align: center; }
 .login-shell { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; }
 .login-card { background: var(--bg-surface); border: 1px solid var(--border); padding: 2.5rem; width: 100%; max-width: 380px; }
 
-.footer-simple { border-top: 1px solid var(--border); padding: 2rem 0; text-align: center; color: var(--text-secondary); font-size: var(--text-small); }
-
 .empty-state { color: var(--text-secondary); padding: 2rem 0; }
 
 /* ===== SHOWS + NEWS/ARTICLES (ported from index.html so shows.html / show.html /
@@ -253,3 +251,48 @@ table.data-table td.num { text-align: center; }
 }
 .filter-pill:hover { color: var(--text-primary); }
 .filter-pill.active { color: var(--text-primary); border-color: var(--text-primary); }
+
+/* ===== FOOTER + CONTACT (consolidated 2026-08-19 — was index.html-only
+   inline CSS + a separate bare .footer-simple used by every other page;
+   now one shared footer, used everywhere via renderFooter() in site.js) ===== */
+.footer { background: #000; border-top: 1px solid var(--border); padding: 4rem 0 2.5rem; }
+.footer-top { display: flex; justify-content: space-between; align-items: center; padding-bottom: 2.5rem; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
+.footer-logo { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 1.35rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-primary); display: block; margin-bottom: 0.2rem; }
+.footer-tl { font-family: 'Inter', sans-serif; font-size: var(--text-small); color: var(--text-secondary); font-weight: 400; }
+.footer-socials { display: flex; align-items: center; gap: 2rem; }
+.footer-socials a { display: block; }
+.footer-socials svg { width: 26px; height: 26px; fill: var(--text-primary); transition: fill 0.3s; }
+.footer-socials a:hover svg { fill: var(--brand-gold); }
+
+.footer-contact { padding-bottom: 3rem; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
+.mission-quote { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: clamp(2.25rem, 5vw, 3.75rem); color: var(--text-primary); line-height: 1.06; text-transform: uppercase; }
+.mission-quote .hl { color: var(--brand-gold); }
+.contact-tabs { display: flex; gap: 0.5rem; margin: 1.5rem 0 2rem; flex-wrap: wrap; }
+.contact-tab { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 0.9rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); background: var(--bg-elevated); border: 1px solid var(--border); padding: 0.7rem 1.4rem; cursor: pointer; transition: color 0.15s, border-color 0.15s; }
+.contact-tab.active { color: var(--text-primary); border-color: var(--brand-gold); }
+.contact-form { max-width: 640px; display: grid; gap: 1rem; }
+.contact-form .form-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+.contact-form .form-field { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 0.35rem; }
+.contact-form label { font-family: 'Inter', sans-serif; font-size: var(--text-small); color: var(--text-secondary); }
+.contact-form input, .contact-form textarea { background: var(--bg-primary); border: 1px solid var(--border); color: var(--text-primary); padding: 0.7rem 0.9rem; font-family: 'Inter', sans-serif; font-size: var(--text-small); outline: none; }
+.contact-form input:focus, .contact-form textarea:focus { border-color: var(--brand-gold); }
+.contact-form textarea { min-height: 140px; resize: vertical; }
+.contact-success { max-width: 640px; background: var(--bg-elevated); border: 1px solid var(--brand-gold); padding: 2rem; }
+.contact-success h3 { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; text-transform: uppercase; margin-bottom: 0.5rem; color: var(--text-primary); }
+.contact-success p { color: var(--text-secondary); }
+
+.footer-nav { display: flex; flex-wrap: wrap; gap: 1rem 2.5rem; padding-bottom: 2.5rem; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
+.footer-nav a { font-family: 'Inter', sans-serif; font-weight: 400; font-size: var(--text-small); color: var(--text-secondary); transition: color 0.18s; }
+.footer-nav a:hover { color: var(--text-primary); }
+.footer-bottom { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; }
+.footer-copy { font-family: 'Inter', sans-serif; font-weight: 300; font-size: var(--text-micro); color: var(--text-secondary); }
+.footer-echo { font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: var(--text-small); letter-spacing: 0.09em; text-transform: uppercase; color: var(--text-secondary); }
+@media (max-width: 640px) {
+  .footer-top { flex-direction: column; align-items: flex-start; gap: 1.5rem; }
+  .footer-bottom { flex-direction: column; }
+}
+
+/* ===== CATEGORY TOGGLE (shared: Shows sport-groups, Scores sport→league,
+   Shop sport→team — see category-toggle.js) ===== */
+.toggle-panel { display: grid; gap: 0.75rem; margin-top: 1.5rem; }
+.toggle-panel-item { min-width: 0; }

@@ -142,51 +142,9 @@ function initShopPromoForm() {
   });
 }
 
-// Contact / Submit a Tip / Work With Us — one form, three tabs, each tab
-// just changes what "type" gets submitted and what the message field is
-// asking for. Replaces the old About/mission section.
-const CONTACT_TAB_COPY = {
-  CONTACT: { label: 'Message', success: 'Thanks — we\'ll get back to you soon.' },
-  TIP: { label: 'What\'s the story?', success: 'Thanks for the tip — our newsroom will take a look.' },
-  PARTNERSHIP: { label: 'Tell us about your brand or partnership idea', success: 'Thanks — our team will follow up about working together.' },
-};
-
-function initContactForm() {
-  const form = document.getElementById('contact-form');
-  if (!form) return;
-  const tabs = document.querySelectorAll('.contact-tab');
-  const messageLabel = document.getElementById('c-message-label');
-  const errorEl = document.getElementById('contact-error');
-  const successEl = document.getElementById('contact-success');
-
-  tabs.forEach((tab) => {
-    tab.addEventListener('click', () => {
-      tabs.forEach((t) => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
-      tab.classList.add('active');
-      tab.setAttribute('aria-selected', 'true');
-      form.dataset.type = tab.dataset.type;
-      messageLabel.textContent = CONTACT_TAB_COPY[tab.dataset.type].label;
-    });
-  });
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    errorEl.style.display = 'none';
-    const type = form.dataset.type;
-    const name = document.getElementById('c-name').value.trim();
-    const email = document.getElementById('c-email').value.trim();
-    const message = document.getElementById('c-message').value.trim();
-    try {
-      await api('/api/submissions', { method: 'POST', body: JSON.stringify({ type, name, email, message }) });
-      form.style.display = 'none';
-      document.getElementById('contact-success-text').textContent = CONTACT_TAB_COPY[type].success;
-      successEl.style.display = 'block';
-    } catch (err) {
-      errorEl.textContent = err.message;
-      errorEl.style.display = 'block';
-    }
-  });
-}
+// initContactForm()/CONTACT_TAB_COPY moved to site.js 2026-08-19 — the
+// Contact/Tip/Partnership form now lives in the shared footer on every
+// page, not just here.
 
 document.addEventListener('DOMContentLoaded', () => {
   loadFlagshipCarousel().catch((err) => console.warn('Could not load flagship carousel:', err));
@@ -195,5 +153,4 @@ document.addEventListener('DOMContentLoaded', () => {
   const nicheGrid = document.getElementById('niche-shows-grid');
   if (nicheGrid) loadLatestBadges(nicheGrid).catch((err) => console.warn('Could not load show badges:', err));
   initShopPromoForm();
-  initContactForm();
 });
