@@ -19,9 +19,29 @@ async function loadFlagshipCard() {
   if (ep.coverImageUrl) document.querySelector('#flagship-card .ep-art-photo').src = ep.coverImageUrl;
 }
 
+// Sport-category toggle over the 5 niche shows — the flagship stays a
+// separate, always-visible card above this (see loadFlagshipCard), never
+// part of the toggle. Each niche show's own sportLabel becomes its
+// category; today that's a 1:1 mapping (one show per sport/bundle), but
+// nothing here assumes that stays true if a sport ever gets a second show.
+function nicheShowCategories() {
+  const niche = SHOWS.filter((s) => s.kind === 'niche');
+  const bySport = new Map();
+  niche.forEach((show) => {
+    if (!bySport.has(show.sportLabel)) bySport.set(show.sportLabel, []);
+    bySport.get(show.sportLabel).push(show);
+  });
+  return Array.from(bySport, ([label, items]) => ({ key: items[0].slug, label, items }));
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-  const grid = document.getElementById('niche-shows-grid');
-  grid.innerHTML = SHOWS.filter((s) => s.kind === 'niche').map(nicheShowCardHtml).join('');
+  renderCategoryToggle({
+    container: document.getElementById('niche-shows-toggle'),
+    categories: nicheShowCategories(),
+    renderItem: nicheShowCardHtml,
+    afterRender: (panelEl) => {
+      if (panelEl) loadLatestBadges(panelEl).catch((err) => console.warn('Could not load show badges:', err));
+    },
+  });
   loadFlagshipCard().catch((err) => console.warn('Could not load flagship episode:', err));
-  loadLatestBadges(grid).catch((err) => console.warn('Could not load show badges:', err));
 });

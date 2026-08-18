@@ -11,9 +11,10 @@
 //     categories: [{ key, label, items: [...] }, ...],
 //     renderItem: (item) => '<div>...</div>',   // returns one item's HTML
 //     defaultKey: 'kenya',                       // optional — pill open on first render
+//     afterRender: (panelEl, category) => {},    // optional — runs after each (re)render, e.g. to fetch per-item badges/data
 //   });
 
-function renderCategoryToggle({ container, categories, renderItem, defaultKey }) {
+function renderCategoryToggle({ container, categories, renderItem, defaultKey, afterRender }) {
   if (!container) return;
 
   const pillsHtml = categories
@@ -33,6 +34,7 @@ function renderCategoryToggle({ container, categories, renderItem, defaultKey })
       <div class="toggle-panel open">
         ${category.items.map((item) => `<div class="toggle-panel-item">${renderItem(item)}</div>`).join('')}
       </div>`;
+    if (afterRender) afterRender(panelsEl.querySelector('.toggle-panel'), category);
   }
 
   function open(key) {
