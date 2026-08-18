@@ -168,8 +168,40 @@ model Kit {
   photoUrl       String? // nullable — same honest-empty-state pattern as Article.coverImageUrl; renders a placeholder, not fake data
   priceKesCents  Int // integer minor-unit KES — avoids float rounding, matches Flutterwave's amount handling
   sizesAvailable String? // CSV, e.g. "S,M,L,XL" — not modeled as rows in v1
-  active         Boolean  @default(true)
-  createdAt      DateTime @default(now())
+  active         Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  orderItems     OrderItem[]
+}
+
+// ===================== CHECKOUT (Flutterwave — card + M-Pesa) =====================
+// No customer-account model — orders are guest checkout by name/email/phone,
+// same precedent as Submission not requiring an account. Cart itself is
+// client-side only (localStorage, see public/js/cart.js) — this is a small
+// single-storefront catalog, not a multi-vendor cart system needing its own
+// DB-backed cart model.
+model Order {
+  id              String      @id @default(cuid())
+  customerName    String
+  customerEmail   String
+  customerPhone   String // required for Flutterwave's M-Pesa STK push
+  status          String      @default("PENDING") // PENDING | PAID | FAILED | CANCELLED
+  paymentProvider String      @default("FLUTTERWAVE")
+  paymentRef      String? // Flutterwave's transaction id, set once payment is confirmed
+  totalKesCents   Int
+  items           OrderItem[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model OrderItem {
+  id                String @id @default(cuid())
+  orderId           String
+  order             Order  @relation(fields: [orderId], references: [id])
+  kitId             String
+  kit               Kit    @relation(fields: [kitId], references: [id])
+  size              String?
+  quantity          Int    @default(1)
+  unitPriceKesCents Int // price SNAPSHOT at order time — never re-read Kit.priceKesCents for historical totals
 }
 
 // ===================== SUBMISSIONS (Contact / Tips / Partnerships / Shop) =====================

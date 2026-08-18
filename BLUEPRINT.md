@@ -371,3 +371,51 @@ roster is in hand, rather than guessing at lower-tier club names.
 **Not yet built**: Phase E — `Order`/`OrderItem` models, Flutterwave
 checkout (cart → order → hosted payment → webhook confirmation). Needs a
 real Flutterwave merchant account before it can go past test-mode keys.
+
+## 18. Phase E — Checkout Goes Live (Flutterwave, sandbox mode) (2026-08-19)
+
+New `Order`/`OrderItem` models. No customer-account model — guest checkout
+by name/email/phone, same precedent as `Submission`. Cart is client-side
+only (`public/js/cart.js`, `localStorage`) — the server never sees it until
+checkout is submitted, and never trusts client-sent prices: `POST
+/api/orders` re-computes `totalKesCents` from each `Kit.priceKesCents` in
+the database, snapshotting it onto `OrderItem.unitPriceKesCents` so a later
+price change doesn't rewrite historical order totals.
+
+**Flow**: Shop page → "Add to Cart" on a kit tile (size selector appears if
+`sizesAvailable` is set) → cart section at the bottom of `/shop.html` shows
+items + a checkout form (name/email/phone, phone required for M-Pesa STK
+push) → submitting POSTs to `server/routes/orders.js`, which creates the
+`Order` (`PENDING`) then calls Flutterwave's `/v3/payments` endpoint
+server-side (secret key never touches the browser) and returns a hosted
+checkout link → browser redirects there, cart is cleared client-side
+immediately (the order already exists server-side) → Flutterwave handles
+card 3DS and M-Pesa STK push natively → redirects back to
+`/order-confirmation.html?orderId=...`, which **polls** `GET
+/api/orders/:id` every 3s rather than trusting the redirect alone.
+
+**The redirect is UX, not proof of payment** — `POST /api/orders/webhook`
+is the authoritative source, verified against `FLW_SECRET_HASH` (a value
+you set yourself in Flutterwave's dashboard webhook settings, matched
+against the `verif-hash` request header) before anything in the body is
+trusted; unsigned or mismatched requests get a 401, verified end-to-end
+locally with a temporary test hash. Admin `admin/orders.html` lists every
+order (date, customer, items, total, status) — no delete route, orders are
+a permanent record like a real receipt, not something to tidy away.
+
+**What actually needs the client**: `FLW_SECRET_KEY` and `FLW_SECRET_HASH`
+in `.env` — free sandbox signup at
+https://dashboard.flutterwave.com/signup, test keys under Settings > API
+Keys. Without them, `POST /api/orders` still creates the order (status
+`PENDING`, verified directly) but returns a clear 500 instead of silently
+faking a successful checkout — confirmed this exact behavior end-to-end.
+Live keys are a separate, later cutover once there's a real merchant
+account — don't assume sandbox and live are interchangeable beyond the key
+swap; Flutterwave's own dashboard is the source of truth for what else
+that involves (business verification, settlement account, etc.).
+
+This closes out the five-phase rebuild (§16–18): toggle navigation
+(Shows/Scores/Shop all share `category-toggle.js`), Scores gone Kenya-first
++ global via football-data.org, and a real Shop with checkout. Nothing
+here has been pushed to the `Maltilda-Nyaboke/Sportscast` GitHub remote yet
+— ask before doing so, it's not the account this work was done under.
