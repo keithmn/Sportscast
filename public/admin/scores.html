@@ -34,7 +34,7 @@
         <h1 class="page-title" style="font-size:1.75rem;">Scores &amp; Fixtures</h1>
         <span id="whoami" class="page-sub"></span>
       </div>
-      <p class="page-sub" style="margin-bottom:2rem;">Football only for now — this section stays honest about what's live rather than faking coverage for rugby or athletics. Add a league below to get started.</p>
+      <p class="page-sub" style="margin-bottom:2rem;">Kenyan leagues (KPL, NSL) are entered here by hand — global leagues sync automatically from football-data.org and shouldn't be hand-edited. Add a league below to get started.</p>
       <div id="access-denied" class="form-error" style="display:none;">You don't have permission to manage this.</div>
       <div id="scores-app" style="display:none;">
         <div id="new-league-form" class="form-grid" style="max-width:480px; margin-bottom:3rem;">
@@ -53,6 +53,11 @@
         </div>
 
         <div id="leagues-root"></div>
+
+        <div style="margin-top:3rem; padding-top:2rem; border-top:1px solid var(--border);">
+          <span class="section-label">Recent Changes</span>
+          <div id="changelog-root"><p class="empty-state">Loading…</p></div>
+        </div>
       </div>
     </main>
   </div>

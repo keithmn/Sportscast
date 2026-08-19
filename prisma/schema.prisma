@@ -120,16 +120,17 @@ model StandingRow {
 }
 
 model Fixture {
-  id         String    @id @default(cuid())
-  leagueId   String
-  league     League    @relation(fields: [leagueId], references: [id])
-  homeTeam   String
-  awayTeam   String
-  kickoff    DateTime
-  homeScore  Int?
-  awayScore  Int?
-  status     String    @default("SCHEDULED") // SCHEDULED | LIVE | FINISHED | POSTPONED
-  updatedAt  DateTime  @updatedAt
+  id             String    @id @default(cuid())
+  leagueId       String
+  league         League    @relation(fields: [leagueId], references: [id])
+  homeTeam       String
+  awayTeam       String
+  kickoff        DateTime
+  originalKickoff DateTime? // set once, the first time a fixture is postponed — so "was X, now Y" can be shown, not just the new date
+  homeScore      Int?
+  awayScore      Int?
+  status         String    @default("SCHEDULED") // SCHEDULED | LIVE | FINISHED | POSTPONED
+  updatedAt      DateTime  @updatedAt
 
   // Lets the league sync job upsert instead of wholesale delete+recreate
   // (unlike standings, blowing fixtures away every run would lose
@@ -216,4 +217,20 @@ model Submission {
   message   String?
   status    String   @default("NEW") // NEW | REVIEWED
   createdAt DateTime @default(now())
+}
+
+// ===================== AUDIT (Scores & Fixtures intake) =====================
+// One flat log, human-readable summary rather than a full before/after
+// field-diff — matches this codebase's preference for the simplest thing
+// that actually works over a generic system. Written by every fixture/
+// standings mutation in scores.js; read by admin/scores.html's "Recent
+// Changes" panel.
+model ChangeLog {
+  id         String   @id @default(cuid())
+  entityType String // FIXTURE | STANDINGS | LEAGUE
+  entityId   String
+  action     String // CREATE | UPDATE | DELETE | BULK_IMPORT
+  summary    String // "Postponed Gor Mahia vs Tusker: 23 Aug → 30 Aug", "Bulk imported 18 fixtures", ...
+  userName   String
+  createdAt  DateTime @default(now())
 }

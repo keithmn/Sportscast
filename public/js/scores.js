@@ -26,10 +26,14 @@ function fixtureRowHtml(f) {
   const scoreOrTime = f.status === 'FINISHED'
     ? `<span class="fixture-score">${f.homeScore ?? 0} – ${f.awayScore ?? 0}</span>`
     : `<span class="fixture-meta">${formatDate(f.kickoff)}</span>`;
+  const postponedNote = f.status === 'POSTPONED' && f.originalKickoff
+    ? `<div class="fixture-meta" style="margin-top:0.2rem;">Was ${formatDate(f.originalKickoff)} — now ${formatDate(f.kickoff)}</div>`
+    : '';
   return `
-    <div class="fixture-row">
+    <div class="fixture-row" style="flex-wrap:wrap;">
       <span class="fixture-teams">${escapeHtml(f.homeTeam)} vs ${escapeHtml(f.awayTeam)}</span>
       <span>${scoreOrTime}<span class="fixture-status ${escapeHtml(f.status)}">${escapeHtml(f.status)}</span></span>
+      ${postponedNote}
     </div>`;
 }
 

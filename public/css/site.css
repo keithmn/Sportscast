@@ -117,6 +117,7 @@ img { display: block; max-width: 100%; }
 .fixture-status { display: inline-block; font-size: var(--text-micro); letter-spacing: 0.04em; text-transform: uppercase; padding: 0.15rem 0.5rem; border: 1px solid var(--border); border-radius: 3px; color: var(--text-secondary); margin-left: 0.6rem; }
 .fixture-status.LIVE { color: var(--danger); border-color: var(--danger); }
 .fixture-status.FINISHED { color: var(--success); border-color: var(--success); }
+.fixture-status.POSTPONED { color: var(--brand-gold); border-color: var(--brand-gold); }
 .table-wrap { overflow-x: auto; border: 1px solid var(--border); }
 table.data-table { width: 100%; border-collapse: collapse; min-width: 560px; }
 table.data-table th, table.data-table td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border); font-size: var(--text-small); }

@@ -419,3 +419,59 @@ This closes out the five-phase rebuild (§16–18): toggle navigation
 + global via football-data.org, and a real Shop with checkout. Nothing
 here has been pushed to the `Maltilda-Nyaboke/Sportscast` GitHub remote yet
 — ask before doing so, it's not the account this work was done under.
+
+## 19. Scores & Fixtures Intake System (2026-08-19)
+
+Manual entry for KPL/NSL got three real upgrades, aimed at "build a
+season once, then just nudge it" rather than re-typing things repeatedly:
+
+**Bulk fixture import** — `POST /api/leagues/:id/fixtures/bulk`, one line
+per fixture (`Home Team vs Away Team | 2026-08-23T15:00`) in
+`admin/scores.html`. Malformed lines are reported back per-line rather
+than silently dropped or blocking the whole batch — the valid ones still
+import. This is the actual "front-load the work once" step a new season
+needs; before this, standing up a full fixture list meant clicking "+ Add
+Fixture" one at a time.
+
+**Postponement as one action, not a silent overwrite** — `Fixture` gained
+`originalKickoff` (nullable). `PUT /api/leagues/fixtures/:fixtureId`
+detects a transition *into* `POSTPONED` and preserves the fixture's
+current kickoff there before applying the new one — a fixture postponed
+twice keeps its very first scheduled date, not the most recent one. Both
+the admin fixture row and the **public** Scores & Fixtures page now show
+"was X, now Y" for a postponed fixture, not just a status badge.
+
+**Per-league team-name autocomplete, no new model** — `GET
+/api/leagues/:id/team-names` derives a deduped list from that league's
+existing fixtures + standings (teams are still plain strings on those
+rows, per §12's original design — this doesn't revive a relational Team
+entity for Scores). Wired as an HTML5 `<datalist>` on every team-name
+input in `admin/scores.html`. Once a league's first matchday is entered,
+every subsequent entry autocompletes against it — the actual fix for
+"Gor Mahia" vs "Gor Mahia FC" quietly becoming two different teams across
+entries.
+
+**Audit trail** — new `ChangeLog` model, one flat table (entity type/id,
+action, a human-readable summary, who, when) rather than a generic
+before/after field-differ — matches this codebase's preference for the
+simplest thing that works. Every fixture/standings mutation in
+`scores.js` writes one entry; `admin/scores.html`'s new "Recent Changes"
+panel lists the last 50, most recent first.
+
+**On selling this data as a subscription** (raised, discussed, deliberately
+not started): the client's own manually-collected KPL/NSL data is fully
+theirs to license out — the global leagues, sourced from football-data.org,
+are not, and reselling those would need that provider's explicit
+permission first. Decided to revisit "own this as a product" only after a
+full season of clean, audited local-league data exists — that data is the
+actual asset a customer would pay for, not this tooling. Also researched
+(not wired in): free-tier APIs exist for rugby (Highlightly, 100 req/day)
+and global basketball (API-Basketball, same family as API-Football) —
+but API-Sports' own terms explicitly disclaim commercial/mass-media
+rights on competition data, a materially different posture than
+football-data.org's terms. Don't wire either in without reading their
+current ToS directly first. Motorsport: Ergast (the long-standing free F1
+API) shut down in late 2024; its community successor Jolpica-F1 is free
+but volunteer-run on a small budget, not a stable commercial dependency —
+and covers F1 only, not local Kenyan motorsport, which (like KPL) has no
+API at all regardless.
