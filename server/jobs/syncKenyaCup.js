@@ -18,6 +18,15 @@
 // it's clearly a different (more fragile) kind of automation, and so it's
 // never picked up by syncLeagues.js's own `where: { source: 'API' }` loop.
 
+// See server/index.js for why this guard exists — some Node 18 patch
+// releases don't expose File as a global even though node:buffer has
+// carried it since 18.13, and undici (pulled in by cheerio) needs it at
+// require time. Repeated here so this file is also safe to run standalone
+// (npm run sync:kenyacup) on the same Node version, not just via index.js.
+if (typeof globalThis.File === 'undefined') {
+  globalThis.File = require('node:buffer').File;
+}
+
 const cheerio = require('cheerio');
 const prisma = require('../db');
 

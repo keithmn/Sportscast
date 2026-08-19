@@ -1,4 +1,15 @@
 require('dotenv').config();
+
+// Polyfill: undici (pulled in transitively by cheerio, used by
+// syncKenyaCup.js) references the global File constructor at module-load
+// time. Some Node 18 patch releases (e.g. the one this app runs on in
+// production) don't expose it as a global even though node:buffer has
+// carried it since 18.13 — without this, requiring cheerio anywhere
+// crashes the entire process on boot, not just the scraper.
+if (typeof globalThis.File === 'undefined') {
+  globalThis.File = require('node:buffer').File;
+}
+
 const path = require('path');
 const express = require('express');
 const session = require('express-session');
