@@ -1,13 +1,14 @@
 // The "(Other)" bundle hub — for sports not yet split into their own
 // dedicated page (see BLUEPRINT.md §22). Deliberately simple: no Scores/
 // Teams tabs, since none of these sports have real league/club data —
-// Athletics and most of Boxing are meet/fight-based, not table-based (the
-// one exception, Boxing's National Boxing League, is a deferred nuance,
-// not built here). Just Home / News / Watch, merged across every bundled
-// sport, one small local render layer rather than reusing news.js/sport.js
-// (those are built around a single sport slug, not a merge across several).
+// Athletics has no standings concept at all (meet-based). Boxing was
+// promoted out of this bundle 2026-08-19 once its real National Boxing
+// League data landed — see server/routes/scores.js's League rows.
+// Just Home / News / Watch, merged across every bundled sport, one small
+// local render layer rather than reusing news.js/sport.js (those are
+// built around a single sport slug, not a merge across several).
 
-const OTHER_SPORT_SLUGS = ['volleyball', 'motorsport', 'university-sports', 'martial-arts', 'darts', 'athletics', 'boxing'];
+const OTHER_SPORT_SLUGS = ['volleyball', 'motorsport', 'university-sports', 'martial-arts', 'darts', 'athletics'];
 
 async function fetchAcrossOtherSports(queryString) {
   const results = await Promise.all(
