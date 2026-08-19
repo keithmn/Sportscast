@@ -265,8 +265,6 @@ table.data-table td.num { text-align: center; }
 .footer-socials a:hover svg { fill: var(--brand-gold); }
 
 .footer-contact { padding-bottom: 3rem; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
-.mission-quote { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: clamp(2.25rem, 5vw, 3.75rem); color: var(--text-primary); line-height: 1.06; text-transform: uppercase; }
-.mission-quote .hl { color: var(--brand-gold); }
 .contact-tabs { display: flex; gap: 0.5rem; margin: 1.5rem 0 2rem; flex-wrap: wrap; }
 .contact-tab { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 0.9rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); background: var(--bg-elevated); border: 1px solid var(--border); padding: 0.7rem 1.4rem; cursor: pointer; transition: color 0.15s, border-color 0.15s; }
 .contact-tab.active { color: var(--text-primary); border-color: var(--brand-gold); }

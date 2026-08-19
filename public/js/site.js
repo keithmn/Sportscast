@@ -129,8 +129,7 @@ function renderFooter() {
         </div>
 
         <div class="footer-contact" id="contact">
-          <p class="mission-quote">Kenya's stories.<br>Kenya's sport.<br><span class="hl">Finally,<br>a home.</span></p>
-          <span class="section-label" style="margin-top:2rem;">Get In Touch</span>
+          <span class="section-label">Get In Touch</span>
           <div class="contact-tabs" role="tablist">
             <button class="contact-tab active" data-type="CONTACT" role="tab" aria-selected="true">Contact</button>
             <button class="contact-tab" data-type="TIP" role="tab" aria-selected="false">Submit a Tip</button>
