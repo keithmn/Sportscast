@@ -183,7 +183,6 @@ function renderFooter() {
           <a href="/show.html?slug=the-sportscast">The Sportscast</a>
           <a href="/scores.html">Scores &amp; Fixtures</a>
           <a href="/clubs.html">Teams</a>
-          <a href="/shop.html">Kits</a>
           <a href="/admin/index.html">Newsroom Login</a>
         </nav>
 
