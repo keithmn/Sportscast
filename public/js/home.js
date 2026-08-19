@@ -221,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const mainNavLinks = document.querySelector('#main-nav .nav-links');
   if (mainNavLinks) {
     wireNavDropdownToggles(mainNavLinks);
-    loadNavDropdowns(mainNavLinks, { sports: null, scores: 'scores', kits: 'shop' })
+    loadNavDropdowns(mainNavLinks, { sports: null, scores: 'scores' })
       .catch((err) => console.warn('Could not load nav dropdowns:', err));
   }
 });

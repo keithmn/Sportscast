@@ -10,7 +10,7 @@ router.get('/teams', async (req, res) => {
   const where = req.query.sport ? { sport: { slug: req.query.sport } } : {};
   const teams = await prisma.team.findMany({
     where,
-    include: { sport: true, kits: { where: { active: true } } },
+    include: { sport: true, league: true, kits: { where: { active: true } } },
     orderBy: { name: 'asc' },
   });
   res.json({ teams });

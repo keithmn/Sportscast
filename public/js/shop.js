@@ -16,70 +16,46 @@ function kitTileHtml(kit, teamName) {
     </div>`;
 }
 
-function teamCardHtml(team) {
+// Gallery card (2026-08-19): kits render up-front, grouped by league —
+// no click-to-expand. This is the pitch surface for the "we'll merchandise
+// this for a kickback" business conversation with clubs, so every kit
+// needs to be visible without an extra step, not tucked behind a click.
+function teamGalleryCardHtml(team) {
   return `
-    <div class="card team-card" data-team-card data-slug="${escapeHtml(team.slug)}">
-      ${team.crestUrl ? `<img class="team-crest" src="${escapeHtml(team.crestUrl)}" alt="" onerror="this.remove()">` : ''}
-      <span class="card-eyebrow">${escapeHtml(team.sport.name)}</span>
-      <h3 class="card-title">${escapeHtml(team.name)}</h3>
-      <div class="kit-grid" data-kit-grid style="display:none;"></div>
+    <div class="card team-card">
+      <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.25rem;">
+        ${team.crestUrl ? `<img class="team-crest" src="${escapeHtml(team.crestUrl)}" alt="" onerror="this.remove()" style="margin-bottom:0;">` : ''}
+        <h3 class="card-title">${escapeHtml(team.name)}</h3>
+      </div>
+      ${team.kits.length
+        ? `<div class="kit-grid">${team.kits.map((k) => kitTileHtml(k, team.name)).join('')}</div>`
+        : '<p class="empty-state">No kits added for this team yet.</p>'}
     </div>`;
 }
 
-function wireAddToCartButtons(container) {
-  container.querySelectorAll('.add-to-cart-btn').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation(); // don't also collapse the team card's kit grid
-      const tile = btn.closest('.kit-tile');
-      const sizeSelect = tile.querySelector('.kit-size-select');
-      addToCart({
-        kitId: btn.dataset.kitId,
-        teamName: btn.dataset.teamName,
-        label: btn.dataset.label,
-        priceKesCents: Number(btn.dataset.price),
-        size: sizeSelect ? sizeSelect.value : null,
-      });
-      renderCart();
-      btn.textContent = 'Added ✓';
-      setTimeout(() => { btn.textContent = 'Add to Cart'; }, 1200);
-    });
-  });
-}
-
-async function loadTeamKits(container, slug) {
-  container.innerHTML = '<p class="empty-state">Loading…</p>';
-  try {
-    const { team } = await api(`/api/shop/teams/${encodeURIComponent(slug)}`);
-    container.innerHTML = team.kits.length
-      ? team.kits.map((k) => kitTileHtml(k, team.name)).join('')
-      : '<p class="empty-state">No kits added for this team yet.</p>';
-  } catch (err) {
-    container.innerHTML = `<p class="empty-state">Could not load kits: ${escapeHtml(err.message)}</p>`;
-  }
-}
-
+// Groups by league within a sport (Kenyan Premier League clubs together,
+// National Super League clubs together, ...) — same grouping shape as
+// clubs.js's renderClubsSportPanel. A team with no league set (leagueId
+// null) falls into a plain "Other" bucket rather than being dropped.
 function renderTeamGrid(panelEl, teams) {
   if (!teams.length) {
     panelEl.innerHTML = '<p class="empty-state">No teams added for this sport yet.</p>';
     return;
   }
-  panelEl.innerHTML = `<div class="card-grid">${teams.map(teamCardHtml).join('')}</div>`;
 
-  panelEl.querySelectorAll('[data-team-card]').forEach((card) => {
-    card.addEventListener('click', () => {
-      const grid = card.querySelector('[data-kit-grid]');
-      const isOpen = grid.style.display !== 'none';
-      if (isOpen) {
-        grid.style.display = 'none';
-        return;
-      }
-      grid.style.display = 'grid';
-      if (!grid.dataset.loaded) {
-        grid.dataset.loaded = 'true';
-        loadTeamKits(grid, card.dataset.slug);
-      }
-    });
+  const byLeague = new Map();
+  teams.forEach((t) => {
+    const key = t.league ? t.league.slug : '__other__';
+    const label = t.league ? t.league.name : 'Other';
+    if (!byLeague.has(key)) byLeague.set(key, { label, teams: [] });
+    byLeague.get(key).teams.push(t);
   });
+
+  panelEl.innerHTML = Array.from(byLeague.values()).map(({ label, teams }) => `
+    <div style="margin-bottom:2.5rem;">
+      <span class="section-label">${escapeHtml(label)}</span>
+      <div class="card-grid">${teams.map(teamGalleryCardHtml).join('')}</div>
+    </div>`).join('');
 }
 
 async function loadShop() {
