@@ -75,20 +75,21 @@ function confidencePill(confidence) {
   return `<span class="pill ${cls}">${escapeHtml(confidence || 'Unverified')}</span>`;
 }
 
-// News and Clubs dropped 2026-08-19 — they live inside each sport's own
-// hub now (Home | News | Watch | Scores & Fixtures | Teams tabs), rather
-// than being re-selected per top-level page. Sports/Scores are dropdowns
+// News dropped 2026-08-19 — it lives inside each sport's own hub now
+// (Home | News | Watch | Scores & Fixtures | Teams tabs), rather than
+// being re-selected per top-level page. Sports/Scores/Teams are dropdowns
 // (see nav-dropdown.js) that jump straight into a sport's hub, each
-// opened on a different tab. Watch and Kits are plain links: Watch isn't
-// sport-hub-scoped content in the same way, and Kits (2026-08-19) went
-// back to being its own full gallery page — grouped by sport then league,
-// every kit visible up front — rather than a dropdown into one hub tab.
+// opened on a different tab. Watch is a plain link since it isn't
+// sport-hub-scoped content in the same way. Kits dropped out of primary
+// nav entirely 2026-08-19 — the club/player Teams data (rosters, kept
+// up to date as transfers happen) is the priority, not the merch
+// gallery; Kits stays reachable from the footer, just demoted.
 const NAV_LINKS = [
   { type: 'link', href: '/index.html', label: 'Home' },
   { type: 'dropdown', key: 'sports', label: 'Sports', tab: null },
   { type: 'link', href: '/shows.html', label: 'Watch' },
   { type: 'dropdown', key: 'scores', label: 'Scores', tab: 'scores' },
-  { type: 'link', href: '/shop.html', label: 'Kits' },
+  { type: 'dropdown', key: 'teams', label: 'Teams', tab: 'clubs' },
 ];
 
 function renderNav(activeHref) {
@@ -181,6 +182,7 @@ function renderFooter() {
           <a href="/shows.html">Watch</a>
           <a href="/show.html?slug=the-sportscast">The Sportscast</a>
           <a href="/scores.html">Scores &amp; Fixtures</a>
+          <a href="/clubs.html">Teams</a>
           <a href="/shop.html">Kits</a>
           <a href="/admin/index.html">Newsroom Login</a>
         </nav>
