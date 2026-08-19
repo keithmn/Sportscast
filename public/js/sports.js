@@ -7,14 +7,21 @@ function sportCardHtml(sport) {
     </a>`;
 }
 
+// "Other" bundles every sport not yet split into its own page (see
+// other.js) — always shown alongside whichever sports are active.
+const OTHER_CARD_HTML = `
+  <a href="/other.html" style="display:contents;">
+    <div class="card">
+      <h3 class="card-title">Other Sports</h3>
+    </div>
+  </a>`;
+
 async function loadSports() {
   const root = document.getElementById('sports-root');
   const { sports } = await api('/api/sports');
   const activeSports = sports.filter((s) => s.isActive);
 
-  root.innerHTML = activeSports.length
-    ? `<div class="card-grid">${activeSports.map(sportCardHtml).join('')}</div>`
-    : '<p class="empty-state">No sports are live yet — check back soon.</p>';
+  root.innerHTML = `<div class="card-grid">${activeSports.map(sportCardHtml).join('')}${OTHER_CARD_HTML}</div>`;
 }
 
 document.addEventListener('DOMContentLoaded', () => {

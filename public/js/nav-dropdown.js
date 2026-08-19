@@ -11,10 +11,14 @@ function navDropdownTriggerHtml(key, label) {
     </li>`;
 }
 
-function sportDropdownLinksHtml(sports, tab) {
-  if (!sports.length) return '<p class="empty-state" style="padding:0.75rem 1rem; margin:0;">No sports live yet.</p>';
+// "Other" only appears in the Sports dropdown (includeOther), not
+// Scores/Kits — the (Other) bundle hub has no Scores/Teams/Kits tabs to
+// deep-link into (see other.js), so listing it there would dead-end.
+function sportDropdownLinksHtml(sports, tab, includeOther) {
+  if (!sports.length && !includeOther) return '<p class="empty-state" style="padding:0.75rem 1rem; margin:0;">No sports live yet.</p>';
   const suffix = tab ? `&tab=${encodeURIComponent(tab)}` : '';
-  return sports.map((s) => `<a href="/sport.html?sport=${encodeURIComponent(s.slug)}${suffix}">${escapeHtml(s.name)}</a>`).join('');
+  const links = sports.map((s) => `<a href="/sport.html?sport=${encodeURIComponent(s.slug)}${suffix}">${escapeHtml(s.name)}</a>`).join('');
+  return links + (includeOther ? '<a href="/other.html">Other</a>' : '');
 }
 
 // Populates every nav dropdown panel with the same active-sports list,
@@ -25,7 +29,7 @@ async function loadNavDropdowns(navEl, tabByKey) {
 
   navEl.querySelectorAll('[data-nav-dropdown-key]').forEach((li) => {
     const key = li.dataset.navDropdownKey;
-    li.querySelector('.nav-dropdown-panel').innerHTML = sportDropdownLinksHtml(activeSports, tabByKey[key]);
+    li.querySelector('.nav-dropdown-panel').innerHTML = sportDropdownLinksHtml(activeSports, tabByKey[key], key === 'sports');
   });
 }
 
