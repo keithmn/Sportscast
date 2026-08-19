@@ -18,6 +18,17 @@ router.post('/sports', requireRole('ADMIN', 'EDITOR', 'STEWARD'), async (req, re
   res.status(201).json({ sport });
 });
 
+// Gates /sports.html and the per-sport hub — flipped on one sport at a
+// time as real local data lands for it, not tied to article counts.
+router.put('/sports/:id', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const { isActive } = req.body;
+  const sport = await prisma.sport.update({
+    where: { id: req.params.id },
+    data: { isActive: !!isActive },
+  });
+  res.json({ sport });
+});
+
 // ---- Tags ----
 router.get('/tags', async (req, res) => {
   const tags = await prisma.tag.findMany({ orderBy: { name: 'asc' } });

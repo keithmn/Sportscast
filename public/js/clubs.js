@@ -13,7 +13,7 @@ function clubCardHtml(club) {
 // Shows/Scores/Shop); within a sport, clubs are grouped by league with a
 // plain label rather than a second full toggle level — most sports only
 // have one or two leagues here, not enough to need another layer.
-function renderSportPanel(panelEl, sportClubs) {
+function renderClubsSportPanel(panelEl, sportClubs) {
   const byLeague = new Map();
   sportClubs.forEach((c) => {
     if (!byLeague.has(c.league.slug)) byLeague.set(c.league.slug, { name: c.league.name, clubs: [] });
@@ -48,11 +48,12 @@ async function loadClubs() {
     container: root,
     categories,
     renderItem: () => '',
-    afterRender: (panelEl, category) => renderSportPanel(panelEl, category.items),
+    afterRender: (panelEl, category) => renderClubsSportPanel(panelEl, category.items),
   });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  if (!document.getElementById('clubs-root')) return;
   loadClubs().catch((err) => {
     document.getElementById('clubs-root').innerHTML = `<div class="empty-state">Could not load clubs: ${escapeHtml(err.message)}</div>`;
   });

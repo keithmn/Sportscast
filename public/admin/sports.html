@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Newsroom Dashboard — The Sportscast</title>
+  <title>Sports — The Sportscast Newsroom</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/site.css">
@@ -14,28 +14,42 @@
       <div class="nav-logo" style="margin-bottom:2rem;">
         <div><span class="nav-logo-mark" style="font-size:1.1rem;">THE SPORTSCAST</span><br><span style="font-family:'Inter',sans-serif; font-size:0.7rem; color:var(--text-secondary);">Newsroom</span></div>
       </div>
-      <a href="/admin/dashboard.html" class="active">Dashboard</a>
+      <a href="/admin/dashboard.html">Dashboard</a>
       <a href="/admin/articles.html">Articles</a>
       <a href="/admin/scores.html">Scores &amp; Fixtures</a>
       <a href="/admin/clubs.html">Clubs &amp; Players</a>
       <a href="/admin/teams.html">Shop Teams</a>
       <a href="/admin/orders.html">Orders</a>
       <a href="/admin/submissions.html">Submissions</a>
-      <a href="/admin/sports.html">Sports</a>
+      <a href="/admin/sports.html" class="active">Sports</a>
       <a href="/index.html">View Site</a>
       <a href="#" id="logout-link">Log Out</a>
     </aside>
     <main class="admin-main">
       <div class="admin-topbar">
-        <h1 class="page-title" style="font-size:1.75rem;">Dashboard</h1>
+        <h1 class="page-title" style="font-size:1.75rem;">Sports</h1>
         <span id="whoami" class="page-sub"></span>
       </div>
-      <div id="dashboard-root"></div>
+      <p class="page-sub" style="margin-bottom:2rem;">
+        Controls which sports appear on the public /sports.html index and get a live hub page.
+        Every sport already has seeded articles, so this is a deliberate switch, not automatic —
+        flip a sport on once it has real local league/club data behind it (Football first, then
+        Rugby, then Basketball, and so on as each is ready).
+      </p>
+      <div id="access-denied" class="form-error" style="display:none;">You don't have permission to manage this.</div>
+      <div id="sports-app" style="display:none;">
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Sport</th><th>Live on site</th></tr></thead>
+            <tbody id="sports-tbody"></tbody>
+          </table>
+        </div>
+      </div>
     </main>
   </div>
 
   <script src="/js/site.js"></script>
   <script src="/admin/js/guard.js"></script>
-  <script src="/admin/js/dashboard.js"></script>
+  <script src="/admin/js/sports.js"></script>
 </body>
 </html>

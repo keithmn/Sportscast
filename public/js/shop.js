@@ -197,6 +197,7 @@ function renderCart() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  if (!document.getElementById('shop-root')) return;
   loadShop().catch((err) => {
     document.getElementById('shop-root').innerHTML = `<div class="empty-state">Could not load the shop: ${escapeHtml(err.message)}</div>`;
   });

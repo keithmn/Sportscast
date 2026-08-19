@@ -37,6 +37,11 @@ model Sport {
   id       String    @id @default(cuid())
   name     String    @unique
   slug     String    @unique
+  // Gates the top-level /sports.html index and its per-sport hub page —
+  // every sport already has seeded articles, so "has any data" can't be
+  // the signal for "ready to feature." Flipped on by hand, one sport at a
+  // time, as real local league/club data lands for it (Football first).
+  isActive Boolean   @default(false)
   articles Article[]
   leagues  League[]
   teams    Team[]

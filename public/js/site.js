@@ -77,6 +77,7 @@ function confidencePill(confidence) {
 
 const NAV_LINKS = [
   { href: '/index.html', label: 'Home' },
+  { href: '/sports.html', label: 'Sports' },
   { href: '/shows.html', label: 'Shows' },
   { href: '/news.html', label: 'News' },
   { href: '/scores.html', label: 'Scores & Fixtures' },
@@ -162,6 +163,7 @@ function renderFooter() {
 
         <nav class="footer-nav" aria-label="Footer navigation">
           <a href="/">Home</a>
+          <a href="/sports.html">Sports</a>
           <a href="/shows.html">Shows</a>
           <a href="/show.html?slug=the-sportscast">The Sportscast</a>
           <a href="/news.html">News</a>

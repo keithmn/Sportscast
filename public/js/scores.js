@@ -77,7 +77,7 @@ async function fetchLeagueDetail(slug) {
 // lost in the noise of a much longer global list — then a secondary,
 // single-select picker for the region:GLOBAL leagues in that sport,
 // lazy-loaded one at a time on click rather than fetching all of them.
-async function renderSportPanel(panelEl, sportLeagues) {
+async function renderScoresSportPanel(panelEl, sportLeagues) {
   const kenyaLeagues = sportLeagues.filter((l) => l.region === 'KENYA');
   const globalLeagues = sportLeagues.filter((l) => l.region === 'GLOBAL');
 
@@ -145,7 +145,7 @@ async function loadScores() {
     renderItem: () => '',
     afterRender: (panelEl, category) => {
       panelEl.innerHTML = '';
-      renderSportPanel(panelEl, category.items).catch((err) => {
+      renderScoresSportPanel(panelEl, category.items).catch((err) => {
         panelEl.innerHTML = `<div class="empty-state">Could not load scores: ${escapeHtml(err.message)}</div>`;
       });
     },
@@ -153,6 +153,7 @@ async function loadScores() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  if (!document.getElementById('scores-root')) return;
   loadScores().catch((err) => {
     document.getElementById('scores-root').innerHTML = `<div class="empty-state">Could not load scores: ${escapeHtml(err.message)}</div>`;
   });

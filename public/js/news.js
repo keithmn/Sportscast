@@ -32,29 +32,27 @@ function storyCardHtml(a) {
     </a>`;
 }
 
-async function loadLatest(sportSlug) {
-  const root = document.getElementById('latest-root');
-  root.innerHTML = '<div class="empty-state">Loading…</div>';
+async function loadLatest(container, sportSlug) {
+  container.innerHTML = '<div class="empty-state">Loading…</div>';
   const query = sportSlug ? `&sport=${encodeURIComponent(sportSlug)}` : '';
   const { articles } = await api(`/api/articles?isBrief=true&limit=20${query}`);
-  root.innerHTML = articles.length
+  container.innerHTML = articles.length
     ? articles.map(latestRowHtml).join('')
     : '<p class="empty-state">No news briefs yet for this sport.</p>';
 }
 
-async function loadStories(sportSlug) {
-  const root = document.getElementById('stories-root');
-  root.innerHTML = '<div class="empty-state">Loading…</div>';
+async function loadStories(container, sportSlug) {
+  container.innerHTML = '<div class="empty-state">Loading…</div>';
   const query = sportSlug ? `&sport=${encodeURIComponent(sportSlug)}` : '';
   const { articles } = await api(`/api/articles?contentType=ARTICLE&isBrief=false&limit=100${query}`);
-  root.innerHTML = articles.length
+  container.innerHTML = articles.length
     ? articles.map(storyCardHtml).join('')
     : '<p class="empty-state">No stories yet for this sport.</p>';
 }
 
 function loadBoth(sportSlug) {
-  loadLatest(sportSlug).catch((err) => console.warn('Could not load latest:', err));
-  loadStories(sportSlug).catch((err) => console.warn('Could not load stories:', err));
+  loadLatest(document.getElementById('latest-root'), sportSlug).catch((err) => console.warn('Could not load latest:', err));
+  loadStories(document.getElementById('stories-root'), sportSlug).catch((err) => console.warn('Could not load stories:', err));
 }
 
 async function loadFilters() {
@@ -74,6 +72,7 @@ async function loadFilters() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  if (!document.getElementById('news-filters')) return;
   loadFilters().catch((err) => console.warn('Could not load sport filters:', err));
   loadBoth();
 });
