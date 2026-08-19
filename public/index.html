@@ -1034,12 +1034,19 @@
   </a>
 
   <ul class="nav-links" role="list">
-    <li><a href="/sports.html">Sports</a></li>
-    <li><a href="/shows.html">Shows</a></li>
-    <li><a href="/news.html">News</a></li>
-    <li><a href="/scores.html">Scores &amp; Fixtures</a></li>
-    <li><a href="/clubs.html">Clubs</a></li>
-    <li><a href="/shop.html">Shop</a></li>
+    <li class="nav-dropdown" data-nav-dropdown-key="sports">
+      <button type="button" class="nav-dropdown-trigger" aria-haspopup="true" aria-expanded="false">Sports</button>
+      <div class="nav-dropdown-panel"><p class="empty-state" style="padding:0.75rem 1rem; margin:0;">Loading…</p></div>
+    </li>
+    <li><a href="/shows.html">Watch</a></li>
+    <li class="nav-dropdown" data-nav-dropdown-key="scores">
+      <button type="button" class="nav-dropdown-trigger" aria-haspopup="true" aria-expanded="false">Scores</button>
+      <div class="nav-dropdown-panel"><p class="empty-state" style="padding:0.75rem 1rem; margin:0;">Loading…</p></div>
+    </li>
+    <li class="nav-dropdown" data-nav-dropdown-key="kits">
+      <button type="button" class="nav-dropdown-trigger" aria-haspopup="true" aria-expanded="false">Kits</button>
+      <div class="nav-dropdown-panel"><p class="empty-state" style="padding:0.75rem 1rem; margin:0;">Loading…</p></div>
+    </li>
   </ul>
 
   <a href="#flagship" class="nav-cta">Listen Now</a>
@@ -1049,14 +1056,13 @@
   </button>
 </nav>
 
-<!-- Mobile menu -->
+<!-- Mobile menu — plain links to the full pages, since a hover dropdown
+     doesn't translate to this full-screen menu -->
 <div class="mobile-menu" id="mobile-menu" role="dialog" aria-modal="true" aria-label="Navigation">
   <a href="/sports.html" id="mm-sports">Sports</a>
-  <a href="/shows.html" id="mm-shows">Shows</a>
-  <a href="/news.html" id="mm-news">News</a>
+  <a href="/shows.html" id="mm-shows">Watch</a>
   <a href="/scores.html" id="mm-scores">Scores</a>
-  <a href="/clubs.html" id="mm-clubs">Clubs</a>
-  <a href="/shop.html" id="mm-shop">Shop</a>
+  <a href="/shop.html" id="mm-shop">Kits</a>
   <a href="#flagship" class="btn-red" style="margin-top:0.5rem; font-size:1rem;">Listen Now</a>
 </div>
 
@@ -1086,7 +1092,7 @@
 <!-- =========================================================
      THE SPORTSCAST — FLAGSHIP + NICHE SHOWS
      ========================================================= -->
-<section class="shows-section" id="flagship" aria-label="Shows">
+<section class="shows-section" id="flagship" aria-label="Watch">
   <div class="container">
     <span class="section-label fade-up">The Sportscast</span>
 
@@ -1175,6 +1181,19 @@
 <!-- =========================================================
      FROM THE ARCHIVE
      ========================================================= -->
+<!-- 2026-08-19: reopens BLUEPRINT §11's brief-only boundary, deliberately —
+     see §21 for why. Uses the .stories-section/.stories-r1/.stories-r2/
+     .story--lg CSS already defined below (previously unused). -->
+<section class="stories-section" id="top-stories" aria-label="Top stories">
+  <div class="container">
+    <span class="section-label fade-up">Top Stories</span>
+    <div class="fade-up">
+      <div class="stories-r1" id="stories-r1"></div>
+      <div class="stories-r2" id="stories-r2"></div>
+    </div>
+  </div>
+</section>
+
 <section class="archive-teaser-section" id="stories" aria-label="Latest news">
   <div class="container">
     <span class="section-label fade-up">Latest</span>
@@ -1188,24 +1207,34 @@
 <section class="archive-teaser-section" id="scores-teaser" aria-label="Football scores">
   <div class="container">
     <span class="section-label fade-up">Scores &amp; Fixtures — Football</span>
-    <p class="archive-teaser-sub fade-up">Kenyan Premier League standings. Rugby and athletics aren't live yet — we're building that coverage from scratch. <a href="/scores.html">See fixtures &amp; the full table →</a></p>
+    <p class="archive-teaser-sub fade-up">Kenyan Premier League standings and upcoming fixtures. Rugby and athletics aren't live yet — we're building that coverage from scratch. <a href="/scores.html">See fixtures &amp; the full table →</a></p>
 
     <!-- populated live from /api/leagues by js/home.js -->
     <div class="archive-list fade-up" id="scores-teaser-root"></div>
   </div>
 </section>
 
-<!-- 2026-08-19: Shop went live (Team/Kit catalog) — this band no longer
-     collects waitlist emails, it links straight to the real shop. -->
-<section class="shop-promo-section" aria-label="Shop">
+<section class="archive-teaser-section" id="clubs-teaser" aria-label="Teams">
+  <div class="container">
+    <span class="section-label fade-up">Teams</span>
+    <p class="archive-teaser-sub fade-up">Kenyan Premier League clubs and their squads. <a href="/clubs.html">See all teams →</a></p>
+
+    <!-- populated live from /api/clubs by js/home.js -->
+    <div class="card-grid fade-up" id="clubs-teaser-root"></div>
+  </div>
+</section>
+
+<!-- 2026-08-19: Shop descoped to a display-only Kits lookbook for now — no
+     checkout yet, just this season's kits, sport by sport. -->
+<section class="shop-promo-section" aria-label="Kits">
   <div class="container shop-promo-inner">
     <div class="shop-promo-copy fade-up">
-      <span class="section-label" style="margin-bottom:0.75rem;">Now Open</span>
-      <h2 class="shop-promo-hl">The Sportscast Shop</h2>
-      <p class="shop-promo-sub">Official club merchandise, made in partnership with the teams you follow. Checkout is coming soon — browse what's available now.</p>
+      <span class="section-label" style="margin-bottom:0.75rem;">This Season</span>
+      <h2 class="shop-promo-hl">The Kits</h2>
+      <p class="shop-promo-sub">Home and away kits for Kenyan clubs, made in partnership with the teams you follow — football, rugby, and more as we go.</p>
     </div>
     <div class="shop-promo-form fade-up">
-      <a href="/shop.html" class="btn-red">Browse the Shop</a>
+      <a href="/shop.html" class="btn-red">See the Kits</a>
     </div>
   </div>
 </section>
@@ -1312,6 +1341,7 @@
     });
   }
 </script>
+<script src="/js/nav-dropdown.js"></script>
 <script src="/js/site.js"></script>
 <script src="/js/home.js"></script>
 </body>

@@ -1,6 +1,18 @@
 let allSports = [];
 let allAuthors = [];
 let allTags = [];
+let allLeagues = [];
+
+// League picker is scoped to whichever sport is currently selected — a
+// league tag only makes sense within its own sport, and the list would
+// otherwise be confusing (KPL showing up while editing a Rugby episode).
+function populateLeagueOptions(sportId) {
+  const select = document.getElementById('leagueId');
+  const leagues = allLeagues.filter((l) => l.sportId === sportId);
+  select.innerHTML = ['<option value="">— None — general sport commentary —</option>']
+    .concat(leagues.map((l) => `<option value="${l.id}">${escapeHtml(l.name)}</option>`))
+    .join('');
+}
 
 function populateSelect(select, items) {
   select.innerHTML = items.map((i) => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('');
@@ -30,6 +42,7 @@ function resetForm() {
   setSelectedTagIds([]);
   document.getElementById('video-fields').style.display = 'none';
   document.getElementById('article-form-error').style.display = 'none';
+  populateLeagueOptions(document.getElementById('sportId').value);
 }
 
 function showForm() {
@@ -82,6 +95,8 @@ function editArticle(article) {
   document.getElementById('episodeLabel').value = article.episodeLabel || '';
   document.getElementById('runtimeLabel').value = article.runtimeLabel || '';
   setSelectedTagIds(article.tags.map((t) => t.id));
+  populateLeagueOptions(article.sport.id);
+  document.getElementById('leagueId').value = article.leagueId || '';
   document.getElementById('video-fields').style.display = article.contentType === 'VIDEO_POST' ? 'block' : 'none';
   showForm();
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -110,6 +125,7 @@ function collectFormData() {
     videoSeries: document.getElementById('videoSeries').value.trim() || null,
     episodeLabel: document.getElementById('episodeLabel').value.trim() || null,
     runtimeLabel: document.getElementById('runtimeLabel').value.trim() || null,
+    leagueId: document.getElementById('leagueId').value || null,
   };
 }
 
@@ -123,15 +139,17 @@ async function initArticlesPage() {
   }
   document.getElementById('articles-app').style.display = 'block';
 
-  const [sportsRes, authorsRes, tagsRes] = await Promise.all([
-    api('/api/sports'), api('/api/authors'), api('/api/tags'),
+  const [sportsRes, authorsRes, tagsRes, leaguesRes] = await Promise.all([
+    api('/api/sports'), api('/api/authors'), api('/api/tags'), api('/api/leagues'),
   ]);
   allSports = sportsRes.sports;
   allAuthors = authorsRes.authors;
   allTags = tagsRes.tags;
+  allLeagues = leaguesRes.leagues;
   populateSelect(document.getElementById('sportId'), allSports);
   populateSelect(document.getElementById('authorId'), allAuthors);
   populateTagCheckboxes(allTags);
+  populateLeagueOptions(document.getElementById('sportId').value);
 
   document.getElementById('new-article-btn').addEventListener('click', () => {
     resetForm();
@@ -142,6 +160,9 @@ async function initArticlesPage() {
   });
   document.getElementById('contentType').addEventListener('change', (e) => {
     document.getElementById('video-fields').style.display = e.target.value === 'VIDEO_POST' ? 'block' : 'none';
+  });
+  document.getElementById('sportId').addEventListener('change', (e) => {
+    populateLeagueOptions(e.target.value);
   });
 
   document.getElementById('article-form').addEventListener('submit', async (e) => {

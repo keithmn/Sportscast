@@ -77,6 +77,11 @@ model Article {
   videoSeries   String?
   episodeLabel  String? // "Episode 001"
   runtimeLabel  String? // "58 min"
+  // Optional league/competition tag for Watch content (mirrors Team.leagueId
+  // below) — most episodes are general sport commentary, not tied to one
+  // competition, so this stays nullable rather than forcing a choice.
+  leagueId      String?
+  league        League?   @relation(fields: [leagueId], references: [id])
   publishedAt   DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -109,6 +114,7 @@ model League {
   fixtures         Fixture[]
   teams            Team[]
   clubs            Club[]
+  articles         Article[]
 
   @@unique([externalProvider, externalId])
 }

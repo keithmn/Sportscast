@@ -22,9 +22,10 @@ function articleCardHtml(a) {
 const SPORT_TABS = [
   { key: 'home', label: 'Home' },
   { key: 'news', label: 'News' },
+  { key: 'watch', label: 'Watch' },
   { key: 'scores', label: 'Scores & Fixtures' },
-  { key: 'clubs', label: 'Clubs' },
-  { key: 'shop', label: 'Shop' },
+  { key: 'clubs', label: 'Teams' },
+  { key: 'shop', label: 'Kits' },
 ];
 
 async function loadHomeTab(panelEl, sportSlug) {
@@ -44,6 +45,14 @@ function loadNewsTab(panelEl, sportSlug) {
   const latestEl = panelEl.querySelector('[data-news-latest]');
   const storiesEl = panelEl.querySelector('[data-news-stories]');
   return Promise.all([loadLatest(latestEl, sportSlug), loadStories(storiesEl, sportSlug)]);
+}
+
+async function loadWatchTab(panelEl, sportSlug) {
+  panelEl.innerHTML = '<div class="empty-state">Loading…</div>';
+  const { articles } = await api(`/api/articles?sport=${encodeURIComponent(sportSlug)}&contentType=VIDEO_POST&limit=12`);
+  panelEl.innerHTML = articles.length
+    ? `<div class="card-grid">${articles.map(articleCardHtml).join('')}</div>`
+    : '<p class="empty-state">No videos published yet for this sport.</p>';
 }
 
 async function loadScoresTab(panelEl, sportSlug) {
@@ -70,12 +79,15 @@ async function loadShopTab(panelEl, sportSlug) {
 const TAB_LOADERS = {
   home: loadHomeTab,
   news: loadNewsTab,
+  watch: loadWatchTab,
   scores: loadScoresTab,
   clubs: loadClubsTab,
   shop: loadShopTab,
 };
 
-function renderSportTabs(root, sportSlug) {
+// initialTab lets the main nav's Scores/Kits dropdowns (site.js) deep-link
+// straight into a specific tab instead of always opening on Home.
+function renderSportTabs(root, sportSlug, initialTab) {
   root.innerHTML = `
     <div class="filter-row" data-sport-tabs></div>
     <div data-tab-panel></div>`;
@@ -99,7 +111,8 @@ function renderSportTabs(root, sportSlug) {
     openTab(btn.dataset.key);
   });
 
-  openTab('home');
+  const validInitial = SPORT_TABS.some((t) => t.key === initialTab) ? initialTab : 'home';
+  openTab(validInitial);
 }
 
 async function loadSportPage() {
@@ -113,9 +126,9 @@ async function loadSportPage() {
 
   document.title = `${sportName} — The Sportscast`;
   document.getElementById('sport-title').textContent = sportName;
-  document.getElementById('sport-sub').textContent = `News, scores, clubs, and shop for ${sportName} in Kenya.`;
+  document.getElementById('sport-sub').textContent = `News, scores, teams, and kits for ${sportName} in Kenya.`;
 
-  renderSportTabs(root, slug);
+  renderSportTabs(root, slug, qs('tab'));
 }
 
 document.addEventListener('DOMContentLoaded', () => {

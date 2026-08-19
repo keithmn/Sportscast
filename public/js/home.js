@@ -79,6 +79,46 @@ function setupCarousel(count) {
   });
 }
 
+// Top Stories — reopens BLUEPRINT §11's brief-only boundary deliberately
+// (2026-08-19, see §21): featured/full stories first, falling back to the
+// most recent full stories if nothing's flagged featured yet. Big lead
+// item + 2 alongside it + up to 3 more in a row below, matching the
+// dormant .stories-r1/.stories-r2/.story--lg layout in index.html.
+function topStoryCardHtml(a, isLg) {
+  return `
+    <a href="/article.html?slug=${encodeURIComponent(a.slug)}" style="display:contents;">
+      <article class="story${isLg ? ' story--lg' : ''}">
+        ${a.coverImageUrl ? `<img class="story-thumb" src="${escapeHtml(a.coverImageUrl)}" alt="">` : ''}
+        <span class="story-cat">${escapeHtml(a.sport.name)}</span>
+        <h3 class="story-hl">${escapeHtml(a.title)}</h3>
+        <p class="story-desc">${escapeHtml(a.dek)}</p>
+        <div class="story-foot">
+          <span class="story-author">${escapeHtml(a.author.name)}</span>
+          <span class="story-time">${formatDate(a.publishedAt)}</span>
+        </div>
+      </article>
+    </a>`;
+}
+
+async function loadTopStories() {
+  const section = document.getElementById('top-stories');
+  const r1 = document.getElementById('stories-r1');
+  const r2 = document.getElementById('stories-r2');
+
+  let { articles } = await api('/api/articles?isBrief=false&featured=true&limit=6');
+  if (!articles.length) {
+    ({ articles } = await api('/api/articles?isBrief=false&limit=6'));
+  }
+  if (!articles.length) { section.style.display = 'none'; return; }
+
+  const [big, ...rest] = articles;
+  r1.innerHTML = topStoryCardHtml(big, true)
+    + (rest.length ? `<div class="stories-r1-col">${rest.slice(0, 2).map((a) => topStoryCardHtml(a, false)).join('')}</div>` : '');
+  const r2Items = rest.slice(2, 5);
+  r2.innerHTML = r2Items.map((a) => topStoryCardHtml(a, false)).join('');
+  r2.style.display = r2Items.length ? 'grid' : 'none';
+}
+
 // Deliberately small (3 items) and calm — a pointer into News & Articles,
 // not a feed trying to hold attention on its own. Briefs only, on purpose:
 // this is "nothing else" territory, per an explicit decision not to also
@@ -104,6 +144,8 @@ async function loadNewsStrip() {
 // Small, honest, football-only — matches the News strip's restraint rather
 // than becoming a full standings table. Degrades gracefully to an empty
 // state if no standings have been entered yet (see admin/scores.html).
+// 2026-08-19: extended to also show a few upcoming fixtures alongside
+// standings, reusing the same .archive-item row shape.
 async function loadScoresTeaser() {
   const root = document.getElementById('scores-teaser-root');
   const { leagues } = await api('/api/leagues');
@@ -111,7 +153,9 @@ async function loadScoresTeaser() {
 
   const { league } = await api(`/api/leagues/${encodeURIComponent(leagues[0].slug)}`);
   const top3 = league.standings.slice(0, 3);
-  root.innerHTML = top3.length
+  const upcoming = league.fixtures.filter((f) => f.status === 'SCHEDULED').slice(0, 3);
+
+  const standingsHtml = top3.length
     ? top3.map((r) => `
       <a href="/scores.html" class="archive-item">
         <span class="archive-item-content">
@@ -123,6 +167,39 @@ async function loadScoresTeaser() {
         </span>
       </a>`).join('')
     : '<p class="empty-state">Standings haven\'t been entered yet — check back soon.</p>';
+
+  const fixturesHtml = upcoming.map((f) => `
+    <a href="/scores.html" class="archive-item">
+      <span class="archive-item-content">
+        <span class="archive-item-main">
+          <span class="archive-item-cat">Upcoming</span>
+          <span class="archive-item-title">${escapeHtml(f.homeTeam)} vs ${escapeHtml(f.awayTeam)}</span>
+        </span>
+        <span class="archive-item-date">${formatDate(f.kickoff)}</span>
+      </span>
+    </a>`).join('');
+
+  root.innerHTML = standingsHtml + fixturesHtml;
+}
+
+// Teams rail (2026-08-19) — surfaces the Clubs & Players data (shipped
+// 2026-08-19) that had no homepage presence yet. Football-only for now,
+// same reasoning as the Scores teaser above.
+async function loadClubsTeaser() {
+  const root = document.getElementById('clubs-teaser-root');
+  const { clubs } = await api('/api/clubs');
+  const footballClubs = clubs.filter((c) => c.league.sport.slug === 'football').slice(0, 4);
+
+  root.innerHTML = footballClubs.length
+    ? footballClubs.map((c) => `
+      <a href="/sport.html?sport=football&tab=clubs" style="display:contents;">
+        <div class="card">
+          ${c.crestUrl ? `<img class="team-crest" src="${escapeHtml(c.crestUrl)}" alt="" onerror="this.remove()">` : ''}
+          <span class="card-eyebrow">${escapeHtml(c.league.name)}</span>
+          <h3 class="card-title">${escapeHtml(c.name)}</h3>
+        </div>
+      </a>`).join('')
+    : '<p class="empty-state">No teams added yet.</p>';
 }
 
 // initShopPromoForm()/initContactForm()/CONTACT_TAB_COPY removed 2026-08-19
@@ -131,8 +208,20 @@ async function loadScoresTeaser() {
 
 document.addEventListener('DOMContentLoaded', () => {
   loadFlagshipCarousel().catch((err) => console.warn('Could not load flagship carousel:', err));
+  loadTopStories().catch((err) => console.warn('Could not load top stories:', err));
   loadNewsStrip().catch((err) => console.warn('Could not load news strip:', err));
   loadScoresTeaser().catch((err) => console.warn('Could not load scores teaser:', err));
+  loadClubsTeaser().catch((err) => console.warn('Could not load teams teaser:', err));
   const nicheGrid = document.getElementById('niche-shows-grid');
   if (nicheGrid) loadLatestBadges(nicheGrid).catch((err) => console.warn('Could not load show badges:', err));
+
+  // index.html builds its own richer nav inline (fixed + scroll-state,
+  // see #main-nav) rather than going through site.js's renderNav(), so
+  // its Sports/Scores/Kits dropdowns need wiring here instead.
+  const mainNavLinks = document.querySelector('#main-nav .nav-links');
+  if (mainNavLinks) {
+    wireNavDropdownToggles(mainNavLinks);
+    loadNavDropdowns(mainNavLinks, { sports: null, scores: 'scores', kits: 'shop' })
+      .catch((err) => console.warn('Could not load nav dropdowns:', err));
+  }
 });

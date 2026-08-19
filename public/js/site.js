@@ -75,14 +75,18 @@ function confidencePill(confidence) {
   return `<span class="pill ${cls}">${escapeHtml(confidence || 'Unverified')}</span>`;
 }
 
+// News and Clubs dropped 2026-08-19 — they live inside each sport's own
+// hub now (Home | News | Watch | Scores & Fixtures | Teams tabs), rather
+// than being re-selected per top-level page. Sports/Scores/Kits are
+// dropdowns (see nav-dropdown.js) that jump straight into a sport's hub,
+// each opened on a different tab — Watch stays a plain link since it
+// isn't sport-hub-scoped content in the same way.
 const NAV_LINKS = [
-  { href: '/index.html', label: 'Home' },
-  { href: '/sports.html', label: 'Sports' },
-  { href: '/shows.html', label: 'Shows' },
-  { href: '/news.html', label: 'News' },
-  { href: '/scores.html', label: 'Scores & Fixtures' },
-  { href: '/clubs.html', label: 'Clubs' },
-  { href: '/shop.html', label: 'Shop' },
+  { type: 'link', href: '/index.html', label: 'Home' },
+  { type: 'dropdown', key: 'sports', label: 'Sports', tab: null },
+  { type: 'link', href: '/shows.html', label: 'Watch' },
+  { type: 'dropdown', key: 'scores', label: 'Scores', tab: 'scores' },
+  { type: 'dropdown', key: 'kits', label: 'Kits', tab: 'shop' },
 ];
 
 function renderNav(activeHref) {
@@ -97,9 +101,17 @@ function renderNav(activeHref) {
         </span>
       </a>
       <ul class="nav-links" role="list">
-        ${NAV_LINKS.map((l) => `<li><a href="${l.href}" class="${activeHref === l.href ? 'active' : ''}">${l.label}</a></li>`).join('')}
+        ${NAV_LINKS.map((l) => l.type === 'dropdown'
+          ? navDropdownTriggerHtml(l.key, l.label)
+          : `<li><a href="${l.href}" class="${activeHref === l.href ? 'active' : ''}">${l.label}</a></li>`
+        ).join('')}
       </ul>
     </nav>`;
+
+  const navEl = el.querySelector('.nav-links');
+  wireNavDropdownToggles(navEl);
+  const tabByKey = Object.fromEntries(NAV_LINKS.filter((l) => l.type === 'dropdown').map((l) => [l.key, l.tab]));
+  loadNavDropdowns(navEl, tabByKey).catch((err) => console.warn('Could not load nav dropdowns:', err));
 }
 
 // Consolidated 2026-08-19: this used to be a bare one-line copyright bar
@@ -164,12 +176,10 @@ function renderFooter() {
         <nav class="footer-nav" aria-label="Footer navigation">
           <a href="/">Home</a>
           <a href="/sports.html">Sports</a>
-          <a href="/shows.html">Shows</a>
+          <a href="/shows.html">Watch</a>
           <a href="/show.html?slug=the-sportscast">The Sportscast</a>
-          <a href="/news.html">News</a>
           <a href="/scores.html">Scores &amp; Fixtures</a>
-          <a href="/clubs.html">Clubs</a>
-          <a href="/shop.html">Shop</a>
+          <a href="/shop.html">Kits</a>
           <a href="/admin/index.html">Newsroom Login</a>
         </nav>
 

@@ -2,23 +2,17 @@ function kesFromCents(cents) {
   return Number(cents / 100).toLocaleString();
 }
 
+// Kits lookbook (2026-08-19): display-only for now — no price, no Add to
+// Cart. The commercial checkout underneath (Order/OrderItem, orders.js,
+// cart.js) is untouched and easy to re-enable later; this is a front-end
+// descope, not a rebuild. See BLUEPRINT.md.
 function kitTileHtml(kit, teamName) {
-  const sizes = (kit.sizesAvailable || '').split(',').map((s) => s.trim()).filter(Boolean);
   return `
     <div class="kit-tile" data-kit-id="${kit.id}">
       ${kit.photoUrl
         ? `<img class="kit-tile-photo" src="${escapeHtml(kit.photoUrl)}" alt="${escapeHtml(kit.label)}" onerror="this.replaceWith(Object.assign(document.createElement('div'), {className:'kit-tile-photo-empty', textContent:'Kit photo to be added'}))">`
         : `<div class="kit-tile-photo-empty">Kit photo to be added</div>`}
       <div class="kit-tile-label">${escapeHtml(kit.label)}</div>
-      <div class="kit-tile-price">KES ${kesFromCents(kit.priceKesCents)}</div>
-      ${sizes.length ? `
-        <select class="kit-size-select" style="margin-top:0.5rem; width:100%;">
-          ${sizes.map((s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
-        </select>` : ''}
-      <button type="button" class="btn-outline-sm add-to-cart-btn" style="margin-top:0.6rem; width:100%;"
-        data-kit-id="${kit.id}" data-team-name="${escapeHtml(teamName)}" data-label="${escapeHtml(kit.label)}" data-price="${kit.priceKesCents}">
-        Add to Cart
-      </button>
     </div>`;
 }
 
@@ -59,7 +53,6 @@ async function loadTeamKits(container, slug) {
     container.innerHTML = team.kits.length
       ? team.kits.map((k) => kitTileHtml(k, team.name)).join('')
       : '<p class="empty-state">No kits added for this team yet.</p>';
-    wireAddToCartButtons(container);
   } catch (err) {
     container.innerHTML = `<p class="empty-state">Could not load kits: ${escapeHtml(err.message)}</p>`;
   }
@@ -201,5 +194,6 @@ document.addEventListener('DOMContentLoaded', () => {
   loadShop().catch((err) => {
     document.getElementById('shop-root').innerHTML = `<div class="empty-state">Could not load the shop: ${escapeHtml(err.message)}</div>`;
   });
-  renderCart();
+  // renderCart() no longer called — Kits is display-only for now (see
+  // kitTileHtml above). Cart/checkout code below stays dormant, not deleted.
 });

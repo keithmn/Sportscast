@@ -69,6 +69,31 @@ img { display: block; max-width: 100%; }
 .nav-links a { font-family: 'Inter', sans-serif; font-weight: 500; font-size: var(--text-small); color: var(--text-secondary); }
 .nav-links a:hover, .nav-links a.active { color: var(--text-primary); }
 
+/* Sports/Scores/Kits — click/hover reveals a vertical list of active
+   sports (nav-dropdown.js). :focus-within covers keyboard nav; .open is
+   the click-toggle fallback for touch devices, where :hover never fires. */
+.nav-dropdown { position: relative; list-style: none; }
+.nav-dropdown-trigger {
+  font-family: 'Inter', sans-serif; font-weight: 500; font-size: var(--text-small); color: var(--text-secondary);
+  display: flex; align-items: center; gap: 0.35rem;
+}
+.nav-dropdown-trigger::after { content: '▾'; font-size: 0.65em; }
+.nav-dropdown:hover .nav-dropdown-trigger, .nav-dropdown:focus-within .nav-dropdown-trigger, .nav-dropdown.open .nav-dropdown-trigger { color: var(--text-primary); }
+.nav-dropdown-panel {
+  display: none;
+  position: absolute; top: 100%; left: 0; margin-top: 0.75rem;
+  min-width: 200px;
+  background: var(--bg-surface); border: 1px solid var(--border);
+  flex-direction: column; padding: 0.5rem 0;
+  z-index: 210;
+}
+.nav-dropdown:hover .nav-dropdown-panel, .nav-dropdown:focus-within .nav-dropdown-panel, .nav-dropdown.open .nav-dropdown-panel { display: flex; }
+.nav-dropdown-panel a {
+  font-family: 'Inter', sans-serif; font-size: var(--text-small); color: var(--text-secondary);
+  padding: 0.55rem 1.1rem;
+}
+.nav-dropdown-panel a:hover { color: var(--text-primary); background: var(--bg-elevated); }
+
 /* ===== BUTTONS ===== */
 .btn-red, .btn-ghost, .btn-outline-sm {
   font-family: 'Barlow Condensed', sans-serif;
