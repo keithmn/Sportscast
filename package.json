@@ -11,7 +11,8 @@
     "prisma:generate": "prisma generate",
     "seed": "node prisma/seed.js",
     "sync:leagues": "node server/jobs/syncLeagues.js",
-    "sync:squads": "node server/jobs/syncSquads.js"
+    "sync:squads": "node server/jobs/syncSquads.js",
+    "sync:kenyacup": "node server/jobs/syncKenyaCup.js"
   },
   "engines": {
     "node": ">=18"
@@ -19,6 +20,7 @@
   "dependencies": {
     "@prisma/client": "^5.19.1",
     "bcryptjs": "^2.4.3",
+    "cheerio": "^1.2.0",
     "dotenv": "^16.6.1",
     "express": "^4.19.2",
     "express-session": "^1.18.0",

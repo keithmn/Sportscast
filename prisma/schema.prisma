@@ -100,9 +100,13 @@ model League {
   slug             String        @unique
   sportId          String
   sport            Sport         @relation(fields: [sportId], references: [id])
-  source           String        @default("MANUAL") // MANUAL | API — how standings/fixtures are populated
+  source           String        @default("MANUAL") // MANUAL | API | SCRAPED — how standings/fixtures are populated.
+  // API = a real vendor API with a data contract (football-data.org).
+  // SCRAPED = parsed from a federation's own public page, no real API
+  // exists (e.g. kenyacup.co.ke) — more fragile, breaks if their HTML
+  // changes; see server/jobs/syncKenyaCup.js.
   region           String        @default("KENYA") // KENYA | GLOBAL — drives Scores & Fixtures' default-open view
-  externalProvider String? // "football-data.org" — null for MANUAL leagues
+  externalProvider String? // "football-data.org", "kenyacup.co.ke" — null for MANUAL leagues
   externalId       String? // provider's competition code, e.g. "PL", "CL", "BL1"
   lastSyncedAt     DateTime?
   syncStatus       String? // OK | ERROR — set by the sync job, surfaced in admin only

@@ -14,6 +14,7 @@ const orderRoutes = require('./routes/orders');
 const clubRoutes = require('./routes/clubs');
 const { syncLeagues } = require('./jobs/syncLeagues');
 const { syncSquads } = require('./jobs/syncSquads');
+const { syncKenyaCup } = require('./jobs/syncKenyaCup');
 
 const app = express();
 
@@ -61,4 +62,12 @@ cron.schedule(SYNC_INTERVAL_CRON, () => {
 const SQUAD_SYNC_CRON = process.env.SQUAD_SYNC_CRON || '0 3 * * *';
 cron.schedule(SQUAD_SYNC_CRON, () => {
   syncSquads().catch((err) => console.error('[syncSquads] Unhandled error:', err));
+});
+
+// Kenya Cup standings, scraped from kenyacup.co.ke (no real API exists) —
+// deliberately infrequent given this is "no known prohibition," not
+// "confirmed permission," and rugby doesn't play midweek anyway.
+const KENYA_CUP_SYNC_CRON = process.env.KENYA_CUP_SYNC_CRON || '0 4 * * *';
+cron.schedule(KENYA_CUP_SYNC_CRON, () => {
+  syncKenyaCup().catch((err) => console.error('[syncKenyaCup] Unhandled error:', err));
 });
