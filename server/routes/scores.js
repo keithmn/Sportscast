@@ -74,6 +74,20 @@ router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   res.status(201).json({ league });
 });
 
+// ---- Admin: toggle a league's squad-sync flag ----
+// Deliberately opt-in, one league at a time — Wikidata's soft rate limits
+// mean syncing every league's full squads at once isn't realistic; this is
+// the control for choosing which leagues actually get Club/Player data.
+router.put('/:id/sync-squads', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const { syncSquads } = req.body;
+  const league = await prisma.league.update({
+    where: { id: req.params.id },
+    data: { syncSquads: Boolean(syncSquads) },
+  });
+  await logChange('LEAGUE', league.id, 'UPDATE', `${syncSquads ? 'Enabled' : 'Disabled'} squad sync for "${league.name}"`, req.session.user.name);
+  res.json({ league });
+});
+
 // ---- Admin: replace a league's standings table wholesale ----
 // Simplest correct approach for a small, manually-curated table: the admin
 // re-submits the full table on every save rather than editing rows one at a

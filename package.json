@@ -10,7 +10,8 @@
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:generate": "prisma generate",
     "seed": "node prisma/seed.js",
-    "sync:leagues": "node server/jobs/syncLeagues.js"
+    "sync:leagues": "node server/jobs/syncLeagues.js",
+    "sync:squads": "node server/jobs/syncSquads.js"
   },
   "engines": {
     "node": ">=18"

@@ -46,6 +46,11 @@ function leagueBlockHtml(league, teamNames) {
         ${teamNames.map((n) => `<option value="${escapeHtml(n)}">`).join('')}
       </datalist>
 
+      <label class="checkbox-row" style="margin-top:0.75rem;">
+        <input type="checkbox" class="sync-squads-toggle" data-league-id="${league.id}" ${league.syncSquads ? 'checked' : ''}>
+        <span style="font-size:0.85rem;">Sync club/player rosters for this league (Wikidata, once daily — needs standings entered first)</span>
+      </label>
+
       <div style="margin-top:1.5rem;">
         <span class="section-label" style="font-size:0.68rem;">Standings</span>
         <div id="standings-rows-${league.id}">
@@ -153,6 +158,16 @@ async function loadLeagues() {
     return { league, teamNames };
   }));
   root.innerHTML = fullLeagues.map(({ league, teamNames }) => leagueBlockHtml(league, teamNames)).join('');
+
+  root.querySelectorAll('.sync-squads-toggle').forEach((checkbox) => {
+    checkbox.addEventListener('change', async () => {
+      await api(`/api/leagues/${checkbox.dataset.leagueId}/sync-squads`, {
+        method: 'PUT',
+        body: JSON.stringify({ syncSquads: checkbox.checked }),
+      });
+      loadChangeLog();
+    });
+  });
 
   root.querySelectorAll('.add-row-btn').forEach((btn) => {
     btn.addEventListener('click', () => {

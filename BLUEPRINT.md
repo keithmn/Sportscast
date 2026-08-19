@@ -475,3 +475,67 @@ API) shut down in late 2024; its community successor Jolpica-F1 is free
 but volunteer-run on a small budget, not a stable commercial dependency —
 and covers F1 only, not local Kenyan motorsport, which (like KPL) has no
 API at all regardless.
+
+## 20. Clubs & Players (2026-08-19)
+
+New public concept: **Club** and **Player** — deliberately not named "Team,"
+which already means the Shop's merch catalog (a completely different
+thing). Same MANUAL/API split already established for `League`:
+
+- **Local clubs (KPL, NSL)**: entered by hand via `admin/clubs.html` —
+  name, crest, venue, then players one at a time (name, position,
+  nationality, age, photo).
+- **Global clubs**: filled in automatically by `server/jobs/syncSquads.js`,
+  but only for leagues an admin has explicitly opted in via a checkbox on
+  `admin/scores.html` (`League.syncSquads`) — not all leagues at once.
+
+**Why Wikidata, not a commercial provider** — checked three paid/freemium
+options first and ruled each out for a real reason, not by default:
+- **API-Football free tier**: confirmed via a real test call that it only
+  has data for seasons **2022–2024**, not the current season — a squad
+  page built on it would show a 2–3-year-old roster as if it were today's.
+  Its own terms also explicitly disclaim commercial/mass-media rights on
+  competition data (verified directly against api-football.com/terms, not
+  inferred from a sibling product).
+- **football-data.org** (already trusted for scores/fixtures): squad data
+  is gated behind a paid "deep data pack" add-on (~€29/mo) — not available
+  on the free tier at all.
+- **TheSportsDB, Sportmonks**: free tiers exist but are non-commercial-only
+  or restricted to 1–2 minor leagues that don't overlap with what's
+  already on the site.
+
+Wikidata is free, explicitly public-domain (CC0), and — confirmed by
+building and testing the actual queries, not assumed — genuinely current
+for prominent clubs/players. The naive query ("team-membership statement
+with no end-date = current") does **not** work: it pulled in Manchester
+United players from the 1870s whose Wikidata entries simply never got an
+end-date added. The reliable signal, found by inspecting real query
+results rather than guessing: filtering for a team-membership statement
+whose own "point in time" stats qualifier (P585 — when appearance/goal
+counts were last updated for that stint) is recent. This trades
+completeness for correctness — a club's fringe/reserve players without a
+recently-updated stat line won't appear, but everyone who does appear is
+genuinely verified current (spot-checked against Arsenal's real 2026
+squad — Havertz, Saka, Rice, Saliba, Raya, Gyökeres, all correct).
+
+`syncSquads.js` derives its team list from each league's own
+`StandingRow` data (already authoritative for API leagues from the
+football-data.org sync) rather than asking Wikidata "which teams are in
+this league" — that query is historical/all-time on Wikidata, not
+season-scoped, and much messier to filter reliably. Wikidata's public
+endpoints soft-throttle bursts of requests (confirmed: hit real 429s at
+1.5s spacing on a live run) despite publishing no hard quota — the job
+retries with backoff rather than just spacing calls further apart and
+hoping. Runs once daily via `node-cron` (squad rosters don't change often
+enough to need more) — separately from the 30-minute league-scores sync.
+
+**New pages**: public `/clubs.html` (sport → league → club, same
+`category-toggle.js` component as Shows/Scores/Shop) and `/club.html`
+(one club's crest, venue, and squad grid). Admin `admin/clubs.html` for
+manual entry. "Clubs" added to the main nav and footer nav between Scores
+and Shop.
+
+**Deliberately not done**: Fixture/StandingRow team names still aren't
+linked to Club records — they stay plain strings, matched by convention
+(aided by the team-name autocomplete built in §19). Linking them would be
+a bigger, riskier schema change for limited practical benefit right now.

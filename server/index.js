@@ -11,7 +11,9 @@ const scoresRoutes = require('./routes/scores');
 const submissionRoutes = require('./routes/submissions');
 const shopRoutes = require('./routes/shop');
 const orderRoutes = require('./routes/orders');
+const clubRoutes = require('./routes/clubs');
 const { syncLeagues } = require('./jobs/syncLeagues');
+const { syncSquads } = require('./jobs/syncSquads');
 
 const app = express();
 
@@ -30,6 +32,7 @@ app.use('/api/leagues', scoresRoutes);
 app.use('/api/submissions', submissionRoutes);
 app.use('/api/shop', shopRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/clubs', clubRoutes);
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -50,4 +53,12 @@ app.listen(PORT, () => {
 const SYNC_INTERVAL_CRON = process.env.SYNC_INTERVAL_CRON || '*/30 * * * *';
 cron.schedule(SYNC_INTERVAL_CRON, () => {
   syncLeagues().catch((err) => console.error('[syncLeagues] Unhandled error:', err));
+});
+
+// Squad rosters change far less often than scores — once a day is plenty,
+// and keeps this well clear of Wikidata's soft rate limits even across a
+// run that touches several leagues' full squads.
+const SQUAD_SYNC_CRON = process.env.SQUAD_SYNC_CRON || '0 3 * * *';
+cron.schedule(SQUAD_SYNC_CRON, () => {
+  syncSquads().catch((err) => console.error('[syncSquads] Unhandled error:', err));
 });

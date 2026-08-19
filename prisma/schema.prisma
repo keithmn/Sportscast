@@ -96,41 +96,46 @@ model League {
   externalId       String? // provider's competition code, e.g. "PL", "CL", "BL1"
   lastSyncedAt     DateTime?
   syncStatus       String? // OK | ERROR — set by the sync job, surfaced in admin only
+  // Opt-in per league — syncSquads.js derives the team list from this
+  // league's own StandingRow data (already authoritative for API leagues),
+  // so no separate external league id is needed here at all.
+  syncSquads       Boolean       @default(false)
   standings        StandingRow[]
   fixtures         Fixture[]
   teams            Team[]
+  clubs            Club[]
 
   @@unique([externalProvider, externalId])
 }
 
 model StandingRow {
-  id             String  @id @default(cuid())
-  leagueId       String
-  league         League  @relation(fields: [leagueId], references: [id])
-  position       Int
-  teamName       String
-  played         Int     @default(0)
-  won            Int     @default(0)
-  drawn          Int     @default(0)
-  lost           Int     @default(0)
-  goalsFor       Int     @default(0)
-  goalsAgainst   Int     @default(0)
-  points         Int     @default(0)
-  updatedAt      DateTime @updatedAt
+  id           String   @id @default(cuid())
+  leagueId     String
+  league       League   @relation(fields: [leagueId], references: [id])
+  position     Int
+  teamName     String
+  played       Int      @default(0)
+  won          Int      @default(0)
+  drawn        Int      @default(0)
+  lost         Int      @default(0)
+  goalsFor     Int      @default(0)
+  goalsAgainst Int      @default(0)
+  points       Int      @default(0)
+  updatedAt    DateTime @updatedAt
 }
 
 model Fixture {
-  id             String    @id @default(cuid())
-  leagueId       String
-  league         League    @relation(fields: [leagueId], references: [id])
-  homeTeam       String
-  awayTeam       String
-  kickoff        DateTime
+  id              String    @id @default(cuid())
+  leagueId        String
+  league          League    @relation(fields: [leagueId], references: [id])
+  homeTeam        String
+  awayTeam        String
+  kickoff         DateTime
   originalKickoff DateTime? // set once, the first time a fixture is postponed — so "was X, now Y" can be shown, not just the new date
-  homeScore      Int?
-  awayScore      Int?
-  status         String    @default("SCHEDULED") // SCHEDULED | LIVE | FINISHED | POSTPONED
-  updatedAt      DateTime  @updatedAt
+  homeScore       Int?
+  awayScore       Int?
+  status          String    @default("SCHEDULED") // SCHEDULED | LIVE | FINISHED | POSTPONED
+  updatedAt       DateTime  @updatedAt
 
   // Lets the league sync job upsert instead of wholesale delete+recreate
   // (unlike standings, blowing fixtures away every run would lose
@@ -162,9 +167,9 @@ model Team {
 // kit) — label is free text, not a fixed enum, so that's just another row,
 // not a special case.
 model Kit {
-  id             String   @id @default(cuid())
+  id             String      @id @default(cuid())
   teamId         String
-  team           Team     @relation(fields: [teamId], references: [id])
+  team           Team        @relation(fields: [teamId], references: [id])
   label          String // "Home" | "Away" | "Third" | ... — admin-entered, open-ended
   photoUrl       String? // nullable — same honest-empty-state pattern as Article.coverImageUrl; renders a placeholder, not fake data
   priceKesCents  Int // integer minor-unit KES — avoids float rounding, matches Flutterwave's amount handling
@@ -195,13 +200,13 @@ model Order {
 }
 
 model OrderItem {
-  id                String @id @default(cuid())
+  id                String  @id @default(cuid())
   orderId           String
-  order             Order  @relation(fields: [orderId], references: [id])
+  order             Order   @relation(fields: [orderId], references: [id])
   kitId             String
-  kit               Kit    @relation(fields: [kitId], references: [id])
+  kit               Kit     @relation(fields: [kitId], references: [id])
   size              String?
-  quantity          Int    @default(1)
+  quantity          Int     @default(1)
   unitPriceKesCents Int // price SNAPSHOT at order time — never re-read Kit.priceKesCents for historical totals
 }
 
@@ -233,4 +238,42 @@ model ChangeLog {
   summary    String // "Postponed Gor Mahia vs Tusker: 23 Aug → 30 Aug", "Bulk imported 18 fixtures", ...
   userName   String
   createdAt  DateTime @default(now())
+}
+
+// ===================== CLUBS & PLAYERS (2026-08-19) =====================
+// Deliberately named Club/Player, not Team — "Team" already means the
+// Shop's merch catalog (Team/Kit models above), a completely different
+// concept. Same MANUAL/API split as League: a KPL club is entered by hand
+// via admin/clubs.html; a Premier League club is filled in by
+// syncSquads.js. Every public page renders both identically — nothing
+// downstream needs to know or care which. Standings/Fixture team names
+// stay plain strings, unlinked to Club — that would be a bigger, riskier
+// schema change for limited practical benefit right now; a club's name
+// just needs to match the fixture spelling by convention.
+model Club {
+  id           String    @id @default(cuid())
+  name         String
+  slug         String    @unique
+  leagueId     String
+  league       League    @relation(fields: [leagueId], references: [id])
+  crestUrl     String?
+  venue        String?
+  source       String    @default("MANUAL") // MANUAL | API
+  externalId   String? // Wikidata QID ("Q18656") — null for MANUAL clubs
+  lastSyncedAt DateTime?
+  players      Player[]
+  createdAt    DateTime  @default(now())
+}
+
+model Player {
+  id          String   @id @default(cuid())
+  clubId      String
+  club        Club     @relation(fields: [clubId], references: [id])
+  name        String
+  position    String?
+  nationality String?
+  age         Int?
+  photoUrl    String?
+  externalId  String? // Wikidata QID ("Q7550600") — null for MANUAL entries
+  createdAt   DateTime @default(now())
 }

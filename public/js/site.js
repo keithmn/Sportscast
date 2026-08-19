@@ -80,6 +80,7 @@ const NAV_LINKS = [
   { href: '/shows.html', label: 'Shows' },
   { href: '/news.html', label: 'News' },
   { href: '/scores.html', label: 'Scores & Fixtures' },
+  { href: '/clubs.html', label: 'Clubs' },
   { href: '/shop.html', label: 'Shop' },
 ];
 
@@ -165,6 +166,7 @@ function renderFooter() {
           <a href="/show.html?slug=the-sportscast">The Sportscast</a>
           <a href="/news.html">News</a>
           <a href="/scores.html">Scores &amp; Fixtures</a>
+          <a href="/clubs.html">Clubs</a>
           <a href="/shop.html">Shop</a>
           <a href="/admin/index.html">Newsroom Login</a>
         </nav>

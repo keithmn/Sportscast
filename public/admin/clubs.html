@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clubs &amp; Players — The Sportscast Newsroom</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/site.css">
+  <style>
+    .player-row-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 0.6fr 2fr auto; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
+  </style>
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="admin-sidebar">
+      <div class="nav-logo" style="margin-bottom:2rem;">
+        <div><span class="nav-logo-mark" style="font-size:1.1rem;">THE SPORTSCAST</span><br><span style="font-family:'Inter',sans-serif; font-size:0.7rem; color:var(--text-secondary);">Newsroom</span></div>
+      </div>
+      <a href="/admin/dashboard.html">Dashboard</a>
+      <a href="/admin/articles.html">Articles</a>
+      <a href="/admin/scores.html">Scores &amp; Fixtures</a>
+      <a href="/admin/clubs.html" class="active">Clubs &amp; Players</a>
+      <a href="/admin/teams.html">Shop Teams</a>
+      <a href="/admin/orders.html">Orders</a>
+      <a href="/admin/submissions.html">Submissions</a>
+      <a href="/index.html">View Site</a>
+      <a href="#" id="logout-link">Log Out</a>
+    </aside>
+    <main class="admin-main">
+      <div class="admin-topbar">
+        <h1 class="page-title" style="font-size:1.75rem;">Clubs &amp; Players</h1>
+        <span id="whoami" class="page-sub"></span>
+      </div>
+      <p class="page-sub" style="margin-bottom:2rem;">
+        Local clubs (KPL, NSL) are entered here by hand. Global-league clubs fill in automatically from Wikidata once
+        you enable squad sync for that league on the <a href="/admin/scores.html">Scores &amp; Fixtures</a> page —
+        don't hand-edit those, the next sync will overwrite changes.
+      </p>
+      <div id="access-denied" class="form-error" style="display:none;">You don't have permission to manage this.</div>
+      <div id="clubs-app" style="display:none;">
+        <div id="new-club-form" class="form-grid" style="max-width:520px; margin-bottom:3rem;">
+          <span class="section-label">Add a Club</span>
+          <div class="form-row">
+            <div class="form-field">
+              <label for="club-name">Club name</label>
+              <input type="text" id="club-name" placeholder="Gor Mahia FC">
+            </div>
+            <div class="form-field">
+              <label for="club-league">League</label>
+              <select id="club-league"></select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label for="club-crest">Crest URL (optional)</label>
+              <input type="text" id="club-crest" placeholder="/images/clubs/gor-mahia.jpg">
+            </div>
+            <div class="form-field">
+              <label for="club-venue">Home venue (optional)</label>
+              <input type="text" id="club-venue" placeholder="Moi International Stadium">
+            </div>
+          </div>
+          <button type="button" class="btn-red" id="add-club-btn" style="width:fit-content;">Add Club</button>
+        </div>
+
+        <div id="clubs-root"></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/site.js"></script>
+  <script src="/admin/js/guard.js"></script>
+  <script src="/admin/js/clubs.js"></script>
+</body>
+</html>
