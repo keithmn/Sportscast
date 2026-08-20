@@ -27,6 +27,7 @@ const { syncLeagues } = require('./jobs/syncLeagues');
 const { syncSquads } = require('./jobs/syncSquads');
 const { syncKenyaCup } = require('./jobs/syncKenyaCup');
 const { syncTheSportsDB } = require('./jobs/syncTheSportsDB');
+const { syncBallDontLie } = require('./jobs/syncBallDontLie');
 
 const app = express();
 
@@ -91,4 +92,14 @@ cron.schedule(KENYA_CUP_SYNC_CRON, () => {
 const THESPORTSDB_SYNC_CRON = process.env.THESPORTSDB_SYNC_CRON || '30 4 * * *';
 cron.schedule(THESPORTSDB_SYNC_CRON, () => {
   syncTheSportsDB().catch((err) => console.error('[syncTheSportsDB] Unhandled error:', err));
+});
+
+// NBA fixtures via balldontlie.io — added alongside TheSportsDB's EuroLeague
+// feed, not instead of it, so Basketball carries both competitions plus the
+// local KBF Premier League. syncBallDontLie() itself no-ops with a warning
+// if BALLDONTLIE_API_KEY isn't set. Offset by 5 minutes from the
+// TheSportsDB slot purely so the two never overlap on a shared host.
+const BALLDONTLIE_SYNC_CRON = process.env.BALLDONTLIE_SYNC_CRON || '35 4 * * *';
+cron.schedule(BALLDONTLIE_SYNC_CRON, () => {
+  syncBallDontLie().catch((err) => console.error('[syncBallDontLie] Unhandled error:', err));
 });

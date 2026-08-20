@@ -13,7 +13,8 @@
     "sync:leagues": "node server/jobs/syncLeagues.js",
     "sync:squads": "node server/jobs/syncSquads.js",
     "sync:kenyacup": "node server/jobs/syncKenyaCup.js",
-    "sync:thesportsdb": "node server/jobs/syncTheSportsDB.js"
+    "sync:thesportsdb": "node server/jobs/syncTheSportsDB.js",
+    "sync:balldontlie": "node server/jobs/syncBallDontLie.js"
   },
   "engines": {
     "node": ">=18"
