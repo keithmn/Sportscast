@@ -26,6 +26,7 @@ const clubRoutes = require('./routes/clubs');
 const { syncLeagues } = require('./jobs/syncLeagues');
 const { syncSquads } = require('./jobs/syncSquads');
 const { syncKenyaCup } = require('./jobs/syncKenyaCup');
+const { syncTheSportsDB } = require('./jobs/syncTheSportsDB');
 
 const app = express();
 
@@ -81,4 +82,13 @@ cron.schedule(SQUAD_SYNC_CRON, () => {
 const KENYA_CUP_SYNC_CRON = process.env.KENYA_CUP_SYNC_CRON || '0 4 * * *';
 cron.schedule(KENYA_CUP_SYNC_CRON, () => {
   syncKenyaCup().catch((err) => console.error('[syncKenyaCup] Unhandled error:', err));
+});
+
+// International fixtures (Six Nations, EuroLeague, world-title boxing, PDC
+// Darts) via TheSportsDB's free tier — daily is plenty, these aren't
+// Kenya-specific so there's no local urgency, and it keeps well clear of
+// any rate limit.
+const THESPORTSDB_SYNC_CRON = process.env.THESPORTSDB_SYNC_CRON || '30 4 * * *';
+cron.schedule(THESPORTSDB_SYNC_CRON, () => {
+  syncTheSportsDB().catch((err) => console.error('[syncTheSportsDB] Unhandled error:', err));
 });

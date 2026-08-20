@@ -23,15 +23,26 @@ function standingsTableHtml(standings) {
 }
 
 function fixtureRowHtml(f) {
-  const scoreOrTime = f.status === 'FINISHED'
+  // A "FINISHED" status doesn't always mean a real two-sided score exists —
+  // PDC Darts tournament-day events (no awayTeam, see below) come back FT
+  // with no score at all, so a 0-0 fallback there would be actively
+  // misleading rather than just unknown. Show the date instead whenever
+  // there's no real score to show, regardless of status.
+  const hasRealScore = f.homeScore != null || f.awayScore != null;
+  const scoreOrTime = f.status === 'FINISHED' && hasRealScore
     ? `<span class="fixture-score">${f.homeScore ?? 0} – ${f.awayScore ?? 0}</span>`
     : `<span class="fixture-meta">${formatDate(f.kickoff)}</span>`;
   const postponedNote = f.status === 'POSTPONED' && f.originalKickoff
     ? `<div class="fixture-meta" style="margin-top:0.2rem;">Was ${formatDate(f.originalKickoff)} — now ${formatDate(f.kickoff)}</div>`
     : '';
+  // Most fixtures are two-sided (X vs Y); a few synced competitions (PDC
+  // Darts tournament-day events) have no real "away" side at all — see
+  // syncTheSportsDB.js's 'event' kind — so awayTeam is blank on purpose,
+  // not a data error, and just shows the event name alone.
+  const teamsLabel = f.awayTeam ? `${escapeHtml(f.homeTeam)} vs ${escapeHtml(f.awayTeam)}` : escapeHtml(f.homeTeam);
   return `
     <div class="fixture-row" style="flex-wrap:wrap;">
-      <span class="fixture-teams">${escapeHtml(f.homeTeam)} vs ${escapeHtml(f.awayTeam)}</span>
+      <span class="fixture-teams">${teamsLabel}</span>
       <span>${scoreOrTime}<span class="fixture-status ${escapeHtml(f.status)}">${escapeHtml(f.status)}</span></span>
       ${postponedNote}
     </div>`;

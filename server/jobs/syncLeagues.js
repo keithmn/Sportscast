@@ -123,7 +123,10 @@ async function syncLeagues() {
     return;
   }
 
-  const leagues = await prisma.league.findMany({ where: { source: 'API' } });
+  // externalProvider filter matters now that other API-sourced leagues exist
+  // (TheSportsDB, see syncTheSportsDB.js) — this job only knows how to talk
+  // to football-data.org's endpoint shape.
+  const leagues = await prisma.league.findMany({ where: { source: 'API', externalProvider: 'football-data.org' } });
   if (!leagues.length) {
     console.log('[syncLeagues] No API-sourced leagues to sync.');
     return;
