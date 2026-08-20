@@ -98,10 +98,7 @@ function renderNav(activeHref) {
   el.innerHTML = `
     <nav class="nav">
       <a href="/index.html" class="nav-logo" aria-label="The Sportscast — Home">
-        <span class="logo-wrap">
-          <span class="nav-logo-mark">THE SPORTSCAST</span>
-          <span class="logo-badge"><span class="logo-badge-by">by</span><span class="logo-badge-brand">Underdawgs</span></span>
-        </span>
+        <img src="/brand/logo/lockup-lower-black.png" alt="The Sportscast by Underdawgs" style="height:40px; width:auto;">
       </a>
       <ul class="nav-links" role="list">
         ${NAV_LINKS.map((l) => l.type === 'dropdown'
@@ -131,11 +128,8 @@ function renderFooter() {
       <div class="container">
         <div class="footer-top">
           <div>
-            <span class="logo-wrap">
-              <a href="/" class="footer-logo">The Sportscast</a>
-              <span class="logo-badge"><span class="logo-badge-by">by</span><span class="logo-badge-brand">Underdawgs</span></span>
-            </span>
-            <span class="footer-tl" style="display:block; margin-top:0.5rem;">Where Kenyan sports live.</span>
+            <a href="/" aria-label="The Sportscast — Home"><img src="/brand/logo/lockup-lower-black.png" alt="The Sportscast by Underdawgs" style="height:36px; width:auto;"></a>
+            <span class="footer-tl" style="display:block; margin-top:0.75rem;">Where Kenyan sports live.</span>
           </div>
           <div class="footer-socials" aria-label="Social media links">
             <a href="#" aria-label="Follow us on X"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.748l7.73-8.836L2.25 2.25h6.977l4.26 5.63zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>

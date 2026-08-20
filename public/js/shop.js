@@ -112,7 +112,7 @@ function renderCart() {
   root.innerHTML = `
     <span class="section-label">Your Cart</span>
     <div style="margin-bottom:1.5rem;">${cart.map(cartRowHtml).join('')}</div>
-    <p style="font-family:'Barlow Condensed',sans-serif; font-weight:800; font-size:1.25rem; margin-bottom:2rem;">
+    <p style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:1.25rem; margin-bottom:2rem;">
       Total: KES ${kesFromCents(cartTotalKesCents())}
     </p>
 

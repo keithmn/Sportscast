@@ -44,7 +44,7 @@ async function pollOrder(orderId, attempt = 0) {
     <div style="margin-top:2rem;">
       <span class="section-label">Order ${escapeHtml(order.id)}</span>
       ${order.items.map(orderItemRowHtml).join('')}
-      <p style="font-family:'Barlow Condensed',sans-serif; font-weight:800; font-size:1.15rem; margin-top:1rem;">
+      <p style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:1.15rem; margin-top:1rem;">
         Total: KES ${Number(order.totalKesCents / 100).toLocaleString()}
       </p>
     </div>`;

@@ -1,17 +1,35 @@
 /* Shared brand system — extracted from the original landing page so every
-   new page (articles, sports database, admin) matches the site's look. */
+   new page (articles, sports database, admin) matches the site's look.
+   2026-08-20: retinted to the official brand kit (public/brand/README.md,
+   public/brand/tokens.css) — gold as the primary colour, black/white as
+   structure. Site stays dark-ground throughout (a deliberate choice, see
+   BLUEPRINT.md) rather than the kit's own paper/white reference default;
+   --sc-* tokens below are the kit's own names, kept alongside the existing
+   token names (which now just resolve to them) so component CSS below
+   didn't need a wholesale rewrite. */
 
 :root {
-  --bg-primary:    #1E1E1E;
-  --bg-surface:    #252525;
-  --bg-elevated:   #2E2E2E;
-  --brand-gold:    #FBBC1E;
-  --brand-brown:   #8B5E3C;
-  --danger:        #C13422;
-  --text-primary:  #F5F0E8;
-  --text-secondary:#9A9A9A;
-  --border:        #383838;
-  --success:       #2D7A55;
+  --sc-gold:       #F3B01C;
+  --sc-gold-hover: #D89A10;
+  --sc-gold-deep:  #8A6110;
+  --sc-black:      #0D0D0D;
+  --sc-paper:      #FFFFFF;
+  --sc-hide:       #B87848;
+  --sc-cream:      #F5EAD7;
+  --sc-rule:       #E2D8C4;
+  --sc-rule-dark:  #2A2A2A;
+
+  --bg-primary:    var(--sc-black);
+  --bg-surface:    var(--sc-black); /* flattened per brand kit — cards separated by --border hairline, not a lighter fill */
+  --bg-elevated:   var(--sc-black);
+  --brand-gold:    var(--sc-gold);
+  --brand-brown:   var(--sc-hide);
+  --danger:        #C13422; /* brand kit defines no error colour — kept as-is */
+  --text-primary:  var(--sc-paper);
+  --text-secondary:#9A9A9A; /* brand kit defines no secondary-text colour — kept as-is, still reads fine on black */
+  --border:        var(--sc-rule-dark);
+  --success:       #2D7A55; /* brand kit defines no success colour — kept as-is */
+  --radius:        0;
 
   --text-display: clamp(2rem, 5vw, 3.75rem);
   --text-heading: clamp(1.25rem, 2.5vw, 1.875rem);
@@ -25,10 +43,11 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
+:focus-visible { outline: 2px solid var(--sc-gold); outline-offset: 2px; }
 body {
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: 'Inter', sans-serif;
+  font-family: 'Nunito', sans-serif;
   font-size: var(--text-body);
   line-height: 1.6;
 }
@@ -40,7 +59,7 @@ img { display: block; max-width: 100%; }
 .container { max-width: var(--max-width); margin: 0 auto; padding: 0 var(--px); }
 
 .section-label {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Nunito', sans-serif;
   font-size: var(--text-micro);
   font-weight: 600;
   letter-spacing: 0.18em;
@@ -55,18 +74,18 @@ img { display: block; max-width: 100%; }
   position: sticky; top: 0; z-index: 200;
   display: flex; align-items: center; justify-content: space-between;
   padding: 1.25rem var(--px);
-  background: rgba(18, 24, 32, 0.96);
+  background: rgba(13, 13, 13, 0.96);
   backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border);
 }
 .nav-logo { display: flex; align-items: center; gap: 0.625rem; padding-left: 0.75rem; border-left: 3px solid var(--brand-gold); line-height: 1; }
-.nav-logo-mark { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 1.45rem; letter-spacing: 0.03em; text-transform: uppercase; }
+.nav-logo-mark { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.45rem; letter-spacing: 0.03em; text-transform: uppercase; }
 .logo-wrap { position: relative; display: inline-block; line-height: 1; }
 .logo-badge { position: absolute; top: -0.1rem; right: -0.15rem; transform: translateY(-100%); display: flex; align-items: baseline; gap: 0.2em; white-space: nowrap; }
-.logo-badge-by { font-family: 'Inter', sans-serif; font-weight: 400; font-size: 0.42rem; letter-spacing: 0.02em; color: var(--text-secondary); opacity: 0.5; }
-.logo-badge-brand { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 0.62rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-secondary); opacity: 0.85; }
+.logo-badge-by { font-family: 'Nunito', sans-serif; font-weight: 400; font-size: 0.42rem; letter-spacing: 0.02em; color: var(--text-secondary); opacity: 0.5; }
+.logo-badge-brand { font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 0.62rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-secondary); opacity: 0.85; }
 .nav-links { display: flex; gap: 2rem; align-items: center; flex-wrap: wrap; }
-.nav-links a { font-family: 'Inter', sans-serif; font-weight: 500; font-size: var(--text-small); color: var(--text-secondary); }
+.nav-links a { font-family: 'Nunito', sans-serif; font-weight: 500; font-size: var(--text-small); color: var(--text-secondary); }
 .nav-links a:hover, .nav-links a.active { color: var(--text-primary); }
 
 /* Sports/Scores/Kits — click/hover reveals a vertical list of active
@@ -74,7 +93,7 @@ img { display: block; max-width: 100%; }
    the click-toggle fallback for touch devices, where :hover never fires. */
 .nav-dropdown { position: relative; list-style: none; }
 .nav-dropdown-trigger {
-  font-family: 'Inter', sans-serif; font-weight: 500; font-size: var(--text-small); color: var(--text-secondary);
+  font-family: 'Nunito', sans-serif; font-weight: 500; font-size: var(--text-small); color: var(--text-secondary);
   display: flex; align-items: center; gap: 0.35rem;
 }
 .nav-dropdown-trigger::after { content: '▾'; font-size: 0.65em; }
@@ -89,32 +108,35 @@ img { display: block; max-width: 100%; }
 }
 .nav-dropdown:hover .nav-dropdown-panel, .nav-dropdown:focus-within .nav-dropdown-panel, .nav-dropdown.open .nav-dropdown-panel { display: flex; }
 .nav-dropdown-panel a {
-  font-family: 'Inter', sans-serif; font-size: var(--text-small); color: var(--text-secondary);
+  font-family: 'Nunito', sans-serif; font-size: var(--text-small); color: var(--text-secondary);
   padding: 0.55rem 1.1rem;
 }
 .nav-dropdown-panel a:hover { color: var(--text-primary); background: var(--bg-elevated); }
 
 /* ===== BUTTONS ===== */
 .btn-red, .btn-ghost, .btn-outline-sm {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Montserrat', sans-serif;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   display: inline-block;
   transition: background 0.18s, transform 0.12s, color 0.18s, border-color 0.18s;
 }
-.btn-red { font-size: 1rem; color: var(--text-primary); background: var(--brand-brown); padding: 0.875rem 2.25rem; }
-.btn-red:hover { background: #6E4A2E; transform: scale(1.02); }
-.btn-ghost { font-size: 1rem; color: var(--text-primary); background: transparent; border: 2px solid rgba(245,240,232,0.35); padding: 0.875rem 2.25rem; }
+/* .btn-red/.btn-sm-red keep their legacy names (referenced across ~11
+   places in HTML/JS) but are recoloured to the brand kit's primary button:
+   gold fill, black label — never brown/red despite the name. */
+.btn-red { font-size: 1rem; font-weight: 900; color: var(--sc-black); background: var(--sc-gold); padding: 0.875rem 2.25rem; border-radius: var(--radius); }
+.btn-red:hover { background: var(--sc-gold-hover); transform: scale(1.02); }
+.btn-ghost { font-size: 1rem; color: var(--text-primary); background: transparent; border: 2px solid rgba(245,240,232,0.35); padding: 0.875rem 2.25rem; border-radius: var(--radius); }
 .btn-ghost:hover { background: var(--text-primary); color: var(--bg-primary); }
-.btn-outline-sm { font-size: 0.85rem; color: var(--text-secondary); border: 1px solid var(--border); padding: 0.6rem 1.25rem; }
+.btn-outline-sm { font-size: 0.85rem; color: var(--text-secondary); border: 1px solid var(--border); padding: 0.6rem 1.25rem; border-radius: var(--radius); }
 .btn-outline-sm:hover { color: var(--text-primary); border-color: var(--text-secondary); }
-.btn-sm-red { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: #fff; background: var(--brand-brown); padding: 0.5rem 1rem; display: inline-block; }
-.btn-sm-red:hover { background: #6E4A2E; }
+.btn-sm-red { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sc-black); background: var(--sc-gold); padding: 0.5rem 1rem; display: inline-block; border-radius: var(--radius); }
+.btn-sm-red:hover { background: var(--sc-gold-hover); }
 
 /* ===== PAGE HEADER ===== */
 .page-header { padding: 3.5rem 0 2.5rem; border-bottom: 1px solid var(--border); }
-.page-title { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: var(--text-display); text-transform: uppercase; line-height: 1; }
+.page-title { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: var(--text-display); text-transform: uppercase; line-height: 1; }
 .page-sub { color: var(--text-secondary); margin-top: 0.75rem; max-width: 640px; }
 .page-body { padding: 3rem 0 6rem; }
 
@@ -127,8 +149,8 @@ img { display: block; max-width: 100%; }
 }
 .story:hover, .card:hover { transform: translateY(-2px); background: var(--bg-elevated); border-left-color: var(--brand-gold); }
 .story-thumb, .card-thumb { display: block; width: calc(100% + 3rem); height: 160px; object-fit: cover; margin: -1.5rem -1.5rem 0.25rem -1.5rem; background: var(--bg-elevated); }
-.story-cat, .card-eyebrow { font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: var(--text-micro); letter-spacing: 0.14em; text-transform: uppercase; color: var(--brand-gold); }
-.story-hl, .card-title { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; line-height: 1.15; font-size: clamp(1rem, 2vw, 1.25rem); }
+.story-cat, .card-eyebrow { font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: var(--text-micro); letter-spacing: 0.14em; text-transform: uppercase; color: var(--brand-gold); }
+.story-hl, .card-title { font-family: 'Montserrat', sans-serif; font-weight: 800; line-height: 1.15; font-size: clamp(1rem, 2vw, 1.25rem); }
 .story-desc, .card-desc { font-size: var(--text-small); color: var(--text-secondary); line-height: 1.65; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .story-foot { margin-top: auto; padding-top: 0.875rem; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 0.75rem; font-size: var(--text-micro); color: var(--text-secondary); }
 .story-time { margin-left: auto; }
@@ -136,29 +158,29 @@ img { display: block; max-width: 100%; }
 /* ===== TABLE (league standings, admin lists) ===== */
 .fixture-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.25rem; border: 1px solid var(--border); border-top: none; background: var(--bg-surface); }
 .fixture-row:first-of-type { border-top: 1px solid var(--border); }
-.fixture-teams { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1rem; }
-.fixture-score { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; color: var(--brand-gold); font-variant-numeric: tabular-nums; }
+.fixture-teams { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 1rem; }
+.fixture-score { font-family: 'Montserrat', sans-serif; font-weight: 800; color: var(--brand-gold); font-variant-numeric: tabular-nums; }
 .fixture-meta { font-size: var(--text-micro); color: var(--text-secondary); white-space: nowrap; }
-.fixture-status { display: inline-block; font-size: var(--text-micro); letter-spacing: 0.04em; text-transform: uppercase; padding: 0.15rem 0.5rem; border: 1px solid var(--border); border-radius: 3px; color: var(--text-secondary); margin-left: 0.6rem; }
+.fixture-status { display: inline-block; font-size: var(--text-micro); letter-spacing: 0.04em; text-transform: uppercase; padding: 0.15rem 0.5rem; border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-secondary); margin-left: 0.6rem; }
 .fixture-status.LIVE { color: var(--danger); border-color: var(--danger); }
 .fixture-status.FINISHED { color: var(--success); border-color: var(--success); }
 .fixture-status.POSTPONED { color: var(--brand-gold); border-color: var(--brand-gold); }
 .table-wrap { overflow-x: auto; border: 1px solid var(--border); }
 table.data-table { width: 100%; border-collapse: collapse; min-width: 560px; }
 table.data-table th, table.data-table td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border); font-size: var(--text-small); }
-table.data-table th { font-family: 'Barlow Condensed', sans-serif; text-transform: uppercase; letter-spacing: 0.06em; font-size: var(--text-micro); color: var(--text-secondary); background: var(--bg-surface); }
+table.data-table th { font-family: 'Montserrat', sans-serif; text-transform: uppercase; letter-spacing: 0.06em; font-size: var(--text-micro); color: var(--text-secondary); background: var(--bg-surface); }
 table.data-table tr:hover td { background: var(--bg-elevated); }
 table.data-table td.num { text-align: center; }
 
 /* ===== PROFILE HEADER (team/player) ===== */
 .profile-header { display: flex; align-items: center; gap: 1.5rem; padding: 3rem 0 2rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-.profile-badge { width: 80px; height: 80px; border-radius: 50%; background: var(--bg-elevated); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 1.5rem; color: var(--brand-gold); overflow: hidden; }
+.profile-badge { width: 80px; height: 80px; border-radius: 50%; background: var(--bg-elevated); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.5rem; color: var(--brand-gold); overflow: hidden; }
 .profile-badge img { width: 100%; height: 100%; object-fit: cover; }
-.profile-name { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: var(--text-display); text-transform: uppercase; line-height: 1; }
+.profile-name { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: var(--text-display); text-transform: uppercase; line-height: 1; }
 .profile-meta { color: var(--text-secondary); margin-top: 0.4rem; }
 
 /* ===== PROVENANCE / SOURCING PILLS ===== */
-.pill { display: inline-block; font-family: 'Inter', sans-serif; font-size: var(--text-micro); font-weight: 600; letter-spacing: 0.04em; padding: 0.2rem 0.6rem; border-radius: 3px; border: 1px solid var(--border); color: var(--text-secondary); }
+.pill { display: inline-block; font-family: 'Nunito', sans-serif; font-size: var(--text-micro); font-weight: 600; letter-spacing: 0.04em; padding: 0.2rem 0.6rem; border-radius: var(--radius); border: 1px solid var(--border); color: var(--text-secondary); }
 .pill.confirmed { color: var(--success); border-color: var(--success); }
 .pill.disputed { color: var(--danger); border-color: var(--danger); }
 .pill.unverified { color: var(--brand-gold); border-color: var(--brand-gold); }
@@ -179,7 +201,7 @@ table.data-table td.num { text-align: center; }
 .form-field label { font-size: var(--text-small); color: var(--text-secondary); }
 .form-field input, .form-field select, .form-field textarea {
   background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-primary);
-  padding: 0.7rem 0.9rem; font-family: 'Inter', sans-serif; font-size: var(--text-small); outline: none;
+  padding: 0.7rem 0.9rem; font-family: 'Nunito', sans-serif; font-size: var(--text-small); outline: none;
 }
 .form-field input:focus, .form-field select:focus, .form-field textarea:focus { border-color: var(--brand-gold); }
 .form-field textarea { min-height: 160px; resize: vertical; }
@@ -220,15 +242,15 @@ table.data-table td.num { text-align: center; }
 }
 .ep-art-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 2; }
 .ep-art-inner { position: relative; z-index: 1; text-align: center; padding: 1rem; }
-.ep-art-inner .a1 { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: clamp(1.1rem, 2.5vw, 1.75rem); letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-primary); display: block; line-height: 1; }
-.ep-art-inner .a2 { font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 0.65rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-secondary); display: block; margin-top: 0.25rem; }
+.ep-art-inner .a1 { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: clamp(1.1rem, 2.5vw, 1.75rem); letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-primary); display: block; line-height: 1; }
+.ep-art-inner .a2 { font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 0.65rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-secondary); display: block; margin-top: 0.25rem; }
 .ep-art-line { display: block; width: 2.5rem; height: 2px; background: var(--brand-gold); margin: 0.75rem auto; }
 .ep-info { padding: 2.5rem; display: flex; flex-direction: column; justify-content: center; gap: 0.875rem; border-left: 1px solid var(--border); }
-.ep-tag { font-family: 'Inter', sans-serif; font-size: var(--text-micro); font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--brand-gold); }
-.ep-title { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: clamp(1.5rem, 3vw, 2.25rem); color: var(--text-primary); line-height: 1.08; }
-.ep-guest { font-family: 'Inter', sans-serif; font-weight: 500; font-size: var(--text-small); color: var(--brand-gold); }
-.ep-desc { font-family: 'Inter', sans-serif; font-size: var(--text-small); color: var(--text-secondary); line-height: 1.75; }
-.ep-meta { font-family: 'Inter', sans-serif; font-weight: 300; font-size: var(--text-micro); color: var(--text-secondary); letter-spacing: 0.05em; }
+.ep-tag { font-family: 'Nunito', sans-serif; font-size: var(--text-micro); font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--brand-gold); }
+.ep-title { font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: clamp(1.5rem, 3vw, 2.25rem); color: var(--text-primary); line-height: 1.08; }
+.ep-guest { font-family: 'Nunito', sans-serif; font-weight: 500; font-size: var(--text-small); color: var(--brand-gold); }
+.ep-desc { font-family: 'Nunito', sans-serif; font-size: var(--text-small); color: var(--text-secondary); line-height: 1.75; }
+.ep-meta { font-family: 'Nunito', sans-serif; font-weight: 300; font-size: var(--text-micro); color: var(--text-secondary); letter-spacing: 0.05em; }
 .ep-actions { display: flex; gap: 0.875rem; flex-wrap: wrap; margin-top: 0.25rem; }
 @media (max-width: 860px) {
   .episode-card { grid-template-columns: 1fr; }
@@ -244,11 +266,11 @@ table.data-table td.num { text-align: center; }
 }
 .niche-show-card:hover { transform: translateY(-3px); background: var(--bg-elevated); }
 .niche-show-thumb { display: block; width: calc(100% + 2.2rem); height: 90px; object-fit: cover; margin: -1.5rem -1.1rem 0.6rem -1.1rem; background: var(--bg-elevated); }
-.niche-show-sport { font-family: 'Inter', sans-serif; font-size: var(--text-micro); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-secondary); }
-.niche-show-name { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 1.15rem; text-transform: uppercase; color: var(--text-primary); line-height: 1.15; }
-.niche-show-tagline { font-family: 'Inter', sans-serif; font-size: var(--text-micro); color: var(--text-secondary); }
-.niche-show-latest { font-family: 'Inter', sans-serif; font-size: var(--text-micro); font-weight: 600; color: var(--brand-gold); margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
-.niche-show-desc { font-family: 'Inter', sans-serif; font-size: var(--text-small); color: var(--text-secondary); line-height: 1.6; margin-top: 0.25rem; }
+.niche-show-sport { font-family: 'Nunito', sans-serif; font-size: var(--text-micro); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-secondary); }
+.niche-show-name { font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 1.15rem; text-transform: uppercase; color: var(--text-primary); line-height: 1.15; }
+.niche-show-tagline { font-family: 'Nunito', sans-serif; font-size: var(--text-micro); color: var(--text-secondary); }
+.niche-show-latest { font-family: 'Nunito', sans-serif; font-size: var(--text-micro); font-weight: 600; color: var(--brand-gold); margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
+.niche-show-desc { font-family: 'Nunito', sans-serif; font-size: var(--text-small); color: var(--text-secondary); line-height: 1.6; margin-top: 0.25rem; }
 @media (max-width: 1024px) { .niche-shows-grid { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 620px)  { .niche-shows-grid { grid-template-columns: repeat(2, 1fr); } }
 
@@ -258,21 +280,21 @@ table.data-table td.num { text-align: center; }
 .archive-item-thumb { width: 64px; height: 64px; object-fit: cover; flex-shrink: 0; background: var(--bg-elevated); }
 .archive-item-content { flex: 1; min-width: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 1.5rem; }
 .archive-item-main { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
-.archive-item-cat { font-family: 'Inter', sans-serif; font-size: var(--text-micro); letter-spacing: 0.1em; text-transform: uppercase; color: var(--brand-gold); }
-.archive-item-title { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1.15rem; color: var(--text-primary); }
-.archive-item-date { font-family: 'Inter', sans-serif; font-size: var(--text-micro); color: var(--text-secondary); white-space: nowrap; }
+.archive-item-cat { font-family: 'Nunito', sans-serif; font-size: var(--text-micro); letter-spacing: 0.1em; text-transform: uppercase; color: var(--brand-gold); }
+.archive-item-title { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 1.15rem; color: var(--text-primary); }
+.archive-item-date { font-family: 'Nunito', sans-serif; font-size: var(--text-micro); color: var(--text-secondary); white-space: nowrap; }
 @media (max-width: 600px) { .archive-item-content { flex-direction: column; gap: 0.4rem; } }
 
 .show-header { position: relative; padding: 3.5rem 0 2.5rem; border-top: 4px solid var(--show-accent, var(--brand-gold)); border-bottom: 1px solid var(--border); overflow: hidden; }
 .show-header-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; opacity: 0.32; }
 .show-header::after { content: ''; position: absolute; inset: 0; z-index: 0; background: linear-gradient(180deg, transparent, var(--bg-primary) 92%); pointer-events: none; }
 .show-header .container { position: relative; z-index: 1; }
-.show-header-sport { font-family: 'Inter', sans-serif; font-size: var(--text-micro); letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-secondary); }
+.show-header-sport { font-family: 'Nunito', sans-serif; font-size: var(--text-micro); letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-secondary); }
 .show-header-desc { color: var(--text-secondary); margin-top: 1rem; max-width: 640px; line-height: 1.7; }
 
 .filter-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 2rem; }
 .filter-pill {
-  font-family: 'Inter', sans-serif; font-size: var(--text-small); color: var(--text-secondary);
+  font-family: 'Nunito', sans-serif; font-size: var(--text-small); color: var(--text-secondary);
   border: 1px solid var(--border); padding: 0.5rem 1rem; transition: color 0.15s, border-color 0.15s;
 }
 .filter-pill:hover { color: var(--text-primary); }
@@ -283,8 +305,8 @@ table.data-table td.num { text-align: center; }
    now one shared footer, used everywhere via renderFooter() in site.js) ===== */
 .footer { background: #000; border-top: 1px solid var(--border); padding: 4rem 0 2.5rem; }
 .footer-top { display: flex; justify-content: space-between; align-items: center; padding-bottom: 2.5rem; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
-.footer-logo { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 1.35rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-primary); display: block; margin-bottom: 0.2rem; }
-.footer-tl { font-family: 'Inter', sans-serif; font-size: var(--text-small); color: var(--text-secondary); font-weight: 400; }
+.footer-logo { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.35rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-primary); display: block; margin-bottom: 0.2rem; }
+.footer-tl { font-family: 'Nunito', sans-serif; font-size: var(--text-small); color: var(--text-secondary); font-weight: 400; }
 .footer-socials { display: flex; align-items: center; gap: 2rem; }
 .footer-socials a { display: block; }
 .footer-socials svg { width: 26px; height: 26px; fill: var(--text-primary); transition: fill 0.3s; }
@@ -292,25 +314,25 @@ table.data-table td.num { text-align: center; }
 
 .footer-contact { padding-bottom: 3rem; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
 .contact-tabs { display: flex; gap: 0.5rem; margin: 1.5rem 0 2rem; flex-wrap: wrap; }
-.contact-tab { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 0.9rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); background: var(--bg-elevated); border: 1px solid var(--border); padding: 0.7rem 1.4rem; cursor: pointer; transition: color 0.15s, border-color 0.15s; }
+.contact-tab { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 0.9rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); background: var(--bg-elevated); border: 1px solid var(--border); padding: 0.7rem 1.4rem; cursor: pointer; transition: color 0.15s, border-color 0.15s; }
 .contact-tab.active { color: var(--text-primary); border-color: var(--brand-gold); }
 .contact-form { max-width: 640px; display: grid; gap: 1rem; }
 .contact-form .form-row { display: flex; gap: 1rem; flex-wrap: wrap; }
 .contact-form .form-field { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 0.35rem; }
-.contact-form label { font-family: 'Inter', sans-serif; font-size: var(--text-small); color: var(--text-secondary); }
-.contact-form input, .contact-form textarea { background: var(--bg-primary); border: 1px solid var(--border); color: var(--text-primary); padding: 0.7rem 0.9rem; font-family: 'Inter', sans-serif; font-size: var(--text-small); outline: none; }
+.contact-form label { font-family: 'Nunito', sans-serif; font-size: var(--text-small); color: var(--text-secondary); }
+.contact-form input, .contact-form textarea { background: var(--bg-primary); border: 1px solid var(--border); color: var(--text-primary); padding: 0.7rem 0.9rem; font-family: 'Nunito', sans-serif; font-size: var(--text-small); outline: none; }
 .contact-form input:focus, .contact-form textarea:focus { border-color: var(--brand-gold); }
 .contact-form textarea { min-height: 140px; resize: vertical; }
 .contact-success { max-width: 640px; background: var(--bg-elevated); border: 1px solid var(--brand-gold); padding: 2rem; }
-.contact-success h3 { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; text-transform: uppercase; margin-bottom: 0.5rem; color: var(--text-primary); }
+.contact-success h3 { font-family: 'Montserrat', sans-serif; font-weight: 800; text-transform: uppercase; margin-bottom: 0.5rem; color: var(--text-primary); }
 .contact-success p { color: var(--text-secondary); }
 
 .footer-nav { display: flex; flex-wrap: wrap; gap: 1rem 2.5rem; padding-bottom: 2.5rem; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
-.footer-nav a { font-family: 'Inter', sans-serif; font-weight: 400; font-size: var(--text-small); color: var(--text-secondary); transition: color 0.18s; }
+.footer-nav a { font-family: 'Nunito', sans-serif; font-weight: 400; font-size: var(--text-small); color: var(--text-secondary); transition: color 0.18s; }
 .footer-nav a:hover { color: var(--text-primary); }
 .footer-bottom { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; }
-.footer-copy { font-family: 'Inter', sans-serif; font-weight: 300; font-size: var(--text-micro); color: var(--text-secondary); }
-.footer-echo { font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: var(--text-small); letter-spacing: 0.09em; text-transform: uppercase; color: var(--text-secondary); }
+.footer-copy { font-family: 'Nunito', sans-serif; font-weight: 300; font-size: var(--text-micro); color: var(--text-secondary); }
+.footer-echo { font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: var(--text-small); letter-spacing: 0.09em; text-transform: uppercase; color: var(--text-secondary); }
 @media (max-width: 640px) {
   .footer-top { flex-direction: column; align-items: flex-start; gap: 1.5rem; }
   .footer-bottom { flex-direction: column; }
@@ -327,5 +349,5 @@ table.data-table td.num { text-align: center; }
 .kit-tile { background: var(--bg-elevated); border: 1px solid var(--border); padding: 0.75rem; text-align: center; }
 .kit-tile-photo { width: 100%; aspect-ratio: 1; object-fit: cover; background: var(--bg-surface); margin-bottom: 0.6rem; }
 .kit-tile-photo-empty { width: 100%; aspect-ratio: 1; background: var(--bg-surface); margin-bottom: 0.6rem; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-size: var(--text-micro); text-align: center; }
-.kit-tile-label { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.kit-tile-label { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.03em; }
 .kit-tile-price { color: var(--brand-gold); font-weight: 600; font-size: var(--text-small); margin-top: 0.2rem; }
