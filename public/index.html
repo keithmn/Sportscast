@@ -30,21 +30,25 @@
     :root {
       --sc-gold:       #F3B01C;
       --sc-gold-hover: #D89A10;
+      --sc-gold-deep:  #8A6110;
       --sc-black:      #0D0D0D;
       --sc-paper:      #FFFFFF;
       --sc-hide:       #B87848;
+      --sc-rule:       #E2D8C4;
       --sc-rule-dark:  #2A2A2A;
 
-      --bg-primary:    var(--sc-black);
-      --bg-surface:    var(--sc-black);
-      --bg-elevated:   var(--sc-black);
+      --bg-primary:    var(--sc-paper);
+      --bg-surface:    var(--sc-paper);
+      --bg-elevated:   var(--sc-paper);
       --brand-gold:    var(--sc-gold);
       --brand-brown:   var(--sc-hide);
       --danger:        #C13422;
-      --text-primary:  var(--sc-paper);
-      --text-secondary:#9A9A9A;
-      --border:        var(--sc-rule-dark);
+      --text-primary:  var(--sc-black);
+      --text-secondary:#595959;
+      --border:        var(--sc-rule);
       --radius:        0;
+
+      --gold-text: var(--sc-gold-deep);
 
       --text-hero:    clamp(4.5rem, 11vw, 9.5rem);
       --text-display: clamp(2rem, 5vw, 3.75rem);
@@ -87,7 +91,7 @@
       font-weight: 600;
       letter-spacing: 0.18em;
       text-transform: uppercase;
-      color: var(--brand-gold);
+      color: var(--gold-text);
       display: block;
       margin-bottom: 2rem;
     }
@@ -231,11 +235,14 @@
       position: fixed;
       inset: 0;
       z-index: 199;
-      background: var(--bg-surface);
+      background: var(--sc-black);
       flex-direction: column;
       align-items: center;
       justify-content: center;
       gap: 2rem;
+      /* Full-screen nav overlay — stays dark like .nav itself. */
+      --text-primary: var(--sc-paper);
+      --text-secondary: #9A9A9A;
     }
     .mobile-menu.is-open { display: flex; }
     .mobile-menu a {
@@ -262,8 +269,13 @@
       flex-direction: column;
       justify-content: space-between;
       padding-top: 4.75rem; /* nav offset */
-      background: var(--bg-primary);
+      background: var(--sc-black);
       overflow: hidden;
+      /* Full-bleed photo section — stays dark regardless of the global
+         flip, so its own text tokens are re-pinned locally. */
+      --text-primary: var(--sc-paper);
+      --text-secondary: #9A9A9A;
+      --gold-text: var(--sc-gold);
     }
     .hero-bg-photo {
       position: absolute;
@@ -279,7 +291,7 @@
       position: absolute;
       inset: 0;
       z-index: 0;
-      background: linear-gradient(180deg, rgba(9,11,15,0.55) 0%, rgba(9,11,15,0.8) 55%, var(--bg-primary) 100%);
+      background: linear-gradient(180deg, rgba(9,11,15,0.55) 0%, rgba(9,11,15,0.8) 55%, var(--sc-black) 100%);
       pointer-events: none;
     }
     .hero .hero-body { position: relative; z-index: 1; }
@@ -404,7 +416,7 @@
       font-family: 'Montserrat', sans-serif;
       font-weight: 900;
       font-size: 1.5rem;
-      color: var(--brand-gold);
+      color: var(--gold-text);
       line-height: 1;
       width: 2rem;
       height: 2rem;
@@ -511,7 +523,7 @@
       font-weight: 800;
       font-size: 0.72rem;
       letter-spacing: 0.14em;
-      color: var(--brand-gold);
+      color: var(--gold-text);
     }
     .ep-art-photo {
       position: absolute;
@@ -569,7 +581,7 @@
       font-weight: 600;
       letter-spacing: 0.18em;
       text-transform: uppercase;
-      color: var(--brand-gold);
+      color: var(--gold-text);
     }
     .ep-title {
       font-family: 'Montserrat', sans-serif;
@@ -582,7 +594,7 @@
       font-family: 'Nunito', sans-serif;
       font-weight: 500;
       font-size: var(--text-small);
-      color: var(--brand-gold);
+      color: var(--gold-text);
     }
     .ep-desc {
       font-family: 'Nunito', sans-serif;
@@ -639,7 +651,7 @@
       font-weight: 600;
       letter-spacing: 0.14em;
       text-transform: uppercase;
-      color: var(--brand-gold);
+      color: var(--gold-text);
       margin-bottom: 0.5rem;
     }
     .em-title {
@@ -722,7 +734,7 @@
       font-size: var(--text-micro);
       letter-spacing: 0.14em;
       text-transform: uppercase;
-      color: var(--brand-gold);
+      color: var(--gold-text);
     }
     .story-hl {
       font-family: 'Montserrat', sans-serif;
@@ -834,7 +846,7 @@
       font-family: 'Nunito', sans-serif;
       font-size: var(--text-micro);
       font-weight: 600;
-      color: var(--brand-gold);
+      color: var(--gold-text);
       margin-top: 0.5rem;
       padding-top: 0.5rem;
       border-top: 1px solid var(--border);
@@ -851,7 +863,7 @@
       max-width: 36rem;
       margin-top: -1.25rem;
     }
-    .archive-teaser-sub a { color: var(--brand-gold); }
+    .archive-teaser-sub a { color: var(--gold-text); }
     .archive-list {
       margin-top: 2rem;
       border-top: 1px solid var(--border);
@@ -922,7 +934,7 @@
       font-size: var(--text-micro);
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: var(--brand-gold);
+      color: var(--gold-text);
     }
     .archive-item-title {
       font-family: 'Montserrat', sans-serif;
@@ -958,7 +970,7 @@
       font-weight: 600;
       letter-spacing: 0.2em;
       text-transform: uppercase;
-      color: var(--brand-gold);
+      color: var(--gold-text);
       display: block;
       margin-bottom: 1.25rem;
     }
