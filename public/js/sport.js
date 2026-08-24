@@ -117,27 +117,39 @@ const TAB_LOADERS = {
 
 // initialTab lets the main nav's Scores/Kits dropdowns (site.js) deep-link
 // straight into a specific tab instead of always opening on Home.
-function renderSportTabs(root, sportSlug, initialTab) {
+//
+// Tabs render into #subnav-placeholder (a persistent bar inside
+// .sticky-chrome, directly under the primary nav — Sky Sports-style
+// three-tier header) rather than inline in the page body, so the tab bar
+// stays pinned while browsing a sport section; only the tab panel itself
+// lives in the page's own content area.
+function renderSportTabs(root, sportSlug, sportName, initialTab) {
+  const subnavEl = document.getElementById('subnav-placeholder');
   const sportTabs = getSportTabs(sportSlug);
-  root.innerHTML = `
-    <div class="filter-row" data-sport-tabs></div>
-    <div data-tab-panel></div>`;
 
-  const tabsEl = root.querySelector('[data-sport-tabs]');
+  if (subnavEl) {
+    subnavEl.innerHTML = `
+      <nav class="sport-subnav">
+        <span class="sport-subnav-label">${escapeHtml(sportName)}</span>
+        <div class="sport-subnav-links" data-sport-tabs>
+          ${sportTabs.map((t) => `<button data-key="${t.key}">${escapeHtml(t.label)}</button>`).join('')}
+        </div>
+      </nav>`;
+  }
+  root.innerHTML = '<div data-tab-panel></div>';
+
+  const tabsEl = (subnavEl || root).querySelector('[data-sport-tabs]');
   const panelEl = root.querySelector('[data-tab-panel]');
-  tabsEl.innerHTML = sportTabs
-    .map((t) => `<button class="filter-pill" data-key="${t.key}">${escapeHtml(t.label)}</button>`)
-    .join('');
 
   function openTab(key) {
-    tabsEl.querySelectorAll('.filter-pill').forEach((p) => p.classList.toggle('active', p.dataset.key === key));
+    tabsEl.querySelectorAll('button').forEach((p) => p.classList.toggle('active', p.dataset.key === key));
     Promise.resolve(TAB_LOADERS[key](panelEl, sportSlug)).catch((err) => {
       panelEl.innerHTML = `<div class="empty-state">Could not load this tab: ${escapeHtml(err.message)}</div>`;
     });
   }
 
   tabsEl.addEventListener('click', (e) => {
-    const btn = e.target.closest('.filter-pill');
+    const btn = e.target.closest('button');
     if (!btn) return;
     openTab(btn.dataset.key);
   });
@@ -156,10 +168,8 @@ async function loadSportPage() {
   const sportName = sport ? sport.name : slug;
 
   document.title = `${sportName} — The Sportscast`;
-  document.getElementById('sport-title').textContent = sportName;
-  document.getElementById('sport-sub').textContent = `News, scores, teams, and kits for ${sportName} in Kenya.`;
 
-  renderSportTabs(root, slug, qs('tab'));
+  renderSportTabs(root, slug, sportName, qs('tab'));
 }
 
 document.addEventListener('DOMContentLoaded', () => {

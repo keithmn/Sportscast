@@ -28,7 +28,7 @@
   --bg-surface:    var(--sc-paper);
   --bg-elevated:   var(--sc-paper);
   --brand-gold:    var(--sc-gold); /* backgrounds/borders/decorative fills only — never text, see --gold-text */
-  --brand-brown:   var(--sc-hide);
+  --brand-cream:   var(--sc-cream); /* secondary brand colour (2026-08-24: replaces --sc-hide in that role — hide stays defined above as a real brand-kit colour, just not the one we reach for) */
   --danger:        #C13422; /* brand kit defines no error colour — kept as-is */
   --text-primary:  var(--sc-black);
   --text-secondary:#595959; /* darkened from #9A9A9A for AA contrast on paper — that lighter grey is now the dark-section override value below */
@@ -49,7 +49,7 @@
   --text-micro:   0.72rem;
 
   --max-width: 1280px;
-  --px: clamp(1.25rem, 5vw, 3rem);
+  --px: clamp(1.25rem, 6vw, 5rem); /* 2026-08-24: widened (was max 3rem) — the old cap read as edge-to-edge on wide screens next to Sky Sports' own generous side gutters */
 }
 
 /* Dark-section overrides — nav/footer/admin-sidebar already have (or, for
@@ -96,11 +96,22 @@ img { display: block; max-width: 100%; }
   margin-bottom: 2rem;
 }
 
+/* ===== HEADER (brand band — Sky Sports-style three-tier top: gold
+   header, black primary nav, warm-cream per-sport subnav). Not sticky —
+   scrolls away so only .sticky-chrome (nav + subnav) stays pinned. ===== */
+.site-header {
+  background: var(--sc-gold);
+  padding: 0.5rem var(--px);
+  display: flex; align-items: center;
+}
+.site-header .nav-logo { border-left: none; padding-left: 0; }
+
+.sticky-chrome { position: sticky; top: 0; z-index: 200; }
+
 /* ===== NAV (shared across all pages) ===== */
 .nav {
-  position: sticky; top: 0; z-index: 200;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 1.25rem var(--px);
+  padding: 1.1rem var(--px);
   background: rgba(13, 13, 13, 0.96);
   backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border);
@@ -139,6 +150,33 @@ img { display: block; max-width: 100%; }
   padding: 0.55rem 1.1rem;
 }
 .nav-dropdown-panel a:hover { color: var(--text-primary); background: var(--bg-elevated); }
+
+/* Per-sport secondary nav (sport.js) — a persistent, full-width bar
+   directly under the primary nav for the duration of a sport section,
+   third tier of the gold/black/warm-cream header stack. Sits inside
+   .sticky-chrome alongside .nav so both scroll together. Warm cream
+   (the site's secondary brand colour, --brand-cream) rather than a
+   fourth accent hue — keeps the per-sport tier visually distinct from
+   both header and nav without introducing a new colour. */
+.sport-subnav {
+  background: var(--brand-cream);
+  padding: 0.85rem var(--px);
+  display: flex; align-items: center; flex-wrap: wrap; gap: 1.75rem;
+  border-bottom: 1px solid rgba(13, 13, 13, 0.18);
+}
+.sport-subnav-label {
+  font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 0.95rem;
+  letter-spacing: 0.05em; text-transform: uppercase; color: var(--sc-black);
+  padding-right: 1.75rem; border-right: 1px solid rgba(13, 13, 13, 0.2);
+}
+.sport-subnav-links { display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center; }
+.sport-subnav-links button {
+  font-family: 'Nunito', sans-serif; font-weight: 600; font-size: var(--text-small);
+  color: rgba(13, 13, 13, 0.68); background: none; border: none; padding: 0; cursor: pointer;
+  transition: color 0.15s;
+}
+.sport-subnav-links button:hover { color: var(--sc-black); }
+.sport-subnav-links button.active { color: var(--sc-black); font-weight: 800; text-decoration: underline; text-underline-offset: 5px; }
 
 /* ===== BUTTONS ===== */
 .btn-red, .btn-ghost, .btn-outline-sm {
@@ -311,6 +349,62 @@ table.data-table td.num { text-align: center; }
 .archive-item-title { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 1.15rem; color: var(--text-primary); }
 .archive-item-date { font-family: 'Nunito', sans-serif; font-size: var(--text-micro); color: var(--text-secondary); white-space: nowrap; }
 @media (max-width: 600px) { .archive-item-content { flex-direction: column; gap: 0.4rem; } }
+
+/* Homepage: quick-jump sports tiles (relocated from index.html's own
+   duplicate <style> block 2026-08-20, once the homepage rebuild retired
+   that page's separate CSS in favour of this shared stylesheet). */
+.sports-section { padding: 5rem 0; border-top: 1px solid var(--border); }
+.sports-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 0.75rem; }
+.sport-tile {
+  background: var(--bg-surface); border: 1px solid var(--border); border-left: 3px solid transparent;
+  padding: 1.5rem 0.75rem 1.25rem; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 0.65rem;
+  cursor: pointer; transition: transform 0.12s ease, background 0.12s ease, border-left-color 0.12s ease;
+}
+.sport-tile:hover, .sport-tile:focus-visible { transform: translateY(-3px); background: var(--bg-elevated); border-left-color: var(--brand-gold); outline: none; }
+.sport-mark {
+  font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.5rem; color: var(--gold-text);
+  line-height: 1; width: 2rem; height: 2rem; display: flex; align-items: center; justify-content: center;
+}
+.sport-name { font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 0.78rem; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-primary); line-height: 1.2; }
+@media (max-width: 1100px) { .sports-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 600px)  { .sports-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* Homepage: Top Stories — big lead item + 2 alongside, then up to 3 more
+   in a row below. .story/.story-cat/etc. themselves already come from the
+   shared .story, .card rule above; only this layout shape is unique. */
+.stories-section { padding: 5rem 0; border-top: 1px solid var(--border); }
+.stories-r1 { display: grid; grid-template-columns: 2fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem; }
+.stories-r1-col { display: flex; flex-direction: column; gap: 0.75rem; }
+.stories-r2 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
+.story--lg { padding: 2rem; }
+.story--lg .story-hl { font-size: clamp(1.4rem, 2.8vw, 2rem); }
+@media (max-width: 1024px) {
+  .stories-r1 { grid-template-columns: 1fr; }
+  .stories-r1-col { flex-direction: row; }
+}
+@media (max-width: 700px) {
+  .stories-r1-col { flex-direction: column; }
+  .stories-r2 { grid-template-columns: 1fr; }
+}
+
+/* Homepage: "Latest" briefs teaser — calm, deliberately small. */
+.archive-teaser-section { padding: 5rem 0; border-top: 1px solid var(--border); }
+.archive-teaser-sub { font-family: 'Nunito', sans-serif; font-size: var(--text-small); color: var(--text-secondary); max-width: 36rem; margin-top: -1.25rem; }
+.archive-teaser-sub a { color: var(--gold-text); }
+
+/* Scroll-triggered reveal (IntersectionObserver in home.js) — relocated
+   from index.html's own duplicate <style> block alongside the rules
+   above; kept generic so any future page can reuse the same pattern. */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { opacity: 0; transform: translateY(18px); transition: opacity 0.45s ease-out, transform 0.45s ease-out; }
+.fade-up.visible { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .fade-up { opacity: 1; transform: none; }
+}
 
 .show-header { position: relative; padding: 3.5rem 0 2.5rem; border-top: 4px solid var(--show-accent, var(--brand-gold)); border-bottom: 1px solid var(--border); overflow: hidden; }
 .show-header-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; opacity: 0.32; }

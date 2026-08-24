@@ -92,14 +92,28 @@ const NAV_LINKS = [
   { type: 'dropdown', key: 'teams', label: 'Teams', tab: 'clubs' },
 ];
 
+// Brand band — its own row above the primary nav (Sky Sports-style
+// three-tier header), gold ground so the logo gets real prominence
+// instead of being squeezed into the same row as the nav links. Not
+// sticky: it scrolls away, leaving only .sticky-chrome (nav + any
+// per-sport subnav) pinned, so scrolled-down pages don't lose vertical
+// space to branding that's already been seen.
+function renderHeader() {
+  const el = document.getElementById('header-placeholder');
+  if (!el) return;
+  el.innerHTML = `
+    <header class="site-header">
+      <a href="/index.html" class="nav-logo" aria-label="The Sportscast — Home">
+        <img src="/brand/logo/lockup-lower-gold.png" alt="The Sportscast by Underdawgs" style="height:76px; width:auto;">
+      </a>
+    </header>`;
+}
+
 function renderNav(activeHref) {
   const el = document.getElementById('nav-placeholder');
   if (!el) return;
   el.innerHTML = `
     <nav class="nav">
-      <a href="/index.html" class="nav-logo" aria-label="The Sportscast — Home">
-        <img src="/brand/logo/lockup-lower-black.png" alt="The Sportscast by Underdawgs" style="height:40px; width:auto;">
-      </a>
       <ul class="nav-links" role="list">
         ${NAV_LINKS.map((l) => l.type === 'dropdown'
           ? navDropdownTriggerHtml(l.key, l.label)
@@ -142,11 +156,11 @@ function renderFooter() {
         <div class="footer-contact" id="contact">
           <span class="section-label">Get In Touch</span>
           <div class="contact-tabs" role="tablist">
-            <button class="contact-tab active" data-type="CONTACT" role="tab" aria-selected="true">Contact</button>
-            <button class="contact-tab" data-type="TIP" role="tab" aria-selected="false">Submit a Tip</button>
-            <button class="contact-tab" data-type="PARTNERSHIP" role="tab" aria-selected="false">Work With Us</button>
+            <button class="contact-tab" data-type="CONTACT" role="tab" aria-selected="false" aria-expanded="false">Contact</button>
+            <button class="contact-tab" data-type="TIP" role="tab" aria-selected="false" aria-expanded="false">Submit a Tip</button>
+            <button class="contact-tab" data-type="PARTNERSHIP" role="tab" aria-selected="false" aria-expanded="false">Work With Us</button>
           </div>
-          <form class="contact-form" id="contact-form" data-type="CONTACT">
+          <form class="contact-form" id="contact-form" data-type="CONTACT" style="display:none;">
             <div class="form-row">
               <div class="form-field">
                 <label for="c-name">Name</label>
@@ -206,13 +220,28 @@ function initContactForm() {
   const errorEl = document.getElementById('contact-error');
   const successEl = document.getElementById('contact-success');
 
+  // Collapsed by default (just the three tabs) — clicking a tab opens the
+  // form scoped to that type; clicking the already-open tab again
+  // collapses it back. Cuts the footer's resting height substantially,
+  // since the form was previously always expanded.
   tabs.forEach((tab) => {
     tab.addEventListener('click', () => {
-      tabs.forEach((t) => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+      const alreadyOpen = tab.classList.contains('active') && form.style.display !== 'none';
+      tabs.forEach((t) => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); t.setAttribute('aria-expanded', 'false'); });
+
+      if (alreadyOpen) {
+        form.style.display = 'none';
+        successEl.style.display = 'none';
+        return;
+      }
+
       tab.classList.add('active');
       tab.setAttribute('aria-selected', 'true');
+      tab.setAttribute('aria-expanded', 'true');
       form.dataset.type = tab.dataset.type;
       messageLabel.textContent = CONTACT_TAB_COPY[tab.dataset.type].label;
+      form.style.display = '';
+      successEl.style.display = 'none';
     });
   });
 
@@ -236,6 +265,7 @@ function initContactForm() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  renderHeader();
   renderNav();
   renderFooter();
   initContactForm();
