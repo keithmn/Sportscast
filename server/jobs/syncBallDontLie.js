@@ -96,11 +96,11 @@ async function syncBallDontLie() {
     return;
   }
 
-  let league = await prisma.league.findFirst({
+  let competition = await prisma.competition.findFirst({
     where: { externalProvider: 'balldontlie.io', externalId: 'nba' },
   });
-  if (!league) {
-    league = await prisma.league.create({
+  if (!competition) {
+    competition = await prisma.competition.create({
       data: {
         name: 'NBA',
         slug: require('../utils/slugify').slugify('NBA'),
@@ -111,7 +111,7 @@ async function syncBallDontLie() {
         externalId: 'nba',
       },
     });
-    console.log('[syncBallDontLie] Created league: NBA');
+    console.log('[syncBallDontLie] Created competition: NBA');
   }
 
   try {
@@ -128,27 +128,27 @@ async function syncBallDontLie() {
       const fields = gameToFixtureFields(game);
       await prisma.fixture.upsert({
         where: {
-          leagueId_homeTeam_awayTeam_kickoff: {
-            leagueId: league.id,
+          competitionId_homeTeam_awayTeam_kickoff: {
+            competitionId: competition.id,
             homeTeam: fields.homeTeam,
             awayTeam: fields.awayTeam,
             kickoff: fields.kickoff,
           },
         },
-        create: { leagueId: league.id, ...fields },
+        create: { competitionId: competition.id, ...fields },
         update: { homeScore: fields.homeScore, awayScore: fields.awayScore, status: fields.status },
       });
       count += 1;
     }
 
-    await prisma.league.update({
-      where: { id: league.id },
+    await prisma.competition.update({
+      where: { id: competition.id },
       data: { lastSyncedAt: new Date(), syncStatus: 'OK' },
     });
     console.log(`[syncBallDontLie] OK: NBA (${count} fixtures)`);
   } catch (err) {
-    await prisma.league.update({
-      where: { id: league.id },
+    await prisma.competition.update({
+      where: { id: competition.id },
       data: { syncStatus: 'ERROR' },
     });
     console.error('[syncBallDontLie] FAILED: NBA —', err.message);

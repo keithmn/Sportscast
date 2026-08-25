@@ -12,20 +12,22 @@ function fmtDate(d) {
 function logChange(entityType, entityId, action, summary, userName) {
   return prisma.changeLog.create({ data: { entityType, entityId, action, summary, userName } }).catch((err) => {
     // A logging failure should never block the real mutation it's describing.
-    console.error('[scores] Failed to write change log:', err.message);
+    console.error('[competitions] Failed to write change log:', err.message);
   });
 }
 
-// ---- Public: list leagues ----
+// ---- Public: list competitions, optionally scoped to one sport (used by
+// the per-sport hub's Competitions tab, e.g. ?sport=football) ----
 router.get('/', async (req, res) => {
-  const leagues = await prisma.league.findMany({
+  const competitions = await prisma.competition.findMany({
+    where: req.query.sport ? { sport: { slug: req.query.sport } } : undefined,
     include: { sport: true },
     orderBy: { name: 'asc' },
   });
-  res.json({ leagues });
+  res.json({ competitions });
 });
 
-// ---- Admin: recent changes across all leagues, most recent first ----
+// ---- Admin: recent changes across all competitions, most recent first ----
 router.get('/changelog', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const entries = await prisma.changeLog.findMany({
     orderBy: { createdAt: 'desc' },
@@ -34,9 +36,9 @@ router.get('/changelog', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   res.json({ entries });
 });
 
-// ---- Public: single league with standings + fixtures ----
+// ---- Public: single competition with standings + fixtures ----
 router.get('/:slug', async (req, res) => {
-  const league = await prisma.league.findUnique({
+  const competition = await prisma.competition.findUnique({
     where: { slug: req.params.slug },
     include: {
       sport: true,
@@ -44,18 +46,18 @@ router.get('/:slug', async (req, res) => {
       fixtures: { orderBy: { kickoff: 'asc' } },
     },
   });
-  if (!league) return res.status(404).json({ error: 'League not found' });
-  res.json({ league });
+  if (!competition) return res.status(404).json({ error: 'Competition not found' });
+  res.json({ competition });
 });
 
-// ---- Admin: known team names for a league (autocomplete) — derived from
-// existing fixtures + standings, not a separate table, so there's nothing
-// extra to maintain: the first matchday's entries become the reference
-// list for every entry after. ----
+// ---- Admin: known team names for a competition (autocomplete) — derived
+// from existing fixtures + standings, not a separate table, so there's
+// nothing extra to maintain: the first matchday's entries become the
+// reference list for every entry after. ----
 router.get('/:id/team-names', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const [fixtures, standings] = await Promise.all([
-    prisma.fixture.findMany({ where: { leagueId: req.params.id }, select: { homeTeam: true, awayTeam: true } }),
-    prisma.standingRow.findMany({ where: { leagueId: req.params.id }, select: { teamName: true } }),
+    prisma.fixture.findMany({ where: { competitionId: req.params.id }, select: { homeTeam: true, awayTeam: true } }),
+    prisma.standingRow.findMany({ where: { competitionId: req.params.id }, select: { teamName: true } }),
   ]);
   const names = new Set();
   fixtures.forEach((f) => { names.add(f.homeTeam); names.add(f.awayTeam); });
@@ -63,44 +65,45 @@ router.get('/:id/team-names', requireRole('ADMIN', 'EDITOR'), async (req, res) =
   res.json({ teamNames: Array.from(names).sort() });
 });
 
-// ---- Admin: create a league ----
+// ---- Admin: create a competition ----
 router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const { name, sportId, source } = req.body;
   if (!name || !sportId) return res.status(400).json({ error: 'name and sportId are required' });
-  const league = await prisma.league.create({
+  const competition = await prisma.competition.create({
     data: { name, slug: slugify(name), sportId, source: source === 'API' ? 'API' : 'MANUAL' },
   });
-  await logChange('LEAGUE', league.id, 'CREATE', `Added league "${league.name}"`, req.session.user.name);
-  res.status(201).json({ league });
+  await logChange('COMPETITION', competition.id, 'CREATE', `Added competition "${competition.name}"`, req.session.user.name);
+  res.status(201).json({ competition });
 });
 
-// ---- Admin: toggle a league's squad-sync flag ----
-// Deliberately opt-in, one league at a time — Wikidata's soft rate limits
-// mean syncing every league's full squads at once isn't realistic; this is
-// the control for choosing which leagues actually get Club/Player data.
+// ---- Admin: toggle a competition's squad-sync flag ----
+// Deliberately opt-in, one competition at a time — Wikidata's soft rate
+// limits mean syncing every competition's full squads at once isn't
+// realistic; this is the control for choosing which competitions actually
+// get Club/Player data.
 router.put('/:id/sync-squads', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const { syncSquads } = req.body;
-  const league = await prisma.league.update({
+  const competition = await prisma.competition.update({
     where: { id: req.params.id },
     data: { syncSquads: Boolean(syncSquads) },
   });
-  await logChange('LEAGUE', league.id, 'UPDATE', `${syncSquads ? 'Enabled' : 'Disabled'} squad sync for "${league.name}"`, req.session.user.name);
-  res.json({ league });
+  await logChange('COMPETITION', competition.id, 'UPDATE', `${syncSquads ? 'Enabled' : 'Disabled'} squad sync for "${competition.name}"`, req.session.user.name);
+  res.json({ competition });
 });
 
-// ---- Admin: replace a league's standings table wholesale ----
+// ---- Admin: replace a competition's standings table wholesale ----
 // Simplest correct approach for a small, manually-curated table: the admin
 // re-submits the full table on every save rather than editing rows one at a
-// time, so there's no drift between row order and league table position.
+// time, so there's no drift between row order and table position.
 router.put('/:id/standings', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const { rows } = req.body;
   if (!Array.isArray(rows)) return res.status(400).json({ error: 'rows must be an array' });
 
   await prisma.$transaction([
-    prisma.standingRow.deleteMany({ where: { leagueId: req.params.id } }),
+    prisma.standingRow.deleteMany({ where: { competitionId: req.params.id } }),
     prisma.standingRow.createMany({
       data: rows.map((r, i) => ({
-        leagueId: req.params.id,
+        competitionId: req.params.id,
         position: r.position ?? i + 1,
         teamName: r.teamName,
         played: r.played || 0,
@@ -116,7 +119,7 @@ router.put('/:id/standings', requireRole('ADMIN', 'EDITOR'), async (req, res) =>
   await logChange('STANDINGS', req.params.id, 'UPDATE', `Replaced standings table (${rows.length} teams)`, req.session.user.name);
 
   const standings = await prisma.standingRow.findMany({
-    where: { leagueId: req.params.id },
+    where: { competitionId: req.params.id },
     orderBy: { position: 'asc' },
   });
   res.json({ standings });
@@ -130,7 +133,7 @@ router.post('/:id/fixtures', requireRole('ADMIN', 'EDITOR'), async (req, res) =>
   }
   const fixture = await prisma.fixture.create({
     data: {
-      leagueId: req.params.id,
+      competitionId: req.params.id,
       homeTeam,
       awayTeam,
       kickoff: new Date(kickoff),
@@ -163,7 +166,7 @@ router.post('/:id/fixtures/bulk', requireRole('ADMIN', 'EDITOR'), async (req, re
       errors.push(`Line ${i + 1}: "${f.kickoff}" isn't a valid date`);
       return;
     }
-    toCreate.push({ leagueId: req.params.id, homeTeam: f.homeTeam, awayTeam: f.awayTeam, kickoff, status: 'SCHEDULED' });
+    toCreate.push({ competitionId: req.params.id, homeTeam: f.homeTeam, awayTeam: f.awayTeam, kickoff, status: 'SCHEDULED' });
   });
 
   if (toCreate.length) {

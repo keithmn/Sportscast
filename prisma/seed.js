@@ -287,16 +287,16 @@ async function main() {
     });
   }
 
-  // ---------------- Scores & Fixtures: league shells only ----------------
+  // ---------------- Scores & Fixtures: competition shells only ----------------
   // Deliberately no standings/fixtures rows here — seeding fake scores would
   // be exactly the "faking comprehensiveness" this section was built to avoid.
-  // Kenyan leagues (region: KENYA) are entered by the newsroom via
-  // /admin/scores.html. Global leagues (region: GLOBAL) are API-sourced —
-  // populated by server/jobs/syncLeagues.js, never by hand — their
-  // externalId is football-data.org's free-tier competition code as of
-  // 2026-08-19; reconfirm against their current coverage before relying on
-  // this list long-term, since free-tier competition lists do change.
-  const kpl = await prisma.league.create({
+  // Kenyan competitions (region: KENYA) are entered by the newsroom via
+  // /admin/competitions.html. Global competitions (region: GLOBAL) are
+  // API-sourced — populated by server/jobs/syncLeagues.js, never by hand —
+  // their externalId is football-data.org's free-tier competition code as
+  // of 2026-08-19; reconfirm against their current coverage before relying
+  // on this list long-term, since free-tier competition lists do change.
+  const kpl = await prisma.competition.create({
     data: {
       name: 'Kenyan Premier League',
       slug: slugify('Kenyan Premier League'),
@@ -305,7 +305,7 @@ async function main() {
       region: 'KENYA',
     },
   });
-  await prisma.league.create({
+  await prisma.competition.create({
     data: {
       name: 'National Super League',
       slug: slugify('National Super League'),
@@ -315,7 +315,7 @@ async function main() {
     },
   });
 
-  const globalLeagues = [
+  const globalCompetitions = [
     { name: 'Premier League', code: 'PL' },
     { name: 'Championship', code: 'ELC' },
     { name: 'La Liga', code: 'PD' },
@@ -329,16 +329,16 @@ async function main() {
     { name: 'FIFA World Cup', code: 'WC' },
     { name: 'Campeonato Brasileiro Série A', code: 'BSA' },
   ];
-  for (const l of globalLeagues) {
-    await prisma.league.create({
+  for (const c of globalCompetitions) {
+    await prisma.competition.create({
       data: {
-        name: l.name,
-        slug: slugify(l.name),
+        name: c.name,
+        slug: slugify(c.name),
         sportId: sports['Football'].id,
         source: 'API',
         region: 'GLOBAL',
         externalProvider: 'football-data.org',
-        externalId: l.code,
+        externalId: c.code,
       },
     });
   }
@@ -369,7 +369,7 @@ async function main() {
   console.log('Demo logins (password: underdoggs2026):');
   console.log('  admin@underdoggs.co.ke   (ADMIN)');
   console.log('  editor@underdoggs.co.ke  (EDITOR)');
-  console.log('Scores & Fixtures: KPL + NSL shells created (manual entry via /admin/scores.html); 12 global leagues seeded for football-data.org sync (run `npm run sync:leagues`).');
+  console.log('Scores & Fixtures: KPL + NSL shells created (manual entry via /admin/competitions.html); 12 global competitions seeded for football-data.org sync (run `npm run sync:leagues`).');
 }
 
 main()

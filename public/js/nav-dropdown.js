@@ -1,7 +1,7 @@
-// Shared by the main nav's Sports/Scores/Kits items (site.js's renderNav())
-// — all three drop the same list of active sports, differing only in
-// which hub tab a click lands on. Opens on hover (desktop, via CSS) or
-// click/keyboard (touch — CSS :hover doesn't fire there).
+// Shared by the main nav's Sports/Scores items (site.js's renderNav()) —
+// both drop the same list of active sports, differing only in which hub
+// tab a click lands on. Opens on hover (desktop, via CSS) or click/
+// keyboard (touch — CSS :hover doesn't fire there).
 
 function navDropdownTriggerHtml(key, label) {
   return `
@@ -11,9 +11,9 @@ function navDropdownTriggerHtml(key, label) {
     </li>`;
 }
 
-// "Other" only appears in the Sports dropdown (includeOther), not
-// Scores/Kits — the (Other) bundle hub has no Scores/Teams/Kits tabs to
-// deep-link into (see other.js), so listing it there would dead-end.
+// "Other" only appears in the Sports dropdown (includeOther), not Scores —
+// the (Other) bundle hub has no Scores/Tables tab to deep-link into (see
+// other.js), so listing it there would dead-end.
 function sportDropdownLinksHtml(sports, tab, includeOther) {
   if (!sports.length && !includeOther) return '<p class="empty-state" style="padding:0.75rem 1rem; margin:0;">No sports live yet.</p>';
   const suffix = tab ? `&tab=${encodeURIComponent(tab)}` : '';

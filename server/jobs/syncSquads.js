@@ -1,14 +1,15 @@
-// Populates Club/Player rows for leagues flagged League.syncSquads = true,
-// sourced from Wikidata (SPARQL) — free, no API key, no rate-limit gate,
-// and explicitly public-domain (CC0) data, unlike the commercial providers
-// checked first (API-Football's free tier only covers 2022-2024 seasons;
-// its terms also explicitly disclaim mass-media/commercial rights).
+// Populates Club/Player rows for competitions flagged
+// Competition.syncSquads = true, sourced from Wikidata (SPARQL) — free, no
+// API key, no rate-limit gate, and explicitly public-domain (CC0) data,
+// unlike the commercial providers checked first (API-Football's free tier
+// only covers 2022-2024 seasons; its terms also explicitly disclaim
+// mass-media/commercial rights).
 //
-// Doesn't ask Wikidata "which teams are in this league" (its P118 league
-// property is historical/all-time, not season-scoped, and messier to
-// filter reliably) — the site already has an authoritative current team
-// list for API-sourced leagues from the football-data.org standings sync.
-// This job only asks Wikidata for each of those teams' current squad.
+// Doesn't ask Wikidata "which teams are in this competition" (its P118
+// league property is historical/all-time, not season-scoped, and messier
+// to filter reliably) — the site already has an authoritative current team
+// list for API-sourced competitions from the football-data.org standings
+// sync. This job only asks Wikidata for each of those teams' current squad.
 //
 // "Current squad" itself needed real verification, not a guess: a simple
 // "no end-date on the team-membership statement" filter pulls in players
@@ -99,13 +100,13 @@ async function fetchCurrentSquad(clubQid) {
   return Array.from(byPlayer.values());
 }
 
-async function syncClub(league, teamName) {
-  const slug = slugify(`${teamName}-${league.slug}`); // scoped by league so a common name can't collide across leagues
-  const existing = await prisma.club.findFirst({ where: { leagueId: league.id, name: teamName } });
+async function syncClub(competition, teamName) {
+  const slug = slugify(`${teamName}-${competition.slug}`); // scoped by competition so a common name can't collide across competitions
+  const existing = await prisma.club.findFirst({ where: { competitionId: competition.id, name: teamName } });
 
   const club = existing
     ? existing
-    : await prisma.club.create({ data: { name: teamName, slug, leagueId: league.id, source: 'API' } });
+    : await prisma.club.create({ data: { name: teamName, slug, competitionId: competition.id, source: 'API' } });
 
   const qid = await findClubEntity(teamName);
   if (!qid) {
@@ -139,25 +140,25 @@ async function syncClub(league, teamName) {
 }
 
 async function syncSquads() {
-  const leagues = await prisma.league.findMany({ where: { syncSquads: true } });
-  if (!leagues.length) {
-    console.log('[syncSquads] No leagues flagged for squad sync.');
+  const competitions = await prisma.competition.findMany({ where: { syncSquads: true } });
+  if (!competitions.length) {
+    console.log('[syncSquads] No competitions flagged for squad sync.');
     return;
   }
 
-  for (const league of leagues) {
-    console.log(`[syncSquads] Syncing clubs for ${league.name}...`);
-    const standings = await prisma.standingRow.findMany({ where: { leagueId: league.id } });
+  for (const competition of competitions) {
+    console.log(`[syncSquads] Syncing clubs for ${competition.name}...`);
+    const standings = await prisma.standingRow.findMany({ where: { competitionId: competition.id } });
     const teamNames = Array.from(new Set(standings.map((s) => s.teamName)));
     if (!teamNames.length) {
-      console.warn(`[syncSquads] ${league.name} has no standings yet — nothing to derive a team list from.`);
+      console.warn(`[syncSquads] ${competition.name} has no standings yet — nothing to derive a team list from.`);
       continue;
     }
 
     let totalPlayers = 0;
     for (const teamName of teamNames) {
       try {
-        const { playerCount } = await syncClub(league, teamName);
+        const { playerCount } = await syncClub(competition, teamName);
         totalPlayers += playerCount;
         console.log(`[syncSquads]   ${teamName}: ${playerCount} current player(s)`);
       } catch (err) {
@@ -165,7 +166,7 @@ async function syncSquads() {
       }
       await sleep(CALL_DELAY_MS);
     }
-    console.log(`[syncSquads] ${league.name}: ${teamNames.length} club(s), ${totalPlayers} player(s) total.`);
+    console.log(`[syncSquads] ${competition.name}: ${teamNames.length} club(s), ${totalPlayers} player(s) total.`);
   }
   console.log('[syncSquads] Done.');
 }

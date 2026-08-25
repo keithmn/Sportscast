@@ -1,6 +1,6 @@
 function standingsTableHtml(standings) {
   if (!standings.length) {
-    return '<p class="empty-state">Standings haven\'t been entered for this league yet.</p>';
+    return '<p class="empty-state">Standings haven\'t been entered for this competition yet.</p>';
   }
   const rows = standings.map((r) => `
     <tr>
@@ -50,22 +50,57 @@ function fixtureRowHtml(f) {
 
 function fixturesListHtml(fixtures) {
   if (!fixtures.length) {
-    return '<p class="empty-state">No fixtures entered for this league yet.</p>';
+    return '<p class="empty-state">No fixtures entered for this competition yet.</p>';
   }
   return fixtures.map(fixtureRowHtml).join('');
 }
 
-// Full standings + upcoming + recent for one league — same shape the page
-// always used for its single (KPL-only) view, now reused per league.
-function leagueDetailHtml(league) {
-  const upcoming = league.fixtures.filter((f) => f.status !== 'FINISHED');
-  const recent = league.fixtures.filter((f) => f.status === 'FINISHED').slice(-8).reverse();
+function competitionTitleHtml(competition) {
+  return `<h3 class="story-hl" style="margin-bottom:1rem; display:flex; align-items:baseline; gap:0.75rem; flex-wrap:wrap;">
+    ${escapeHtml(competition.name)}
+    <a class="btn-link" href="/competition.html?slug=${encodeURIComponent(competition.slug)}" style="font-size:0.85rem;">View full competition →</a>
+  </h3>`;
+}
+
+// Fixtures + results only, for the sport hub's "Scores & Fixtures" tab and
+// the flat Scores & Fixtures page's fixtures view.
+function competitionFixturesHtml(competition) {
+  const upcoming = competition.fixtures.filter((f) => f.status !== 'FINISHED');
+  const recent = competition.fixtures.filter((f) => f.status === 'FINISHED').slice(-8).reverse();
   return `
-    <div class="league-detail">
-      <h3 class="story-hl" style="margin-bottom:1rem;">${escapeHtml(league.name)}</h3>
+    <div class="competition-detail">
+      ${competitionTitleHtml(competition)}
+      <div style="margin-bottom:2rem;">
+        <span class="section-label">Upcoming Fixtures</span>
+        ${fixturesListHtml(upcoming)}
+      </div>
+      <div>
+        <span class="section-label">Recent Results</span>
+        ${fixturesListHtml(recent)}
+      </div>
+    </div>`;
+}
+
+// Standings only, for the sport hub's "Tables" tab.
+function competitionTableHtml(competition) {
+  return `
+    <div class="competition-detail">
+      ${competitionTitleHtml(competition)}
+      ${standingsTableHtml(competition.standings)}
+    </div>`;
+}
+
+// Standings + fixtures together — the flat Scores & Fixtures page's
+// original combined view.
+function competitionDetailHtml(competition) {
+  const upcoming = competition.fixtures.filter((f) => f.status !== 'FINISHED');
+  const recent = competition.fixtures.filter((f) => f.status === 'FINISHED').slice(-8).reverse();
+  return `
+    <div class="competition-detail">
+      ${competitionTitleHtml(competition)}
       <div style="margin-bottom:2rem;">
         <span class="section-label">Standings</span>
-        ${standingsTableHtml(league.standings)}
+        ${standingsTableHtml(competition.standings)}
       </div>
       <div style="margin-bottom:2rem;">
         <span class="section-label">Upcoming Fixtures</span>
@@ -78,43 +113,55 @@ function leagueDetailHtml(league) {
     </div>`;
 }
 
-async function fetchLeagueDetail(slug) {
-  const { league } = await api(`/api/leagues/${encodeURIComponent(slug)}`);
-  return league;
+function competitionCardHtml(c) {
+  return `
+    <a href="/competition.html?slug=${encodeURIComponent(c.slug)}" style="display:contents;">
+      <div class="card">
+        <span class="card-eyebrow">${escapeHtml(c.region === 'KENYA' ? 'Kenya' : 'Global')}</span>
+        <h3 class="card-title">${escapeHtml(c.name)}</h3>
+      </div>
+    </a>`;
 }
 
-// One sport's full Scores view: Kenyan leagues (KPL, NSL, ...) shown
-// expanded by default — the client's explicit ask was that these not get
-// lost in the noise of a much longer global list — then a secondary,
-// single-select picker for the region:GLOBAL leagues in that sport,
+async function fetchCompetitionDetail(slug) {
+  const { competition } = await api(`/api/competitions/${encodeURIComponent(slug)}`);
+  return competition;
+}
+
+// One sport's full Scores/Tables view: Kenyan competitions (KPL, NSL, ...)
+// shown expanded by default — the client's explicit ask was that these not
+// get lost in the noise of a much longer global list — then a secondary,
+// single-select picker for the region:GLOBAL competitions in that sport,
 // lazy-loaded one at a time on click rather than fetching all of them.
-async function renderScoresSportPanel(panelEl, sportLeagues) {
-  const kenyaLeagues = sportLeagues.filter((l) => l.region === 'KENYA');
-  const globalLeagues = sportLeagues.filter((l) => l.region === 'GLOBAL');
+// `detailRenderer` decides whether each competition renders fixtures,
+// standings, or both — same fetch either way, just a different view of it.
+async function renderCompetitionsSportPanel(panelEl, sportCompetitions, detailRenderer) {
+  const kenyaCompetitions = sportCompetitions.filter((c) => c.region === 'KENYA');
+  const globalCompetitions = sportCompetitions.filter((c) => c.region === 'GLOBAL');
 
   panelEl.innerHTML = `
-    <div data-kenya-leagues></div>
-    ${globalLeagues.length ? `
+    <div data-kenya-competitions></div>
+    ${globalCompetitions.length ? `
       <div style="margin-top:3rem;">
-        <span class="section-label">Other Leagues</span>
+        <span class="section-label">Other Competitions</span>
         <div class="filter-row" data-global-pills></div>
         <div data-global-detail></div>
       </div>` : ''}`;
 
-  const kenyaEl = panelEl.querySelector('[data-kenya-leagues]');
-  if (kenyaLeagues.length) {
-    kenyaEl.innerHTML = kenyaLeagues.map(() => '<div class="empty-state">Loading…</div>').join('');
-    const details = await Promise.all(kenyaLeagues.map((l) => fetchLeagueDetail(l.slug)));
-    kenyaEl.innerHTML = details.map(leagueDetailHtml).join('<hr style="border-color:var(--border); margin:2.5rem 0;">');
+  const kenyaEl = panelEl.querySelector('[data-kenya-competitions]');
+  if (kenyaCompetitions.length) {
+    kenyaEl.innerHTML = kenyaCompetitions.map(() => '<div class="empty-state">Loading…</div>').join('');
+    const details = await Promise.all(kenyaCompetitions.map((c) => fetchCompetitionDetail(c.slug)));
+    kenyaEl.innerHTML = details.map(detailRenderer).join('<hr style="border-color:var(--border); margin:2.5rem 0;">');
   } else {
-    kenyaEl.innerHTML = '<p class="empty-state">No Kenyan leagues added for this sport yet.</p>';
+    kenyaEl.innerHTML = '<p class="empty-state">No Kenyan competitions added for this sport yet.</p>';
   }
 
-  if (globalLeagues.length) {
+  if (globalCompetitions.length) {
     const pillsEl = panelEl.querySelector('[data-global-pills]');
     const detailEl = panelEl.querySelector('[data-global-detail]');
-    pillsEl.innerHTML = globalLeagues
-      .map((l) => `<button class="filter-pill" data-slug="${escapeHtml(l.slug)}">${escapeHtml(l.name)}</button>`)
+    pillsEl.innerHTML = globalCompetitions
+      .map((c) => `<button class="filter-pill" data-slug="${escapeHtml(c.slug)}">${escapeHtml(c.name)}</button>`)
       .join('');
 
     pillsEl.addEventListener('click', async (e) => {
@@ -123,10 +170,10 @@ async function renderScoresSportPanel(panelEl, sportLeagues) {
       pillsEl.querySelectorAll('.filter-pill').forEach((p) => p.classList.toggle('active', p === btn));
       detailEl.innerHTML = '<div class="empty-state">Loading…</div>';
       try {
-        const league = await fetchLeagueDetail(btn.dataset.slug);
-        detailEl.innerHTML = leagueDetailHtml(league);
+        const competition = await fetchCompetitionDetail(btn.dataset.slug);
+        detailEl.innerHTML = detailRenderer(competition);
       } catch (err) {
-        detailEl.innerHTML = `<div class="empty-state">Could not load this league: ${escapeHtml(err.message)}</div>`;
+        detailEl.innerHTML = `<div class="empty-state">Could not load this competition: ${escapeHtml(err.message)}</div>`;
       }
     });
   }
@@ -134,19 +181,19 @@ async function renderScoresSportPanel(panelEl, sportLeagues) {
 
 async function loadScores() {
   const root = document.getElementById('scores-root');
-  const { leagues } = await api('/api/leagues');
+  const { competitions } = await api('/api/competitions');
 
-  if (!leagues.length) {
-    root.innerHTML = '<p class="empty-state">No leagues have been added yet.</p>';
+  if (!competitions.length) {
+    root.innerHTML = '<p class="empty-state">No competitions have been added yet.</p>';
     return;
   }
 
   const bySport = new Map();
-  leagues.forEach((l) => {
-    if (!bySport.has(l.sport.slug)) bySport.set(l.sport.slug, { label: l.sport.name, leagues: [] });
-    bySport.get(l.sport.slug).leagues.push(l);
+  competitions.forEach((c) => {
+    if (!bySport.has(c.sport.slug)) bySport.set(c.sport.slug, { label: c.sport.name, competitions: [] });
+    bySport.get(c.sport.slug).competitions.push(c);
   });
-  const categories = Array.from(bySport, ([key, { label, leagues }]) => ({ key, label, items: leagues }));
+  const categories = Array.from(bySport, ([key, { label, competitions }]) => ({ key, label, items: competitions }));
 
   renderCategoryToggle({
     container: root,
@@ -156,7 +203,7 @@ async function loadScores() {
     renderItem: () => '',
     afterRender: (panelEl, category) => {
       panelEl.innerHTML = '';
-      renderScoresSportPanel(panelEl, category.items).catch((err) => {
+      renderCompetitionsSportPanel(panelEl, category.items, competitionDetailHtml).catch((err) => {
         panelEl.innerHTML = `<div class="empty-state">Could not load scores: ${escapeHtml(err.message)}</div>`;
       });
     },

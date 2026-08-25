@@ -76,20 +76,21 @@ function confidencePill(confidence) {
 }
 
 // News dropped 2026-08-19 — it lives inside each sport's own hub now
-// (Home | News | Watch | Scores & Fixtures | Teams tabs), rather than
-// being re-selected per top-level page. Sports/Scores/Teams are dropdowns
-// (see nav-dropdown.js) that jump straight into a sport's hub, each
-// opened on a different tab. Watch is a plain link since it isn't
+// (News | Watch | Scores & Fixtures | Tables | Teams | Competitions tabs),
+// rather than being re-selected per top-level page. Sports/Scores are
+// dropdowns (see nav-dropdown.js) that jump straight into a sport's hub,
+// each opened on a different tab. Watch is a plain link since it isn't
 // sport-hub-scoped content in the same way. Kits dropped out of primary
-// nav entirely 2026-08-19 — the club/player Teams data (rosters, kept
-// up to date as transfers happen) is the priority, not the merch
-// gallery; Kits stays reachable from the footer, just demoted.
+// nav entirely 2026-08-19, then was retired outright (legal reasons,
+// 2026-08-25) — see server/index.js. Teams dropped out of the primary nav
+// 2026-08-25 too, once it became one of the sport hub's own secondary
+// tabs (public/js/sport.js) rather than a separate top-level destination —
+// still reachable via the footer and directly at /clubs.html.
 const NAV_LINKS = [
   { type: 'link', href: '/index.html', label: 'Home' },
   { type: 'dropdown', key: 'sports', label: 'Sports', tab: null },
   { type: 'link', href: '/shows.html', label: 'Watch' },
   { type: 'dropdown', key: 'scores', label: 'Scores', tab: 'scores' },
-  { type: 'dropdown', key: 'teams', label: 'Teams', tab: 'clubs' },
 ];
 
 // Brand band — its own row above the primary nav (Sky Sports-style

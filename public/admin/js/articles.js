@@ -1,16 +1,17 @@
 let allSports = [];
 let allAuthors = [];
 let allTags = [];
-let allLeagues = [];
+let allCompetitions = [];
 
-// League picker is scoped to whichever sport is currently selected — a
-// league tag only makes sense within its own sport, and the list would
-// otherwise be confusing (KPL showing up while editing a Rugby episode).
-function populateLeagueOptions(sportId) {
-  const select = document.getElementById('leagueId');
-  const leagues = allLeagues.filter((l) => l.sportId === sportId);
+// Competition picker is scoped to whichever sport is currently selected —
+// a competition tag only makes sense within its own sport, and the list
+// would otherwise be confusing (KPL showing up while editing a Rugby
+// episode).
+function populateCompetitionOptions(sportId) {
+  const select = document.getElementById('competitionId');
+  const competitions = allCompetitions.filter((c) => c.sportId === sportId);
   select.innerHTML = ['<option value="">— None — general sport commentary —</option>']
-    .concat(leagues.map((l) => `<option value="${l.id}">${escapeHtml(l.name)}</option>`))
+    .concat(competitions.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`))
     .join('');
 }
 
@@ -42,7 +43,7 @@ function resetForm() {
   setSelectedTagIds([]);
   document.getElementById('video-fields').style.display = 'none';
   document.getElementById('article-form-error').style.display = 'none';
-  populateLeagueOptions(document.getElementById('sportId').value);
+  populateCompetitionOptions(document.getElementById('sportId').value);
 }
 
 function showForm() {
@@ -95,8 +96,8 @@ function editArticle(article) {
   document.getElementById('episodeLabel').value = article.episodeLabel || '';
   document.getElementById('runtimeLabel').value = article.runtimeLabel || '';
   setSelectedTagIds(article.tags.map((t) => t.id));
-  populateLeagueOptions(article.sport.id);
-  document.getElementById('leagueId').value = article.leagueId || '';
+  populateCompetitionOptions(article.sport.id);
+  document.getElementById('competitionId').value = article.competitionId || '';
   document.getElementById('video-fields').style.display = article.contentType === 'VIDEO_POST' ? 'block' : 'none';
   showForm();
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -125,7 +126,7 @@ function collectFormData() {
     videoSeries: document.getElementById('videoSeries').value.trim() || null,
     episodeLabel: document.getElementById('episodeLabel').value.trim() || null,
     runtimeLabel: document.getElementById('runtimeLabel').value.trim() || null,
-    leagueId: document.getElementById('leagueId').value || null,
+    competitionId: document.getElementById('competitionId').value || null,
   };
 }
 
@@ -139,17 +140,17 @@ async function initArticlesPage() {
   }
   document.getElementById('articles-app').style.display = 'block';
 
-  const [sportsRes, authorsRes, tagsRes, leaguesRes] = await Promise.all([
-    api('/api/sports'), api('/api/authors'), api('/api/tags'), api('/api/leagues'),
+  const [sportsRes, authorsRes, tagsRes, competitionsRes] = await Promise.all([
+    api('/api/sports'), api('/api/authors'), api('/api/tags'), api('/api/competitions'),
   ]);
   allSports = sportsRes.sports;
   allAuthors = authorsRes.authors;
   allTags = tagsRes.tags;
-  allLeagues = leaguesRes.leagues;
+  allCompetitions = competitionsRes.competitions;
   populateSelect(document.getElementById('sportId'), allSports);
   populateSelect(document.getElementById('authorId'), allAuthors);
   populateTagCheckboxes(allTags);
-  populateLeagueOptions(document.getElementById('sportId').value);
+  populateCompetitionOptions(document.getElementById('sportId').value);
 
   document.getElementById('new-article-btn').addEventListener('click', () => {
     resetForm();
@@ -162,7 +163,7 @@ async function initArticlesPage() {
     document.getElementById('video-fields').style.display = e.target.value === 'VIDEO_POST' ? 'block' : 'none';
   });
   document.getElementById('sportId').addEventListener('change', (e) => {
-    populateLeagueOptions(e.target.value);
+    populateCompetitionOptions(e.target.value);
   });
 
   document.getElementById('article-form').addEventListener('submit', async (e) => {

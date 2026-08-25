@@ -117,7 +117,7 @@ async function initTeamsPage() {
   }
   document.getElementById('teams-app').style.display = 'block';
 
-  const [{ sports }, { leagues }] = await Promise.all([api('/api/sports'), api('/api/leagues')]);
+  const [{ sports }, { competitions: leagues }] = await Promise.all([api('/api/sports'), api('/api/competitions')]);
   allSports = sports;
   allLeagues = leagues;
   document.getElementById('team-sport').innerHTML = sports.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');

@@ -1,4 +1,4 @@
-let allLeagues = [];
+let allCompetitions = [];
 
 function playerRowHtml(p) {
   return `
@@ -21,7 +21,7 @@ function clubBlockHtml(club) {
     : '';
   return `
     <div class="card" style="margin-bottom:2.5rem; cursor:default;">
-      <span class="card-eyebrow">${escapeHtml(club.league.sport.name)} · ${escapeHtml(club.league.name)}</span>
+      <span class="card-eyebrow">${escapeHtml(club.competition.sport.name)} · ${escapeHtml(club.competition.name)}</span>
       <h3 class="card-title">${escapeHtml(club.name)}${sourceTag}</h3>
 
       <div style="margin-top:1.25rem;">
@@ -51,7 +51,7 @@ async function loadClubs() {
   const { clubs } = await api('/api/clubs');
   const root = document.getElementById('clubs-root');
   if (!clubs.length) {
-    root.innerHTML = '<p class="empty-state">No clubs added yet — add one above, or enable squad sync for a league on the Scores &amp; Fixtures page.</p>';
+    root.innerHTML = '<p class="empty-state">No clubs added yet — add one above, or enable squad sync for a competition on the Competitions page.</p>';
     return;
   }
 
@@ -111,17 +111,17 @@ async function initClubsPage() {
   }
   document.getElementById('clubs-app').style.display = 'block';
 
-  const { leagues } = await api('/api/leagues');
-  allLeagues = leagues;
-  document.getElementById('club-league').innerHTML = leagues.map((l) => `<option value="${l.id}">${escapeHtml(l.name)}</option>`).join('');
+  const { competitions } = await api('/api/competitions');
+  allCompetitions = competitions;
+  document.getElementById('club-competition').innerHTML = competitions.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
 
   document.getElementById('add-club-btn').addEventListener('click', async () => {
     const name = document.getElementById('club-name').value.trim();
-    const leagueId = document.getElementById('club-league').value;
+    const competitionId = document.getElementById('club-competition').value;
     const crestUrl = document.getElementById('club-crest').value.trim();
     const venue = document.getElementById('club-venue').value.trim();
-    if (!name || !leagueId) return;
-    await api('/api/clubs', { method: 'POST', body: JSON.stringify({ name, leagueId, crestUrl, venue }) });
+    if (!name || !competitionId) return;
+    await api('/api/clubs', { method: 'POST', body: JSON.stringify({ name, competitionId, crestUrl, venue }) });
     document.getElementById('club-name').value = '';
     document.getElementById('club-crest').value = '';
     document.getElementById('club-venue').value = '';

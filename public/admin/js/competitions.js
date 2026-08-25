@@ -36,36 +36,36 @@ function fixtureAdminRowHtml(f, listId) {
     </div>`;
 }
 
-function leagueBlockHtml(league, teamNames) {
-  const listId = `teamnames-${league.id}`;
+function competitionBlockHtml(competition, teamNames) {
+  const listId = `teamnames-${competition.id}`;
   return `
     <div class="card" style="margin-bottom:2.5rem; cursor:default;">
-      <span class="card-eyebrow">${escapeHtml(league.sport.name)} · ${escapeHtml(league.source)}</span>
-      <h3 class="card-title">${escapeHtml(league.name)}</h3>
+      <span class="card-eyebrow">${escapeHtml(competition.sport.name)} · ${escapeHtml(competition.source)}</span>
+      <h3 class="card-title">${escapeHtml(competition.name)}</h3>
       <datalist id="${listId}">
         ${teamNames.map((n) => `<option value="${escapeHtml(n)}">`).join('')}
       </datalist>
 
       <label class="checkbox-row" style="margin-top:0.75rem;">
-        <input type="checkbox" class="sync-squads-toggle" data-league-id="${league.id}" ${league.syncSquads ? 'checked' : ''}>
-        <span style="font-size:0.85rem;">Sync club/player rosters for this league (Wikidata, once daily — needs standings entered first)</span>
+        <input type="checkbox" class="sync-squads-toggle" data-competition-id="${competition.id}" ${competition.syncSquads ? 'checked' : ''}>
+        <span style="font-size:0.85rem;">Sync club/player rosters for this competition (Wikidata, once daily — needs standings entered first)</span>
       </label>
 
       <div style="margin-top:1.5rem;">
         <span class="section-label" style="font-size:0.68rem;">Standings</span>
-        <div id="standings-rows-${league.id}">
-          ${league.standings.length ? league.standings.map((r) => standingRowFormHtml(r, listId)).join('') : standingRowFormHtml({}, listId)}
+        <div id="standings-rows-${competition.id}">
+          ${competition.standings.length ? competition.standings.map((r) => standingRowFormHtml(r, listId)).join('') : standingRowFormHtml({}, listId)}
         </div>
         <div style="display:flex; gap:0.75rem; margin-top:0.75rem;">
-          <button type="button" class="btn-outline-sm add-row-btn" data-league-id="${league.id}">+ Add Row</button>
-          <button type="button" class="btn-sm-red save-standings-btn" data-league-id="${league.id}">Save Standings</button>
+          <button type="button" class="btn-outline-sm add-row-btn" data-competition-id="${competition.id}">+ Add Row</button>
+          <button type="button" class="btn-sm-red save-standings-btn" data-competition-id="${competition.id}">Save Standings</button>
         </div>
       </div>
 
       <div style="margin-top:2rem;">
         <span class="section-label" style="font-size:0.68rem;">Fixtures</span>
-        <div id="fixtures-rows-${league.id}">
-          ${league.fixtures.map((f) => fixtureAdminRowHtml(f, listId)).join('') || '<p class="empty-state" style="padding:0.5rem 0;">No fixtures yet.</p>'}
+        <div id="fixtures-rows-${competition.id}">
+          ${competition.fixtures.map((f) => fixtureAdminRowHtml(f, listId)).join('') || '<p class="empty-state" style="padding:0.5rem 0;">No fixtures yet.</p>'}
         </div>
         <div class="fixture-admin-row" style="margin-top:0.75rem;">
           <input type="text" placeholder="Home team" data-new-fixture="homeTeam" list="${listId}">
@@ -73,7 +73,7 @@ function leagueBlockHtml(league, teamNames) {
           <input type="datetime-local" data-new-fixture="kickoff">
           <span></span>
           <span></span>
-          <button type="button" class="btn-outline-sm add-fixture-btn" data-league-id="${league.id}">+ Add Fixture</button>
+          <button type="button" class="btn-outline-sm add-fixture-btn" data-competition-id="${competition.id}">+ Add Fixture</button>
         </div>
       </div>
 
@@ -82,17 +82,17 @@ function leagueBlockHtml(league, teamNames) {
         <p class="empty-state" style="padding:0 0 0.5rem; font-size:0.8rem;">
           One fixture per line: <code>Home Team vs Away Team | 2026-08-23T15:00</code>
         </p>
-        <textarea data-bulk-fixtures="${league.id}" rows="5" style="width:100%; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); padding:0.6rem; font-family:ui-monospace,monospace; font-size:0.82rem;" placeholder="Gor Mahia FC vs Tusker FC | 2026-08-23T15:00
+        <textarea data-bulk-fixtures="${competition.id}" rows="5" style="width:100%; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); padding:0.6rem; font-family:ui-monospace,monospace; font-size:0.82rem;" placeholder="Gor Mahia FC vs Tusker FC | 2026-08-23T15:00
 AFC Leopards vs Kakamega Homeboyz | 2026-08-24T15:00"></textarea>
-        <button type="button" class="btn-outline-sm bulk-import-btn" data-league-id="${league.id}" style="margin-top:0.5rem;">Import Fixtures</button>
-        <p class="form-error bulk-import-error" data-league-id="${league.id}" style="display:none; margin-top:0.5rem;"></p>
+        <button type="button" class="btn-outline-sm bulk-import-btn" data-competition-id="${competition.id}" style="margin-top:0.5rem;">Import Fixtures</button>
+        <p class="form-error bulk-import-error" data-competition-id="${competition.id}" style="display:none; margin-top:0.5rem;"></p>
       </div>
     </div>`;
 }
 
-function collectStandingsRows(leagueId) {
+function collectStandingsRows(competitionId) {
   const rows = [];
-  document.querySelectorAll(`#standings-rows-${leagueId} [data-row]`).forEach((rowEl, i) => {
+  document.querySelectorAll(`#standings-rows-${competitionId} [data-row]`).forEach((rowEl, i) => {
     const teamName = rowEl.querySelector('[data-field="teamName"]').value.trim();
     if (!teamName) return;
     const get = (f) => parseInt(rowEl.querySelector(`[data-field="${f}"]`).value, 10) || 0;
@@ -133,7 +133,7 @@ async function loadChangeLog() {
   const root = document.getElementById('changelog-root');
   if (!root) return;
   try {
-    const { entries } = await api('/api/leagues/changelog');
+    const { entries } = await api('/api/competitions/changelog');
     root.innerHTML = entries.length
       ? entries.map(changeLogRowHtml).join('')
       : '<p class="empty-state">No changes logged yet.</p>';
@@ -142,26 +142,26 @@ async function loadChangeLog() {
   }
 }
 
-async function loadLeagues() {
-  const { leagues } = await api('/api/leagues');
-  const root = document.getElementById('leagues-root');
-  if (!leagues.length) {
-    root.innerHTML = '<p class="empty-state">No leagues added yet — add one above to start entering standings and fixtures.</p>';
+async function loadCompetitions() {
+  const { competitions } = await api('/api/competitions');
+  const root = document.getElementById('competitions-root');
+  if (!competitions.length) {
+    root.innerHTML = '<p class="empty-state">No competitions added yet — add one above to start entering standings and fixtures.</p>';
     return;
   }
 
-  const fullLeagues = await Promise.all(leagues.map(async (l) => {
-    const [{ league }, { teamNames }] = await Promise.all([
-      api(`/api/leagues/${l.slug}`),
-      api(`/api/leagues/${l.id}/team-names`),
+  const fullCompetitions = await Promise.all(competitions.map(async (c) => {
+    const [{ competition }, { teamNames }] = await Promise.all([
+      api(`/api/competitions/${c.slug}`),
+      api(`/api/competitions/${c.id}/team-names`),
     ]);
-    return { league, teamNames };
+    return { competition, teamNames };
   }));
-  root.innerHTML = fullLeagues.map(({ league, teamNames }) => leagueBlockHtml(league, teamNames)).join('');
+  root.innerHTML = fullCompetitions.map(({ competition, teamNames }) => competitionBlockHtml(competition, teamNames)).join('');
 
   root.querySelectorAll('.sync-squads-toggle').forEach((checkbox) => {
     checkbox.addEventListener('change', async () => {
-      await api(`/api/leagues/${checkbox.dataset.leagueId}/sync-squads`, {
+      await api(`/api/competitions/${checkbox.dataset.competitionId}/sync-squads`, {
         method: 'PUT',
         body: JSON.stringify({ syncSquads: checkbox.checked }),
       });
@@ -171,8 +171,8 @@ async function loadLeagues() {
 
   root.querySelectorAll('.add-row-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const listId = `teamnames-${btn.dataset.leagueId}`;
-      document.getElementById(`standings-rows-${btn.dataset.leagueId}`).insertAdjacentHTML('beforeend', standingRowFormHtml({}, listId));
+      const listId = `teamnames-${btn.dataset.competitionId}`;
+      document.getElementById(`standings-rows-${btn.dataset.competitionId}`).insertAdjacentHTML('beforeend', standingRowFormHtml({}, listId));
     });
   });
 
@@ -182,9 +182,9 @@ async function loadLeagues() {
 
   root.querySelectorAll('.save-standings-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
-      const rows = collectStandingsRows(btn.dataset.leagueId);
-      await api(`/api/leagues/${btn.dataset.leagueId}/standings`, { method: 'PUT', body: JSON.stringify({ rows }) });
-      loadLeagues();
+      const rows = collectStandingsRows(btn.dataset.competitionId);
+      await api(`/api/competitions/${btn.dataset.competitionId}/standings`, { method: 'PUT', body: JSON.stringify({ rows }) });
+      loadCompetitions();
       loadChangeLog();
     });
   });
@@ -196,8 +196,8 @@ async function loadLeagues() {
       const awayTeam = row.querySelector('[data-new-fixture="awayTeam"]').value.trim();
       const kickoff = row.querySelector('[data-new-fixture="kickoff"]').value;
       if (!homeTeam || !awayTeam || !kickoff) return;
-      await api(`/api/leagues/${btn.dataset.leagueId}/fixtures`, { method: 'POST', body: JSON.stringify({ homeTeam, awayTeam, kickoff }) });
-      loadLeagues();
+      await api(`/api/competitions/${btn.dataset.competitionId}/fixtures`, { method: 'POST', body: JSON.stringify({ homeTeam, awayTeam, kickoff }) });
+      loadCompetitions();
       loadChangeLog();
     });
   });
@@ -209,7 +209,7 @@ async function loadLeagues() {
       const get = (f) => row.querySelector(`[data-field="${f}"]`).value;
       const homeScoreVal = get('homeScore');
       const awayScoreVal = get('awayScore');
-      await api(`/api/leagues/fixtures/${fixtureId}`, {
+      await api(`/api/competitions/fixtures/${fixtureId}`, {
         method: 'PUT',
         body: JSON.stringify({
           homeTeam: get('homeTeam'),
@@ -219,7 +219,7 @@ async function loadLeagues() {
           status: get('status'),
         }),
       });
-      loadLeagues();
+      loadCompetitions();
       loadChangeLog();
     });
   });
@@ -228,22 +228,22 @@ async function loadLeagues() {
     btn.addEventListener('click', async () => {
       const fixtureId = btn.closest('.fixture-admin-row').dataset.fixtureId;
       if (!confirm('Delete this fixture?')) return;
-      await api(`/api/leagues/fixtures/${fixtureId}`, { method: 'DELETE' });
-      loadLeagues();
+      await api(`/api/competitions/fixtures/${fixtureId}`, { method: 'DELETE' });
+      loadCompetitions();
       loadChangeLog();
     });
   });
 
   root.querySelectorAll('.bulk-import-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
-      const leagueId = btn.dataset.leagueId;
-      const textarea = root.querySelector(`[data-bulk-fixtures="${leagueId}"]`);
-      const errorEl = root.querySelector(`.bulk-import-error[data-league-id="${leagueId}"]`);
+      const competitionId = btn.dataset.competitionId;
+      const textarea = root.querySelector(`[data-bulk-fixtures="${competitionId}"]`);
+      const errorEl = root.querySelector(`.bulk-import-error[data-competition-id="${competitionId}"]`);
       errorEl.style.display = 'none';
       const fixtures = parseBulkFixtures(textarea.value);
       if (!fixtures.length) return;
       try {
-        const result = await api(`/api/leagues/${leagueId}/fixtures/bulk`, {
+        const result = await api(`/api/competitions/${competitionId}/fixtures/bulk`, {
           method: 'POST',
           body: JSON.stringify({ fixtures }),
         });
@@ -251,7 +251,7 @@ async function loadLeagues() {
           errorEl.textContent = `Imported ${result.created}. Skipped: ${result.errors.join('; ')}`;
           errorEl.style.display = 'block';
         }
-        loadLeagues();
+        loadCompetitions();
         loadChangeLog();
       } catch (err) {
         errorEl.textContent = err.message;
@@ -261,7 +261,7 @@ async function loadLeagues() {
   });
 }
 
-async function initScoresPage() {
+async function initCompetitionsPage() {
   const user = await requireLogin();
   if (!user) return;
 
@@ -269,24 +269,24 @@ async function initScoresPage() {
     document.getElementById('access-denied').style.display = 'block';
     return;
   }
-  document.getElementById('scores-app').style.display = 'block';
+  document.getElementById('competitions-app').style.display = 'block';
 
   const { sports } = await api('/api/sports');
   allSports = sports;
-  document.getElementById('league-sport').innerHTML = sports.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+  document.getElementById('competition-sport').innerHTML = sports.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
 
-  document.getElementById('add-league-btn').addEventListener('click', async () => {
-    const name = document.getElementById('league-name').value.trim();
-    const sportId = document.getElementById('league-sport').value;
+  document.getElementById('add-competition-btn').addEventListener('click', async () => {
+    const name = document.getElementById('competition-name').value.trim();
+    const sportId = document.getElementById('competition-sport').value;
     if (!name || !sportId) return;
-    await api('/api/leagues', { method: 'POST', body: JSON.stringify({ name, sportId }) });
-    document.getElementById('league-name').value = '';
-    loadLeagues();
+    await api('/api/competitions', { method: 'POST', body: JSON.stringify({ name, sportId }) });
+    document.getElementById('competition-name').value = '';
+    loadCompetitions();
     loadChangeLog();
   });
 
-  loadLeagues();
+  loadCompetitions();
   loadChangeLog();
 }
 
-initScoresPage();
+initCompetitionsPage();

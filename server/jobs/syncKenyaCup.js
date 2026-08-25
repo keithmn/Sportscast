@@ -1,17 +1,18 @@
-// Scrapes Kenya Cup's own public standings page — the one Kenyan league
-// this session's research found genuinely feasible: server-rendered HTML
-// (not JS-required), no robots.txt block, no Terms of Use found on either
-// kenyacup.co.ke or kru.co.ke despite real searching. Treat that as "no
-// known prohibition," not "confirmed permission" — poll infrequently
-// (daily, see server/index.js's cron) and identify with a real UA.
+// Scrapes Kenya Cup's own public standings page — the one Kenyan
+// competition this session's research found genuinely feasible:
+// server-rendered HTML (not JS-required), no robots.txt block, no Terms of
+// Use found on either kenyacup.co.ke or kru.co.ke despite real searching.
+// Treat that as "no known prohibition," not "confirmed permission" — poll
+// infrequently (daily, see server/index.js's cron) and identify with a
+// real UA.
 //
 // Deliberately standings-only. The site's Fixtures/Results content is
 // free-text (bonus-point asterisks embedded in scores, inconsistent team
 // name spellings, even a stray international friendly mixed into a
 // domestic-season page) — too unreliable to parse into real Fixture rows
 // without a real risk of silently writing wrong scores. Fixtures/results
-// for Kenya Cup stay newsroom-entered via /admin/scores.html; only the
-// standings table gets this automated path.
+// for Kenya Cup stay newsroom-entered via /admin/competitions.html; only
+// the standings table gets this automated path.
 //
 // Distinct from syncLeagues.js's `source: 'API'` (football-data.org) —
 // this uses `source: 'SCRAPED'` / `externalProvider: 'kenyacup.co.ke'` so
@@ -70,11 +71,14 @@ function parseStandings(html) {
 }
 
 async function syncKenyaCup() {
-  const league = await prisma.league.findFirst({
+  // 'Kenya Cup' here is the real competition's actual name, stored in
+  // Competition.name — not a model/field identifier, so it's untouched by
+  // the League→Competition rename.
+  const competition = await prisma.competition.findFirst({
     where: { name: 'Kenya Cup', sport: { name: 'Rugby' } },
   });
-  if (!league) {
-    console.warn('[syncKenyaCup] Kenya Cup league not found — skipping.');
+  if (!competition) {
+    console.warn('[syncKenyaCup] Kenya Cup competition not found — skipping.');
     return;
   }
 
@@ -86,7 +90,7 @@ async function syncKenyaCup() {
     // could change at any time (it's not a real API with a contract), so
     // cross-check parsed team names against clubs we already know are real
     // Kenya Cup sides rather than blindly writing whatever came out.
-    const knownClubs = await prisma.club.findMany({ where: { leagueId: league.id }, select: { name: true } });
+    const knownClubs = await prisma.club.findMany({ where: { competitionId: competition.id }, select: { name: true } });
     const knownNames = new Set(knownClubs.map((c) => c.name.toLowerCase()));
     const matched = rows.filter((r) => knownNames.has(r.teamName.toLowerCase())).length;
 
@@ -95,7 +99,7 @@ async function syncKenyaCup() {
     }
 
     const standingRows = rows.map((r, i) => ({
-      leagueId: league.id,
+      competitionId: competition.id,
       position: i + 1,
       teamName: r.teamName,
       played: r.played,
@@ -108,18 +112,18 @@ async function syncKenyaCup() {
     }));
 
     await prisma.$transaction([
-      prisma.standingRow.deleteMany({ where: { leagueId: league.id } }),
+      prisma.standingRow.deleteMany({ where: { competitionId: competition.id } }),
       prisma.standingRow.createMany({ data: standingRows }),
     ]);
 
-    await prisma.league.update({
-      where: { id: league.id },
+    await prisma.competition.update({
+      where: { id: competition.id },
       data: { source: 'SCRAPED', externalProvider: 'kenyacup.co.ke', lastSyncedAt: new Date(), syncStatus: 'OK' },
     });
     console.log(`[syncKenyaCup] OK: ${standingRows.length} teams.`);
   } catch (err) {
     console.error('[syncKenyaCup] FAILED —', err.message);
-    await prisma.league.update({ where: { id: league.id }, data: { syncStatus: 'ERROR' } }).catch(() => {});
+    await prisma.competition.update({ where: { id: competition.id }, data: { syncStatus: 'ERROR' } }).catch(() => {});
   }
 }
 

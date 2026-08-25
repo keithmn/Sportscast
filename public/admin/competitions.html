@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scores &amp; Fixtures — The Sportscast Newsroom</title>
+  <title>Competitions — The Sportscast Newsroom</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&family=Nunito:wght@400;600;700;900&family=Anton&display=swap" rel="stylesheet">
   <link rel="icon" href="/brand/favicon/favicon-32.png" sizes="32x32">
@@ -25,10 +25,8 @@
       </div>
       <a href="/admin/dashboard.html">Dashboard</a>
       <a href="/admin/articles.html">Articles</a>
-      <a href="/admin/scores.html" class="active">Scores &amp; Fixtures</a>
+      <a href="/admin/competitions.html" class="active">Competitions</a>
       <a href="/admin/clubs.html">Clubs &amp; Players</a>
-      <a href="/admin/teams.html">Shop Teams</a>
-      <a href="/admin/orders.html">Orders</a>
       <a href="/admin/submissions.html">Submissions</a>
       <a href="/admin/sports.html">Sports</a>
       <a href="/index.html">View Site</a>
@@ -36,28 +34,28 @@
     </aside>
     <main class="admin-main">
       <div class="admin-topbar">
-        <h1 class="page-title" style="font-size:1.75rem;">Scores &amp; Fixtures</h1>
+        <h1 class="page-title" style="font-size:1.75rem;">Competitions</h1>
         <span id="whoami" class="page-sub"></span>
       </div>
-      <p class="page-sub" style="margin-bottom:2rem;">Kenyan leagues (KPL, NSL) are entered here by hand — global leagues sync automatically from football-data.org and shouldn't be hand-edited. Add a league below to get started.</p>
+      <p class="page-sub" style="margin-bottom:2rem;">Kenyan competitions (KPL, NSL) are entered here by hand — global competitions sync automatically from football-data.org and shouldn't be hand-edited. Add a competition below to get started.</p>
       <div id="access-denied" class="form-error" style="display:none;">You don't have permission to manage this.</div>
-      <div id="scores-app" style="display:none;">
-        <div id="new-league-form" class="form-grid" style="max-width:480px; margin-bottom:3rem;">
-          <span class="section-label">Add a League</span>
+      <div id="competitions-app" style="display:none;">
+        <div id="new-competition-form" class="form-grid" style="max-width:480px; margin-bottom:3rem;">
+          <span class="section-label">Add a Competition</span>
           <div class="form-row">
             <div class="form-field">
-              <label for="league-name">League name</label>
-              <input type="text" id="league-name" placeholder="Kenyan Premier League">
+              <label for="competition-name">Competition name</label>
+              <input type="text" id="competition-name" placeholder="Kenyan Premier League">
             </div>
             <div class="form-field">
-              <label for="league-sport">Sport</label>
-              <select id="league-sport"></select>
+              <label for="competition-sport">Sport</label>
+              <select id="competition-sport"></select>
             </div>
           </div>
-          <button type="button" class="btn-red" id="add-league-btn" style="width:fit-content;">Add League</button>
+          <button type="button" class="btn-red" id="add-competition-btn" style="width:fit-content;">Add Competition</button>
         </div>
 
-        <div id="leagues-root"></div>
+        <div id="competitions-root"></div>
 
         <div style="margin-top:3rem; padding-top:2rem; border-top:1px solid var(--border);">
           <span class="section-label">Recent Changes</span>
@@ -69,6 +67,6 @@
 
   <script src="/js/site.js"></script>
   <script src="/admin/js/guard.js"></script>
-  <script src="/admin/js/scores.js"></script>
+  <script src="/admin/js/competitions.js"></script>
 </body>
 </html>

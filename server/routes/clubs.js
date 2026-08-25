@@ -5,12 +5,12 @@ const { requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-// ---- Public: list clubs, optionally filtered by league ----
+// ---- Public: list clubs, optionally filtered by competition ----
 router.get('/', async (req, res) => {
-  const where = req.query.league ? { league: { slug: req.query.league } } : {};
+  const where = req.query.competition ? { competition: { slug: req.query.competition } } : {};
   const clubs = await prisma.club.findMany({
     where,
-    include: { league: { include: { sport: true } } },
+    include: { competition: { include: { sport: true } } },
     orderBy: { name: 'asc' },
   });
   res.json({ clubs });
@@ -20,7 +20,7 @@ router.get('/', async (req, res) => {
 router.get('/:slug', async (req, res) => {
   const club = await prisma.club.findUnique({
     where: { slug: req.params.slug },
-    include: { league: { include: { sport: true } }, players: { orderBy: { name: 'asc' } } },
+    include: { competition: { include: { sport: true } }, players: { orderBy: { name: 'asc' } } },
   });
   if (!club) return res.status(404).json({ error: 'Club not found' });
   res.json({ club });
@@ -28,12 +28,12 @@ router.get('/:slug', async (req, res) => {
 
 // ---- Admin: create a club ----
 router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
-  const { name, leagueId, crestUrl, venue } = req.body;
-  if (!name || !leagueId) return res.status(400).json({ error: 'name and leagueId are required' });
-  const league = await prisma.league.findUnique({ where: { id: leagueId } });
-  if (!league) return res.status(400).json({ error: 'League not found' });
+  const { name, competitionId, crestUrl, venue } = req.body;
+  if (!name || !competitionId) return res.status(400).json({ error: 'name and competitionId are required' });
+  const competition = await prisma.competition.findUnique({ where: { id: competitionId } });
+  if (!competition) return res.status(400).json({ error: 'Competition not found' });
   const club = await prisma.club.create({
-    data: { name, slug: slugify(`${name}-${league.slug}`), leagueId, crestUrl: crestUrl || null, venue: venue || null, source: 'MANUAL' },
+    data: { name, slug: slugify(`${name}-${competition.slug}`), competitionId, crestUrl: crestUrl || null, venue: venue || null, source: 'MANUAL' },
   });
   res.status(201).json({ club });
 });

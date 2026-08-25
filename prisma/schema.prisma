@@ -42,9 +42,9 @@ model Sport {
   // the signal for "ready to feature." Flipped on by hand, one sport at a
   // time, as real local league/club data lands for it (Football first).
   isActive Boolean   @default(false)
-  articles Article[]
-  leagues  League[]
-  teams    Team[]
+  articles     Article[]
+  competitions Competition[]
+  teams        Team[]
 }
 
 model Tag {
@@ -77,11 +77,11 @@ model Article {
   videoSeries   String?
   episodeLabel  String? // "Episode 001"
   runtimeLabel  String? // "58 min"
-  // Optional league/competition tag for Watch content (mirrors Team.leagueId
+  // Optional competition tag for Watch content (mirrors Team.leagueId
   // below) — most episodes are general sport commentary, not tied to one
   // competition, so this stays nullable rather than forcing a choice.
-  leagueId      String?
-  league        League?   @relation(fields: [leagueId], references: [id])
+  competitionId String?
+  competition   Competition? @relation(fields: [competitionId], references: [id])
   publishedAt   DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -94,7 +94,7 @@ model Article {
 // data behind it comes from a paid API (realistic for football) or manual
 // newsroom entry (the only option for sports with no public feed, like rugby
 // and athletics) — the same admin form and public page serve either source.
-model League {
+model Competition {
   id               String        @id @default(cuid())
   name             String // "Kenyan Premier League"
   slug             String        @unique
@@ -106,13 +106,13 @@ model League {
   // exists (e.g. kenyacup.co.ke) — more fragile, breaks if their HTML
   // changes; see server/jobs/syncKenyaCup.js.
   region           String        @default("KENYA") // KENYA | GLOBAL — drives Scores & Fixtures' default-open view
-  externalProvider String? // "football-data.org", "kenyacup.co.ke" — null for MANUAL leagues
+  externalProvider String? // "football-data.org", "kenyacup.co.ke" — null for MANUAL competitions
   externalId       String? // provider's competition code, e.g. "PL", "CL", "BL1"
   lastSyncedAt     DateTime?
   syncStatus       String? // OK | ERROR — set by the sync job, surfaced in admin only
-  // Opt-in per league — syncSquads.js derives the team list from this
-  // league's own StandingRow data (already authoritative for API leagues),
-  // so no separate external league id is needed here at all.
+  // Opt-in per competition — syncSquads.js derives the team list from this
+  // competition's own StandingRow data (already authoritative for API
+  // competitions), so no separate external id is needed here at all.
   syncSquads       Boolean       @default(false)
   standings        StandingRow[]
   fixtures         Fixture[]
@@ -124,9 +124,9 @@ model League {
 }
 
 model StandingRow {
-  id           String   @id @default(cuid())
-  leagueId     String
-  league       League   @relation(fields: [leagueId], references: [id])
+  id            String      @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id])
   position     Int
   teamName     String
   played       Int      @default(0)
@@ -140,9 +140,9 @@ model StandingRow {
 }
 
 model Fixture {
-  id              String    @id @default(cuid())
-  leagueId        String
-  league          League    @relation(fields: [leagueId], references: [id])
+  id              String      @id @default(cuid())
+  competitionId   String
+  competition     Competition @relation(fields: [competitionId], references: [id])
   homeTeam        String
   awayTeam        String
   kickoff         DateTime
@@ -152,11 +152,11 @@ model Fixture {
   status          String    @default("SCHEDULED") // SCHEDULED | LIVE | FINISHED | POSTPONED
   updatedAt       DateTime  @updatedAt
 
-  // Lets the league sync job upsert instead of wholesale delete+recreate
-  // (unlike standings, blowing fixtures away every run would lose
-  // POSTPONED/manual annotations) — same two teams don't play each other
-  // at the same kickoff twice within one league, manual or synced.
-  @@unique([leagueId, homeTeam, awayTeam, kickoff])
+  // Lets the sync job upsert instead of wholesale delete+recreate (unlike
+  // standings, blowing fixtures away every run would lose POSTPONED/manual
+  // annotations) — same two teams don't play each other at the same
+  // kickoff twice within one competition, manual or synced.
+  @@unique([competitionId, homeTeam, awayTeam, kickoff])
 }
 
 // ===================== SHOP (Team merch — kits, sold directly per club) =====================
@@ -172,7 +172,7 @@ model Team {
   sportId   String
   sport     Sport    @relation(fields: [sportId], references: [id])
   leagueId  String?
-  league    League?  @relation(fields: [leagueId], references: [id])
+  league    Competition? @relation(fields: [leagueId], references: [id])
   crestUrl  String? // fixed convention: /images/teams/<slug>.jpg
   kits      Kit[]
   createdAt DateTime @default(now())
@@ -247,7 +247,7 @@ model Submission {
 // Changes" panel.
 model ChangeLog {
   id         String   @id @default(cuid())
-  entityType String // FIXTURE | STANDINGS | LEAGUE
+  entityType String // FIXTURE | STANDINGS | COMPETITION
   entityId   String
   action     String // CREATE | UPDATE | DELETE | BULK_IMPORT
   summary    String // "Postponed Gor Mahia vs Tusker: 23 Aug → 30 Aug", "Bulk imported 18 fixtures", ...
@@ -258,7 +258,7 @@ model ChangeLog {
 // ===================== CLUBS & PLAYERS (2026-08-19) =====================
 // Deliberately named Club/Player, not Team — "Team" already means the
 // Shop's merch catalog (Team/Kit models above), a completely different
-// concept. Same MANUAL/API split as League: a KPL club is entered by hand
+// concept. Same MANUAL/API split as Competition: a KPL club is entered by hand
 // via admin/clubs.html; a Premier League club is filled in by
 // syncSquads.js. Every public page renders both identically — nothing
 // downstream needs to know or care which. Standings/Fixture team names
@@ -266,11 +266,11 @@ model ChangeLog {
 // schema change for limited practical benefit right now; a club's name
 // just needs to match the fixture spelling by convention.
 model Club {
-  id           String    @id @default(cuid())
-  name         String
-  slug         String    @unique
-  leagueId     String
-  league       League    @relation(fields: [leagueId], references: [id])
+  id            String      @id @default(cuid())
+  name          String
+  slug          String      @unique
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id])
   crestUrl     String?
   venue        String?
   source       String    @default("MANUAL") // MANUAL | API

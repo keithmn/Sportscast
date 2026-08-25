@@ -22,10 +22,8 @@
       </div>
       <a href="/admin/dashboard.html">Dashboard</a>
       <a href="/admin/articles.html">Articles</a>
-      <a href="/admin/scores.html">Scores &amp; Fixtures</a>
+      <a href="/admin/competitions.html">Competitions</a>
       <a href="/admin/clubs.html" class="active">Clubs &amp; Players</a>
-      <a href="/admin/teams.html">Shop Teams</a>
-      <a href="/admin/orders.html">Orders</a>
       <a href="/admin/submissions.html">Submissions</a>
       <a href="/admin/sports.html">Sports</a>
       <a href="/index.html">View Site</a>
@@ -37,8 +35,8 @@
         <span id="whoami" class="page-sub"></span>
       </div>
       <p class="page-sub" style="margin-bottom:2rem;">
-        Local clubs (KPL, NSL) are entered here by hand. Global-league clubs fill in automatically from Wikidata once
-        you enable squad sync for that league on the <a href="/admin/scores.html">Scores &amp; Fixtures</a> page —
+        Local clubs (KPL, NSL) are entered here by hand. Global-competition clubs fill in automatically from Wikidata once
+        you enable squad sync for that competition on the <a href="/admin/competitions.html">Competitions</a> page —
         don't hand-edit those, the next sync will overwrite changes.
       </p>
       <div id="access-denied" class="form-error" style="display:none;">You don't have permission to manage this.</div>
@@ -51,8 +49,8 @@
               <input type="text" id="club-name" placeholder="Gor Mahia FC">
             </div>
             <div class="form-field">
-              <label for="club-league">League</label>
-              <select id="club-league"></select>
+              <label for="club-competition">Competition</label>
+              <select id="club-competition"></select>
             </div>
           </div>
           <div class="form-row">

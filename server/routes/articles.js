@@ -66,7 +66,7 @@ router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const {
     title, dek, body, coverImageUrl, sportId, authorId, tagIds,
     status, featured, contentType, isBrief, youtubeId, videoSeries,
-    episodeLabel, runtimeLabel, leagueId,
+    episodeLabel, runtimeLabel, competitionId,
   } = req.body;
 
   if (!title || !dek || !body || !sportId || !authorId) {
@@ -97,7 +97,7 @@ router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
       videoSeries: videoSeries || null,
       episodeLabel: episodeLabel || null,
       runtimeLabel: runtimeLabel || null,
-      leagueId: leagueId || null,
+      competitionId: competitionId || null,
       publishedAt: publishedStatus === 'PUBLISHED' ? new Date() : null,
     },
     include: articleInclude,
@@ -121,7 +121,7 @@ router.put('/:id', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const {
     title, dek, body, coverImageUrl, sportId, authorId, tagIds,
     status, featured, contentType, isBrief, youtubeId, videoSeries,
-    episodeLabel, runtimeLabel, leagueId,
+    episodeLabel, runtimeLabel, competitionId,
   } = req.body;
 
   const wasPublished = existing.status === 'PUBLISHED';
@@ -145,7 +145,7 @@ router.put('/:id', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
       videoSeries: videoSeries !== undefined ? videoSeries : existing.videoSeries,
       episodeLabel: episodeLabel !== undefined ? episodeLabel : existing.episodeLabel,
       runtimeLabel: runtimeLabel !== undefined ? runtimeLabel : existing.runtimeLabel,
-      leagueId: leagueId !== undefined ? (leagueId || null) : existing.leagueId,
+      competitionId: competitionId !== undefined ? (competitionId || null) : existing.competitionId,
       publishedAt: !wasPublished && willBePublished ? new Date() : existing.publishedAt,
     },
     include: articleInclude,

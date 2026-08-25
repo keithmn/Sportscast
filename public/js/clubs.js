@@ -3,24 +3,24 @@ function clubCardHtml(club) {
     <a href="/club.html?slug=${encodeURIComponent(club.slug)}" style="display:contents;">
       <div class="card">
         ${club.crestUrl ? `<img class="team-crest" src="${escapeHtml(club.crestUrl)}" alt="" onerror="this.remove()">` : ''}
-        <span class="card-eyebrow">${escapeHtml(club.league.name)}</span>
+        <span class="card-eyebrow">${escapeHtml(club.competition.name)}</span>
         <h3 class="card-title">${escapeHtml(club.name)}</h3>
       </div>
     </a>`;
 }
 
 // Sport is the top-level toggle (reusing category-toggle.js, same as
-// Shows/Scores/Shop); within a sport, clubs are grouped by league with a
+// Shows/Scores); within a sport, clubs are grouped by competition with a
 // plain label rather than a second full toggle level — most sports only
-// have one or two leagues here, not enough to need another layer.
+// have one or two competitions here, not enough to need another layer.
 function renderClubsSportPanel(panelEl, sportClubs) {
-  const byLeague = new Map();
+  const byCompetition = new Map();
   sportClubs.forEach((c) => {
-    if (!byLeague.has(c.league.slug)) byLeague.set(c.league.slug, { name: c.league.name, clubs: [] });
-    byLeague.get(c.league.slug).clubs.push(c);
+    if (!byCompetition.has(c.competition.slug)) byCompetition.set(c.competition.slug, { name: c.competition.name, clubs: [] });
+    byCompetition.get(c.competition.slug).clubs.push(c);
   });
 
-  panelEl.innerHTML = Array.from(byLeague.values()).map(({ name, clubs }) => `
+  panelEl.innerHTML = Array.from(byCompetition.values()).map(({ name, clubs }) => `
     <div style="margin-bottom:2.5rem;">
       <span class="section-label">${escapeHtml(name)}</span>
       <div class="card-grid">${clubs.map(clubCardHtml).join('')}</div>
@@ -38,7 +38,7 @@ async function loadClubs() {
 
   const bySport = new Map();
   clubs.forEach((c) => {
-    const sport = c.league.sport;
+    const sport = c.competition.sport;
     if (!bySport.has(sport.slug)) bySport.set(sport.slug, { label: sport.name, clubs: [] });
     bySport.get(sport.slug).clubs.push(c);
   });

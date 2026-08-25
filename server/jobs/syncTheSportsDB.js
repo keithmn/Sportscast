@@ -9,12 +9,12 @@
 //
 // Free-tier limitation, confirmed directly: lookuptable.php (standings)
 // returns empty — that's a premium-only endpoint. Only fixtures/results
-// sync here; StandingRow stays empty for these leagues until/unless a paid
-// key changes that, same honest-empty-state as everywhere else.
+// sync here; StandingRow stays empty for these competitions until/unless a
+// paid key changes that, same honest-empty-state as everywhere else.
 //
 // Deliberately NOT the same job as syncLeagues.js (football-data.org) —
 // different vendor, different endpoint shape, different event structure
-// per competition (see LEAGUES config below).
+// per competition (see COMPETITIONS config below).
 
 const prisma = require('../db');
 
@@ -32,11 +32,11 @@ function sleep(ms) {
 // kind: 'event' — no home/away concept at all, strEvent is a tournament/day
 //                 name (Darts) — stored as homeTeam with awayTeam left ''
 //                 (see fixtureRowHtml's blank-awayTeam handling in scores.js).
-const LEAGUES = [
-  { sportName: 'Rugby', leagueName: 'Six Nations Championship', externalId: '4714', kind: 'team' },
-  { sportName: 'Basketball', leagueName: 'EuroLeague Basketball', externalId: '4546', kind: 'team' },
-  { sportName: 'Boxing', leagueName: 'World Championship Boxing', externalId: '4445', kind: 'vs' },
-  { sportName: 'Darts', leagueName: 'PDC Darts', externalId: '4554', kind: 'event' },
+const COMPETITIONS = [
+  { sportName: 'Rugby', competitionName: 'Six Nations Championship', externalId: '4714', kind: 'team' },
+  { sportName: 'Basketball', competitionName: 'EuroLeague Basketball', externalId: '4546', kind: 'team' },
+  { sportName: 'Boxing', competitionName: 'World Championship Boxing', externalId: '4445', kind: 'vs' },
+  { sportName: 'Darts', competitionName: 'PDC Darts', externalId: '4554', kind: 'event' },
 ];
 
 async function fetchJson(path) {
@@ -90,10 +90,10 @@ function eventToFixtureFields(event, kind) {
   };
 }
 
-async function syncFixturesForLeague(league, kind) {
+async function syncFixturesForCompetition(competition, kind) {
   const [pastData, nextData] = await Promise.all([
-    fetchJson(`/eventspastleague.php?id=${league.externalId}`),
-    fetchJson(`/eventsnextleague.php?id=${league.externalId}`),
+    fetchJson(`/eventspastleague.php?id=${competition.externalId}`),
+    fetchJson(`/eventsnextleague.php?id=${competition.externalId}`),
   ]);
   const events = [...(pastData?.events || []), ...(nextData?.events || [])];
 
@@ -103,14 +103,14 @@ async function syncFixturesForLeague(league, kind) {
     if (!fields) continue;
     await prisma.fixture.upsert({
       where: {
-        leagueId_homeTeam_awayTeam_kickoff: {
-          leagueId: league.id,
+        competitionId_homeTeam_awayTeam_kickoff: {
+          competitionId: competition.id,
           homeTeam: fields.homeTeam,
           awayTeam: fields.awayTeam,
           kickoff: fields.kickoff,
         },
       },
-      create: { leagueId: league.id, ...fields },
+      create: { competitionId: competition.id, ...fields },
       update: { homeScore: fields.homeScore, awayScore: fields.awayScore, status: fields.status },
     });
     count += 1;
@@ -119,22 +119,22 @@ async function syncFixturesForLeague(league, kind) {
 }
 
 async function syncTheSportsDB() {
-  for (const { sportName, leagueName, externalId, kind } of LEAGUES) {
+  for (const { sportName, competitionName, externalId, kind } of COMPETITIONS) {
     try {
       const sport = await prisma.sport.findUnique({ where: { name: sportName } });
       if (!sport) {
-        console.warn(`[syncTheSportsDB] Sport not found: ${sportName} — skipping ${leagueName}`);
+        console.warn(`[syncTheSportsDB] Sport not found: ${sportName} — skipping ${competitionName}`);
         continue;
       }
 
-      let league = await prisma.league.findFirst({
+      let competition = await prisma.competition.findFirst({
         where: { externalProvider: 'thesportsdb.com', externalId },
       });
-      if (!league) {
-        league = await prisma.league.create({
+      if (!competition) {
+        competition = await prisma.competition.create({
           data: {
-            name: leagueName,
-            slug: require('../utils/slugify').slugify(leagueName),
+            name: competitionName,
+            slug: require('../utils/slugify').slugify(competitionName),
             sportId: sport.id,
             region: 'GLOBAL',
             source: 'API',
@@ -142,17 +142,17 @@ async function syncTheSportsDB() {
             externalId,
           },
         });
-        console.log(`[syncTheSportsDB] Created league: ${leagueName}`);
+        console.log(`[syncTheSportsDB] Created competition: ${competitionName}`);
       }
 
-      const count = await syncFixturesForLeague(league, kind);
-      await prisma.league.update({
-        where: { id: league.id },
+      const count = await syncFixturesForCompetition(competition, kind);
+      await prisma.competition.update({
+        where: { id: competition.id },
         data: { lastSyncedAt: new Date(), syncStatus: 'OK' },
       });
-      console.log(`[syncTheSportsDB] OK: ${leagueName} (${count} fixtures)`);
+      console.log(`[syncTheSportsDB] OK: ${competitionName} (${count} fixtures)`);
     } catch (err) {
-      console.error(`[syncTheSportsDB] FAILED: ${leagueName} —`, err.message);
+      console.error(`[syncTheSportsDB] FAILED: ${competitionName} —`, err.message);
     }
     await sleep(CALL_DELAY_MS);
   }

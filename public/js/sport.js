@@ -14,18 +14,22 @@ function articleCardHtml(a) {
     </a>`;
 }
 
-// The hub's own subnav (Home / News / Scores & Fixtures / Clubs / Shop),
-// scoped to whichever sport this page loaded for. Each tab reuses the
-// exact render functions already built for the sport's dedicated page
-// (news.js/scores.js/clubs.js/shop.js) rather than reimplementing them —
-// see BLUEPRINT.md for why those were made container-parameterized.
+// The hub's own subnav (News / Watch / Scores & Fixtures / Tables / Teams /
+// Competitions), scoped to whichever sport this page loaded for. Each tab
+// reuses the exact render functions already built for the sport's
+// dedicated page (news.js/scores.js/clubs.js) rather than reimplementing
+// them — see BLUEPRINT.md for why those were made container-parameterized.
+//
+// Deliberately no "Home" tab — the sport name heading above this bar is
+// followed by a light Overview digest (see loadOverviewTab) shown by
+// default, Sky Sports-style, instead of a separate clickable Home entry.
 const BASE_SPORT_TABS = [
-  { key: 'home', label: 'Home' },
   { key: 'news', label: 'News' },
   { key: 'watch', label: 'Watch' },
   { key: 'scores', label: 'Scores & Fixtures' },
+  { key: 'tables', label: 'Tables' },
   { key: 'clubs', label: 'Teams' },
-  { key: 'shop', label: 'Kits' },
+  { key: 'competitions', label: 'Competitions' },
 ];
 
 // Per-sport additions to the base tab set — only added where there's real
@@ -36,7 +40,7 @@ const BASE_SPORT_TABS = [
 // here only once a sport has real, distinct data to back it, following
 // this same reasoning.
 const SPORT_SPECIFIC_TABS = {
-  football: [{ after: 'scores', tab: { key: 'transfers', label: 'Transfers' } }],
+  football: [{ after: 'tables', tab: { key: 'transfers', label: 'Transfers' } }],
 };
 
 function getSportTabs(sportSlug) {
@@ -49,12 +53,59 @@ function getSportTabs(sportSlug) {
   return tabs;
 }
 
-async function loadHomeTab(panelEl, sportSlug) {
+// The default view shown before any tab is explicitly picked — a light
+// digest of what's in each tab below, each section linking into its full
+// tab, rather than a separate "Home" tab. Built from a single "primary"
+// competition (the sport's first Kenyan competition, or its first
+// competition at all if there's no Kenyan one yet) so this stays one cheap
+// extra fetch, not a fan-out across every competition in the sport.
+async function loadOverviewTab(panelEl, sportSlug) {
   panelEl.innerHTML = '<div class="empty-state">Loading…</div>';
-  const { articles } = await api(`/api/articles?sport=${encodeURIComponent(sportSlug)}&limit=6`);
-  panelEl.innerHTML = articles.length
-    ? `<div class="card-grid">${articles.map(articleCardHtml).join('')}</div>`
-    : '<p class="empty-state">No stories published yet for this sport.</p>';
+
+  const [{ articles }, { competitions }] = await Promise.all([
+    api(`/api/articles?sport=${encodeURIComponent(sportSlug)}&limit=3`),
+    api(`/api/competitions?sport=${encodeURIComponent(sportSlug)}`),
+  ]);
+
+  const primary = competitions.find((c) => c.region === 'KENYA') || competitions[0] || null;
+  let nextFixture = null;
+  let lastResult = null;
+  let topStandings = [];
+  let featuredClubs = [];
+
+  if (primary) {
+    const [detail, clubsRes] = await Promise.all([
+      fetchCompetitionDetail(primary.slug),
+      api(`/api/clubs?competition=${encodeURIComponent(primary.slug)}`).catch(() => ({ clubs: [] })),
+    ]);
+    nextFixture = detail.fixtures.find((f) => f.status !== 'FINISHED') || null;
+    const finished = detail.fixtures.filter((f) => f.status === 'FINISHED');
+    lastResult = finished.length ? finished[finished.length - 1] : null;
+    topStandings = detail.standings.slice(0, 3);
+    featuredClubs = clubsRes.clubs.slice(0, 3);
+  }
+
+  panelEl.innerHTML = `
+    <div style="display:flex; flex-direction:column; gap:2.5rem;">
+      <div>
+        <span class="section-label">Latest News</span>
+        ${articles.length ? `<div class="card-grid">${articles.map(articleCardHtml).join('')}</div>` : '<p class="empty-state">No stories published yet for this sport.</p>'}
+      </div>
+      <div>
+        <span class="section-label">Scores &amp; Fixtures</span>
+        ${nextFixture || lastResult
+          ? `${nextFixture ? fixtureRowHtml(nextFixture) : ''}${lastResult ? fixtureRowHtml(lastResult) : ''}`
+          : '<p class="empty-state">No fixtures entered for this sport yet.</p>'}
+      </div>
+      <div>
+        <span class="section-label">Table${primary ? ` — ${escapeHtml(primary.name)}` : ''}</span>
+        ${topStandings.length ? standingsTableHtml(topStandings) : '<p class="empty-state">No standings entered for this sport yet.</p>'}
+      </div>
+      <div>
+        <span class="section-label">Teams</span>
+        ${featuredClubs.length ? `<div class="card-grid">${featuredClubs.map(clubCardHtml).join('')}</div>` : '<p class="empty-state">No teams added yet for this sport.</p>'}
+      </div>
+    </div>`;
 }
 
 function loadNewsTab(panelEl, sportSlug) {
@@ -86,37 +137,45 @@ async function loadTransfersTab(panelEl, sportSlug) {
 
 async function loadScoresTab(panelEl, sportSlug) {
   panelEl.innerHTML = '<div class="empty-state">Loading…</div>';
-  const { leagues } = await api('/api/leagues');
-  const sportLeagues = leagues.filter((l) => l.sport.slug === sportSlug);
+  const { competitions } = await api(`/api/competitions?sport=${encodeURIComponent(sportSlug)}`);
   panelEl.innerHTML = '';
-  return renderScoresSportPanel(panelEl, sportLeagues);
+  return renderCompetitionsSportPanel(panelEl, competitions, competitionFixturesHtml);
+}
+
+async function loadTablesTab(panelEl, sportSlug) {
+  panelEl.innerHTML = '<div class="empty-state">Loading…</div>';
+  const { competitions } = await api(`/api/competitions?sport=${encodeURIComponent(sportSlug)}`);
+  panelEl.innerHTML = '';
+  return renderCompetitionsSportPanel(panelEl, competitions, competitionTableHtml);
+}
+
+async function loadCompetitionsTab(panelEl, sportSlug) {
+  panelEl.innerHTML = '<div class="empty-state">Loading…</div>';
+  const { competitions } = await api(`/api/competitions?sport=${encodeURIComponent(sportSlug)}`);
+  panelEl.innerHTML = competitions.length
+    ? `<div class="card-grid">${competitions.map(competitionCardHtml).join('')}</div>`
+    : '<p class="empty-state">No competitions added yet for this sport.</p>';
 }
 
 async function loadClubsTab(panelEl, sportSlug) {
   panelEl.innerHTML = '<div class="empty-state">Loading…</div>';
   const { clubs } = await api('/api/clubs');
-  const sportClubs = clubs.filter((c) => c.league.sport.slug === sportSlug);
+  const sportClubs = clubs.filter((c) => c.competition.sport.slug === sportSlug);
   return renderClubsSportPanel(panelEl, sportClubs);
 }
 
-async function loadShopTab(panelEl, sportSlug) {
-  panelEl.innerHTML = '<div class="empty-state">Loading…</div>';
-  const { teams } = await api(`/api/shop/teams?sport=${encodeURIComponent(sportSlug)}`);
-  return renderTeamGrid(panelEl, teams);
-}
-
 const TAB_LOADERS = {
-  home: loadHomeTab,
   news: loadNewsTab,
   watch: loadWatchTab,
   scores: loadScoresTab,
+  tables: loadTablesTab,
   transfers: loadTransfersTab,
   clubs: loadClubsTab,
-  shop: loadShopTab,
+  competitions: loadCompetitionsTab,
 };
 
-// initialTab lets the main nav's Scores/Kits dropdowns (site.js) deep-link
-// straight into a specific tab instead of always opening on Home.
+// initialTab lets the main nav's Scores dropdown (site.js) deep-link
+// straight into a specific tab instead of always opening on the Overview.
 //
 // Tabs render into #subnav-placeholder (a persistent bar inside
 // .sticky-chrome, directly under the primary nav — Sky Sports-style
@@ -154,8 +213,16 @@ function renderSportTabs(root, sportSlug, sportName, initialTab) {
     openTab(btn.dataset.key);
   });
 
-  const validInitial = sportTabs.some((t) => t.key === initialTab) ? initialTab : 'home';
-  openTab(validInitial);
+  // No tab is pre-highlighted for the default Overview — it isn't one of
+  // the clickable tabs, it's what the sport name heading itself shows
+  // before you pick one.
+  if (sportTabs.some((t) => t.key === initialTab)) {
+    openTab(initialTab);
+  } else {
+    loadOverviewTab(panelEl, sportSlug).catch((err) => {
+      panelEl.innerHTML = `<div class="empty-state">Could not load this page: ${escapeHtml(err.message)}</div>`;
+    });
+  }
 }
 
 async function loadSportPage() {

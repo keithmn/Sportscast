@@ -18,11 +18,13 @@ const cron = require('node-cron');
 const authRoutes = require('./routes/auth');
 const articleRoutes = require('./routes/articles');
 const taxonomyRoutes = require('./routes/taxonomy');
-const scoresRoutes = require('./routes/scores');
+const competitionRoutes = require('./routes/competitions');
 const submissionRoutes = require('./routes/submissions');
-const shopRoutes = require('./routes/shop');
-const orderRoutes = require('./routes/orders');
 const clubRoutes = require('./routes/clubs');
+// Kits/Shop (Team/Kit/Order/OrderItem) retired for legal reasons — routes,
+// pages, and Prisma models left on disk (dormant, not deleted) but
+// unmounted here so nothing reachable actually depends on them. See
+// server/routes/shop.js and server/routes/orders.js.
 const { syncLeagues } = require('./jobs/syncLeagues');
 const { syncSquads } = require('./jobs/syncSquads');
 const { syncKenyaCup } = require('./jobs/syncKenyaCup');
@@ -42,10 +44,8 @@ app.use(session({
 app.use('/api/auth', authRoutes);
 app.use('/api/articles', articleRoutes);
 app.use('/api', taxonomyRoutes); // /api/sports, /api/tags, /api/authors
-app.use('/api/leagues', scoresRoutes);
+app.use('/api/competitions', competitionRoutes);
 app.use('/api/submissions', submissionRoutes);
-app.use('/api/shop', shopRoutes);
-app.use('/api/orders', orderRoutes);
 app.use('/api/clubs', clubRoutes);
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
@@ -60,8 +60,8 @@ app.listen(PORT, () => {
   console.log(`Underdoggs Sports Cast running at http://localhost:${PORT}`);
 });
 
-// Global (API-sourced) league standings/fixtures — never Kenyan leagues,
-// which stay newsroom-entered. Runs every 30 minutes; syncLeagues() itself
+// Global (API-sourced) competition standings/fixtures — never Kenyan
+// competitions, which stay newsroom-entered. Runs every 30 minutes; syncLeagues() itself
 // no-ops with a warning if FOOTBALL_DATA_API_KEY isn't set, so this is safe
 // to leave scheduled even before that key exists.
 const SYNC_INTERVAL_CRON = process.env.SYNC_INTERVAL_CRON || '*/30 * * * *';
@@ -71,7 +71,7 @@ cron.schedule(SYNC_INTERVAL_CRON, () => {
 
 // Squad rosters change far less often than scores — once a day is plenty,
 // and keeps this well clear of Wikidata's soft rate limits even across a
-// run that touches several leagues' full squads.
+// run that touches several competitions' full squads.
 const SQUAD_SYNC_CRON = process.env.SQUAD_SYNC_CRON || '0 3 * * *';
 cron.schedule(SQUAD_SYNC_CRON, () => {
   syncSquads().catch((err) => console.error('[syncSquads] Unhandled error:', err));
