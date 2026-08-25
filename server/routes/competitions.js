@@ -66,11 +66,16 @@ router.get('/:id/team-names', requireRole('ADMIN', 'EDITOR'), async (req, res) =
 });
 
 // ---- Admin: create a competition ----
+const VALID_CATEGORIES = ['LEAGUE', 'CUP', 'CONTINENTAL', 'INTERNATIONAL'];
+
 router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
-  const { name, sportId, source } = req.body;
+  const { name, sportId, source, category } = req.body;
   if (!name || !sportId) return res.status(400).json({ error: 'name and sportId are required' });
+  if (category !== undefined && !VALID_CATEGORIES.includes(category)) {
+    return res.status(400).json({ error: `category must be one of: ${VALID_CATEGORIES.join(', ')}` });
+  }
   const competition = await prisma.competition.create({
-    data: { name, slug: slugify(name), sportId, source: source === 'API' ? 'API' : 'MANUAL' },
+    data: { name, slug: slugify(name), sportId, source: source === 'API' ? 'API' : 'MANUAL', category: category || 'LEAGUE' },
   });
   await logChange('COMPETITION', competition.id, 'CREATE', `Added competition "${competition.name}"`, req.session.user.name);
   res.status(201).json({ competition });

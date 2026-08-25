@@ -324,9 +324,9 @@ async function main() {
     { name: 'Ligue 1', code: 'FL1' },
     { name: 'Eredivisie', code: 'DED' },
     { name: 'Primeira Liga', code: 'PPL' },
-    { name: 'UEFA Champions League', code: 'CL' },
-    { name: 'European Championship', code: 'EC' },
-    { name: 'FIFA World Cup', code: 'WC' },
+    { name: 'UEFA Champions League', code: 'CL', category: 'CONTINENTAL' },
+    { name: 'European Championship', code: 'EC', category: 'INTERNATIONAL' },
+    { name: 'FIFA World Cup', code: 'WC', category: 'INTERNATIONAL' },
     { name: 'Campeonato Brasileiro Série A', code: 'BSA' },
   ];
   for (const c of globalCompetitions) {
@@ -337,8 +337,48 @@ async function main() {
         sportId: sports['Football'].id,
         source: 'API',
         region: 'GLOBAL',
+        category: c.category || 'LEAGUE',
         externalProvider: 'football-data.org',
         externalId: c.code,
+      },
+    });
+  }
+
+  // ---------------- Real competition shells: Domestic Cup / Continental /
+  // International (2026-08-25) ----------------
+  // Category taxonomy backing the Tables/Competitions tabs' Domestic
+  // League/Cup/Continental/International grouping. Shells only — no
+  // fixtures/standings, same "don't fake comprehensiveness" rule as above.
+  // Kenya-relevant (region: KENYA, entered by hand) — a foreign/GLOBAL
+  // equivalent of this taxonomy isn't seeded here since the existing
+  // GLOBAL football-data.org rows above already cover it (UEFA Champions
+  // League/Euros/World Cup). FKF Women's Cup / Women's Premier League are
+  // deliberately not included — Sport has no gender dimension yet, and
+  // conflating them under one "Football" sport would be worse than
+  // leaving them out until that's a real modeling decision.
+  const realCompetitionShells = [
+    { sport: 'Football', name: 'FKF Division One Zone A', category: 'LEAGUE' },
+    { sport: 'Football', name: 'FKF Division One Zone B', category: 'LEAGUE' },
+    { sport: 'Football', name: 'FKF Division One Zone C', category: 'LEAGUE' },
+    { sport: 'Football', name: 'FKF Division One Zone D', category: 'LEAGUE' },
+    { sport: 'Football', name: 'FKF Cup', category: 'CUP' },
+    { sport: 'Football', name: 'CAF Champions League', category: 'CONTINENTAL' },
+    { sport: 'Football', name: 'CAF Confederation Cup', category: 'CONTINENTAL' },
+    { sport: 'Football', name: 'AFCON Qualifiers', category: 'INTERNATIONAL' },
+    { sport: 'Football', name: 'World Cup Qualifiers', category: 'INTERNATIONAL' },
+    { sport: 'Rugby', name: 'Rugby Africa Cup', category: 'INTERNATIONAL' },
+    { sport: 'Rugby', name: 'HSBC SVNS Kenya Leg', category: 'INTERNATIONAL' },
+    { sport: 'Basketball', name: 'BAL / Road to BAL', category: 'CONTINENTAL' },
+  ];
+  for (const c of realCompetitionShells) {
+    await prisma.competition.create({
+      data: {
+        name: c.name,
+        slug: slugify(c.name),
+        sportId: sports[c.sport].id,
+        source: 'MANUAL',
+        region: 'KENYA',
+        category: c.category,
       },
     });
   }
@@ -369,7 +409,7 @@ async function main() {
   console.log('Demo logins (password: underdoggs2026):');
   console.log('  admin@underdoggs.co.ke   (ADMIN)');
   console.log('  editor@underdoggs.co.ke  (EDITOR)');
-  console.log('Scores & Fixtures: KPL + NSL shells created (manual entry via /admin/competitions.html); 12 global competitions seeded for football-data.org sync (run `npm run sync:leagues`).');
+  console.log('Scores & Fixtures: KPL + NSL shells created (manual entry via /admin/competitions.html); 12 global competitions seeded for football-data.org sync (run `npm run sync:leagues`); 12 further real Kenya-relevant competition shells seeded across the Cup/Continental/International categories (no fixtures/standings yet).');
 }
 
 main()

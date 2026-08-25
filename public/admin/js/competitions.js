@@ -40,7 +40,7 @@ function competitionBlockHtml(competition, teamNames) {
   const listId = `teamnames-${competition.id}`;
   return `
     <div class="card" style="margin-bottom:2.5rem; cursor:default;">
-      <span class="card-eyebrow">${escapeHtml(competition.sport.name)} · ${escapeHtml(competition.source)}</span>
+      <span class="card-eyebrow">${escapeHtml(competition.sport.name)} · ${escapeHtml(competition.category)} · ${escapeHtml(competition.source)}</span>
       <h3 class="card-title">${escapeHtml(competition.name)}</h3>
       <datalist id="${listId}">
         ${teamNames.map((n) => `<option value="${escapeHtml(n)}">`).join('')}
@@ -278,8 +278,9 @@ async function initCompetitionsPage() {
   document.getElementById('add-competition-btn').addEventListener('click', async () => {
     const name = document.getElementById('competition-name').value.trim();
     const sportId = document.getElementById('competition-sport').value;
+    const category = document.getElementById('competition-category').value;
     if (!name || !sportId) return;
-    await api('/api/competitions', { method: 'POST', body: JSON.stringify({ name, sportId }) });
+    await api('/api/competitions', { method: 'POST', body: JSON.stringify({ name, sportId, category }) });
     document.getElementById('competition-name').value = '';
     loadCompetitions();
     loadChangeLog();

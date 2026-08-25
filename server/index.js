@@ -19,6 +19,7 @@ const authRoutes = require('./routes/auth');
 const articleRoutes = require('./routes/articles');
 const taxonomyRoutes = require('./routes/taxonomy');
 const competitionRoutes = require('./routes/competitions');
+const fixtureRoutes = require('./routes/fixtures');
 const submissionRoutes = require('./routes/submissions');
 const clubRoutes = require('./routes/clubs');
 // Kits/Shop (Team/Kit/Order/OrderItem) retired for legal reasons — routes,
@@ -45,6 +46,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/articles', articleRoutes);
 app.use('/api', taxonomyRoutes); // /api/sports, /api/tags, /api/authors
 app.use('/api/competitions', competitionRoutes);
+app.use('/api/fixtures', fixtureRoutes);
 app.use('/api/submissions', submissionRoutes);
 app.use('/api/clubs', clubRoutes);
 

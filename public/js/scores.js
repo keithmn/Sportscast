@@ -1,3 +1,24 @@
+// East Africa Time is a fixed UTC+3 offset (no DST) — the same reasoning
+// as server/routes/fixtures.js's eatDayWindow(). A visitor's browser could
+// be in any timezone; "today" for the date-filtered Scores & Fixtures tab
+// needs to mean Nairobi's today, not the visitor's.
+function nairobiToday() {
+  const shifted = new Date(Date.now() + 3 * 60 * 60 * 1000);
+  return shifted.toISOString().slice(0, 10);
+}
+
+function addDaysToDateStr(dateStr, days) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function formatDayLabel(dateStr) {
+  // Noon UTC avoids any date-boundary edge case when formatting a plain
+  // calendar-date string for display — there's no real time-of-day here.
+  return new Date(`${dateStr}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
 function standingsTableHtml(standings) {
   if (!standings.length) {
     return '<p class="empty-state">Standings haven\'t been entered for this competition yet.</p>';
@@ -139,22 +160,25 @@ async function renderCompetitionsSportPanel(panelEl, sportCompetitions, detailRe
   const kenyaCompetitions = sportCompetitions.filter((c) => c.region === 'KENYA');
   const globalCompetitions = sportCompetitions.filter((c) => c.region === 'GLOBAL');
 
+  // Both branches are conditionally rendered — neither shows an "empty"
+  // message for a branch that's structurally guaranteed to have nothing
+  // (renderGroupedCompetitionsPanel always calls this with an already
+  // single-region bucket, where one branch is empty by construction; an
+  // "empty" message there would be pure noise, not information).
   panelEl.innerHTML = `
-    <div data-kenya-competitions></div>
+    ${kenyaCompetitions.length ? '<div data-kenya-competitions></div>' : ''}
     ${globalCompetitions.length ? `
-      <div style="margin-top:3rem;">
-        <span class="section-label">Other Competitions</span>
+      <div style="margin-top:${kenyaCompetitions.length ? '3rem' : '0'};">
+        ${kenyaCompetitions.length ? '<span class="section-label">Other Competitions</span>' : ''}
         <div class="filter-row" data-global-pills></div>
         <div data-global-detail></div>
       </div>` : ''}`;
 
-  const kenyaEl = panelEl.querySelector('[data-kenya-competitions]');
   if (kenyaCompetitions.length) {
+    const kenyaEl = panelEl.querySelector('[data-kenya-competitions]');
     kenyaEl.innerHTML = kenyaCompetitions.map(() => '<div class="empty-state">Loading…</div>').join('');
     const details = await Promise.all(kenyaCompetitions.map((c) => fetchCompetitionDetail(c.slug)));
     kenyaEl.innerHTML = details.map(detailRenderer).join('<hr style="border-color:var(--border); margin:2.5rem 0;">');
-  } else {
-    kenyaEl.innerHTML = '<p class="empty-state">No Kenyan competitions added for this sport yet.</p>';
   }
 
   if (globalCompetitions.length) {
@@ -177,6 +201,90 @@ async function renderCompetitionsSportPanel(panelEl, sportCompetitions, detailRe
       }
     });
   }
+}
+
+const CATEGORY_ORDER = ['LEAGUE', 'CUP', 'CONTINENTAL', 'INTERNATIONAL'];
+const CATEGORY_LABELS = { LEAGUE: 'Leagues', CUP: 'Cups', CONTINENTAL: 'Continental', INTERNATIONAL: 'International' };
+const REGION_LABELS = { KENYA: 'Kenya', GLOBAL: 'Global' };
+
+// Region-first (Kenya, then Global), category-second grouping used by the
+// sport hub's Tables and Competitions tabs. Sky Sports's own category
+// names (Domestic Leagues, Europe, ...) only work as a flat list because
+// their site is implicitly England-centric — "Domestic" already means
+// English. This site needs Kenyan competitions visually separated from
+// foreign/global ones first, with category as a secondary grouping within
+// each region — otherwise KPL would render under the same heading as the
+// Premier League. A category sub-heading only appears when a region
+// actually spans more than one category, so a sport with just Kenyan
+// leagues doesn't get a pointless single-item "Leagues" heading.
+function groupCompetitionsByRegionThenCategory(sportCompetitions) {
+  return ['KENYA', 'GLOBAL']
+    .map((region) => ({ region, items: sportCompetitions.filter((c) => c.region === region) }))
+    .filter((s) => s.items.length)
+    .map((s) => ({
+      ...s,
+      categories: CATEGORY_ORDER
+        .map((category) => ({ category, items: s.items.filter((c) => c.category === category) }))
+        .filter((c) => c.items.length),
+    }));
+}
+
+// Full detail panels (Tables/Scores tabs) — each (region × category)
+// bucket reuses renderCompetitionsSportPanel completely unchanged; since a
+// bucket is already single-region, that function's own Kenya-expanded/
+// Global-pill split behaves correctly with zero changes to it.
+async function renderGroupedCompetitionsPanel(panelEl, sportCompetitions, detailRenderer) {
+  const sections = groupCompetitionsByRegionThenCategory(sportCompetitions);
+  if (!sections.length) {
+    panelEl.innerHTML = '<p class="empty-state">No competitions added for this sport yet.</p>';
+    return;
+  }
+
+  panelEl.innerHTML = sections.map((s, i) => `
+    <div style="${i > 0 ? 'margin-top:3rem;' : ''}">
+      <span class="section-label" style="font-size:1rem;">${escapeHtml(REGION_LABELS[s.region])}</span>
+      <div data-region-panel="${s.region}"></div>
+    </div>`).join('');
+
+  await Promise.all(sections.map(async ({ region, categories }) => {
+    const regionEl = panelEl.querySelector(`[data-region-panel="${region}"]`);
+    const showCategoryHeadings = categories.length > 1;
+
+    regionEl.innerHTML = categories.map(({ category }) => `
+      <div style="margin-top:1.5rem;">
+        ${showCategoryHeadings ? `<span class="section-label" style="font-size:0.75rem; opacity:0.75;">${escapeHtml(CATEGORY_LABELS[category])}</span>` : ''}
+        <div data-category-panel="${region}-${category}"></div>
+      </div>`).join('');
+
+    await Promise.all(categories.map(({ category, items }) => {
+      const catEl = regionEl.querySelector(`[data-category-panel="${region}-${category}"]`);
+      return renderCompetitionsSportPanel(catEl, items, detailRenderer);
+    }));
+  }));
+}
+
+// Card-grid version (Competitions tab — "browse what exists," not full
+// tables/fixtures) — synchronous, no per-competition detail fetch needed.
+function renderGroupedCompetitionCards(panelEl, sportCompetitions) {
+  const sections = groupCompetitionsByRegionThenCategory(sportCompetitions);
+  if (!sections.length) {
+    panelEl.innerHTML = '<p class="empty-state">No competitions added for this sport yet.</p>';
+    return;
+  }
+
+  panelEl.innerHTML = sections.map((s, i) => {
+    const showCategoryHeadings = s.categories.length > 1;
+    const catSections = s.categories.map(({ category, items }) => `
+      <div style="margin-top:1.5rem;">
+        ${showCategoryHeadings ? `<span class="section-label" style="font-size:0.75rem; opacity:0.75;">${escapeHtml(CATEGORY_LABELS[category])}</span>` : ''}
+        <div class="card-grid">${items.map(competitionCardHtml).join('')}</div>
+      </div>`).join('');
+    return `
+      <div style="${i > 0 ? 'margin-top:3rem;' : ''}">
+        <span class="section-label" style="font-size:1rem;">${escapeHtml(REGION_LABELS[s.region])}</span>
+        ${catSections}
+      </div>`;
+  }).join('');
 }
 
 async function loadScores() {
