@@ -119,16 +119,27 @@ async function syncClub(competition, teamName) {
 
   await prisma.player.deleteMany({ where: { clubId: club.id } });
   if (players.length) {
-    await prisma.player.createMany({
-      data: players.filter((p) => p.name).map((p) => ({
+    // Scoped by club, same convention as everywhere else this generates a
+    // slug from name+parent. Squads are always fully deleted+recreated
+    // here (not upserted), so the only real collision risk is two synced
+    // players sharing a name within this one batch — deduped with an
+    // index suffix rather than a DB round-trip per row.
+    const seenSlugs = new Set();
+    const data = players.filter((p) => p.name).map((p, i) => {
+      let slug = slugify(`${p.name}-${club.slug}`);
+      if (seenSlugs.has(slug)) slug = `${slug}-${i}`;
+      seenSlugs.add(slug);
+      return {
         clubId: club.id,
         name: p.name,
+        slug,
         position: p.position,
         nationality: p.nationality,
         photoUrl: p.photoUrl,
         externalId: p.externalId,
-      })),
+      };
     });
+    await prisma.player.createMany({ data });
   }
 
   await prisma.club.update({

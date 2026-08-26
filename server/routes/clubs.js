@@ -73,10 +73,19 @@ router.delete('/:id', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
 router.post('/:id/players', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const { name, position, nationality, age, photoUrl } = req.body;
   if (!name) return res.status(400).json({ error: 'name is required' });
+  const club = await prisma.club.findUnique({ where: { id: req.params.id } });
+  if (!club) return res.status(400).json({ error: 'Club not found' });
+  // Scoped by club, same convention as Club.slug itself (scoped by
+  // competition) — a common player name can't collide across clubs. Same
+  // duplicate-slug fallback used elsewhere in this file (articles.js's own
+  // title-slug collision handling): append a short suffix if it does.
+  let slug = slugify(`${name}-${club.slug}`);
+  if (await prisma.player.findUnique({ where: { slug } })) slug = `${slug}-${Date.now().toString(36)}`;
   const player = await prisma.player.create({
     data: {
       clubId: req.params.id,
       name,
+      slug,
       position: position || null,
       nationality: nationality || null,
       age: age ? Number(age) : null,
@@ -84,6 +93,16 @@ router.post('/:id/players', requireRole('ADMIN', 'EDITOR'), async (req, res) => 
     },
   });
   res.status(201).json({ player });
+});
+
+// ---- Public: one player's profile ----
+router.get('/players/:slug', async (req, res) => {
+  const player = await prisma.player.findUnique({
+    where: { slug: req.params.slug },
+    include: { club: { include: { competition: { include: { sport: true } } } } },
+  });
+  if (!player) return res.status(404).json({ error: 'Player not found' });
+  res.json({ player });
 });
 
 // ---- Admin: update a player ----

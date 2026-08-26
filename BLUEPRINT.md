@@ -655,3 +655,54 @@ Staff / Squad / Sponsors as three static sections above the shared subnav
 absence isn't a data gap worth flagging the way an empty squad is). Global
 clubs keep the original simple template unchanged, verified live against
 Arsenal FC's own page.
+
+## 23. Player profile pages, with real article tagging (2026-08-26)
+
+No page anywhere showed one player on their own — players only ever
+appeared as un-linked cards in a club's squad grid. Same jurisdictional
+split as Teams/club profiles: Kenyan players only ("across different
+games" meant across every sport this site covers, not across every
+country). The actual point, in the client's own words: an article or
+podcast tagged to a specific player should show up on that player's own
+page, the same way `Article.competitionId`/`clubId` already route content
+to a competition's or a club's own page.
+
+**Schema, two migrations not one**: `Player` had 126 existing rows —
+unlike every prior schema addition this session, which only ever touched
+empty tables — so a required unique `slug` needed a real backfill step in
+between (add nullable → one-off backfill script, `slugify(name-club.slug)`
+scoped by club, zero collisions across all 126 → make required + unique).
+`Article` gains `playerId String?` mirroring `clubId`/`competitionId`
+exactly. Both player-creation paths (`POST /:id/players` in
+`clubs.js`, and `syncSquads.js`'s Wikidata sync) now generate a slug at
+creation, same "never regenerated after creation" convention `Club`/
+`Competition` slugs already follow.
+
+**API**: `GET /api/clubs/players/:slug` (public, new) — same router as the
+existing player PUT/DELETE, just a new read by slug. `GET /api/articles`
+gains a `player` filter, same pattern as `club`/`competition`.
+
+**Admin**: the sport → competition → club article-tagging cascade gains a
+fourth level, `playerId`, fetching that one club's players on demand
+(`GET /api/clubs/:slug` already returns them — the same endpoint the
+public club page uses) since the club list endpoint doesn't include
+players.
+
+**Public** (`public/player.html` + `public/js/player.js`, new): a player
+isn't a competition-scoped entity — no Scores/Fixtures/Tables of its own —
+so this deliberately does not reuse `subnav.js`'s tab-bar machinery, which
+would force a nonsensical Tables tab onto a page with nothing to show
+there. Single-scroll layout instead: the same `.profile-header`/
+`.profile-badge` treatment `club.js`'s Kenyan profile already uses, then a
+News & Podcasts feed of whatever's tagged via `Article.playerId` (reuses
+`subnav.js`'s existing `articleCardHtml`, which already handles both
+`ARTICLE` and `VIDEO_POST` content types — no third card variant built).
+`playerCardHtml` in `club.js` now links to a player's page, but only for
+Kenyan clubs — Global clubs' player cards stay exactly as they were,
+unlinked, verified live against Arsenal FC.
+
+Verified live end-to-end: added a real player to Gor Mahia FC, tagged an
+article to them through the new cascading admin select, confirmed it
+appears on that player's new profile page and the squad card links there
+correctly; confirmed Arsenal FC's squad cards are unaffected; confirmed a
+nonexistent player slug fails gracefully rather than erroring.

@@ -13,7 +13,7 @@ const articleInclude = {
 
 // ---- Public: list published articles ----
 router.get('/', async (req, res) => {
-  const { sport, competition, club, tag, featured, videoSeries, contentType, isBrief, limit } = req.query;
+  const { sport, competition, club, player, tag, featured, videoSeries, contentType, isBrief, limit } = req.query;
 
   const where = { status: 'PUBLISHED' };
   if (sport) where.sport = { slug: sport };
@@ -22,6 +22,9 @@ router.get('/', async (req, res) => {
   // independent scope (see the schema comment on Article.clubId).
   if (competition) where.competition = { slug: competition };
   if (club) where.club = { slug: club };
+  // Scoped to a player's own profile page (public/js/player.js) — same
+  // independent-scope reasoning as clubId/competitionId.
+  if (player) where.player = { slug: player };
   if (tag) where.tags = { some: { slug: tag } };
   if (featured) where.featured = featured === 'true';
   if (videoSeries) where.videoSeries = videoSeries;
@@ -71,7 +74,7 @@ router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const {
     title, dek, body, coverImageUrl, sportId, authorId, tagIds,
     status, featured, contentType, isBrief, youtubeId, videoSeries,
-    episodeLabel, runtimeLabel, competitionId, clubId,
+    episodeLabel, runtimeLabel, competitionId, clubId, playerId,
   } = req.body;
 
   if (!title || !dek || !body || !sportId || !authorId) {
@@ -104,6 +107,7 @@ router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
       runtimeLabel: runtimeLabel || null,
       competitionId: competitionId || null,
       clubId: clubId || null,
+      playerId: playerId || null,
       publishedAt: publishedStatus === 'PUBLISHED' ? new Date() : null,
     },
     include: articleInclude,
@@ -127,7 +131,7 @@ router.put('/:id', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const {
     title, dek, body, coverImageUrl, sportId, authorId, tagIds,
     status, featured, contentType, isBrief, youtubeId, videoSeries,
-    episodeLabel, runtimeLabel, competitionId, clubId,
+    episodeLabel, runtimeLabel, competitionId, clubId, playerId,
   } = req.body;
 
   const wasPublished = existing.status === 'PUBLISHED';
@@ -153,6 +157,7 @@ router.put('/:id', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
       runtimeLabel: runtimeLabel !== undefined ? runtimeLabel : existing.runtimeLabel,
       competitionId: competitionId !== undefined ? (competitionId || null) : existing.competitionId,
       clubId: clubId !== undefined ? (clubId || null) : existing.clubId,
+      playerId: playerId !== undefined ? (playerId || null) : existing.playerId,
       publishedAt: !wasPublished && willBePublished ? new Date() : existing.publishedAt,
     },
     include: articleInclude,

@@ -11,8 +11,12 @@
 // only ever entered for Kenyan clubs (client's own jurisdictional call,
 // same split as the Teams tab).
 
-function playerCardHtml(p) {
-  return `
+// `linked` is only true for Kenyan clubs (profileHeaderHtml, below) — a
+// Global club's players have no profile page to link to (player.html is
+// Kenyan-only, same jurisdictional split as the club profile itself), so
+// their cards stay plain, matching today's existing behavior unchanged.
+function playerCardHtml(p, linked) {
+  const card = `
     <div class="player-card">
       ${p.photoUrl
         ? `<img class="player-photo" src="${escapeHtml(p.photoUrl)}" alt="${escapeHtml(p.name)}" onerror="this.replaceWith(Object.assign(document.createElement('div'), {className:'player-photo-empty', textContent:'No photo'}))">`
@@ -20,6 +24,11 @@ function playerCardHtml(p) {
       <div class="player-name">${escapeHtml(p.name)}</div>
       <div class="player-meta">${escapeHtml(p.position || '')}${p.position && p.nationality ? ' · ' : ''}${escapeHtml(p.nationality || '')}</div>
     </div>`;
+  // Matches this file's other card-link pattern (clubCardHtml/
+  // competitionTeamCardHtml in subnav.js) — an outer `display:contents`
+  // anchor so the link doesn't bleed default anchor styling into the
+  // card's own children.
+  return linked ? `<a href="/player.html?slug=${encodeURIComponent(p.slug)}" style="display:contents;">${card}</a>` : card;
 }
 
 // Same card shape as a player's — role stands in for position.
@@ -56,7 +65,7 @@ function simpleHeaderHtml(club) {
     <div style="max-width:900px; margin:0 auto; padding:2rem 0 4rem;">
       <span class="section-label">Squad</span>
       ${club.players.length
-        ? `<div class="player-grid">${club.players.map(playerCardHtml).join('')}</div>`
+        ? `<div class="player-grid">${club.players.map((p) => playerCardHtml(p, false)).join('')}</div>`
         : `<p class="empty-state">${club.source === 'API' ? 'No current squad data available yet for this club.' : 'No players added yet.'}</p>`}
       ${club.source === 'API' ? '<p class="empty-state" style="margin-top:1.5rem;">Squad sourced from Wikidata\'s public records — reliably current where shown, but not guaranteed to list every player on the books.</p>' : ''}
     </div>`;
@@ -89,7 +98,7 @@ function profileHeaderHtml(club) {
     <div style="max-width:900px; margin:0 auto; padding:1rem 0;">
       <span class="section-label">Squad</span>
       ${club.players.length
-        ? `<div class="player-grid">${club.players.map(playerCardHtml).join('')}</div>`
+        ? `<div class="player-grid">${club.players.map((p) => playerCardHtml(p, true)).join('')}</div>`
         : '<p class="empty-state">No players added yet.</p>'}
     </div>
     ${club.sponsors.length ? `

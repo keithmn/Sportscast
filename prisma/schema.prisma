@@ -89,6 +89,11 @@ model Article {
   // competition tag too, since the club already implies one.
   clubId        String?
   club          Club?        @relation(fields: [clubId], references: [id])
+  // Optional player tag — an article/podcast about one specific player
+  // (not the whole club) shows up on that player's own profile page.
+  // Independent of clubId/competitionId, same reasoning as clubId above.
+  playerId      String?
+  player        Player?      @relation(fields: [playerId], references: [id])
   publishedAt   DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -334,10 +339,14 @@ model Player {
   clubId      String
   club        Club     @relation(fields: [clubId], references: [id])
   name        String
+  // Never regenerated after creation, even if name changes later — same
+  // convention Club/Competition slugs already follow.
+  slug        String   @unique
   position    String?
   nationality String?
   age         Int?
   photoUrl    String?
   externalId  String? // Wikidata QID ("Q7550600") — null for MANUAL entries
+  articles    Article[]
   createdAt   DateTime @default(now())
 }

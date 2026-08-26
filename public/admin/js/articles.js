@@ -26,6 +26,25 @@ function populateClubOptions(competitionId) {
   select.innerHTML = ['<option value="">— None — competition-wide —</option>']
     .concat(clubs.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`))
     .join('');
+  populatePlayerOptions(select.value);
+}
+
+// Player picker cascades from the club select the same way club cascades
+// from competition — a player tag only makes sense within their own club
+// (public/js/player.js's profile page). GET /api/clubs (already fetched
+// into allClubs) doesn't include players, so this fetches that one club's
+// detail on demand — the same endpoint the public club page already uses.
+async function populatePlayerOptions(clubId) {
+  const select = document.getElementById('playerId');
+  const club = clubId && allClubs.find((c) => c.id === clubId);
+  if (!club) {
+    select.innerHTML = '<option value="">— None — general club coverage —</option>';
+    return;
+  }
+  const { club: fullClub } = await api(`/api/clubs/${encodeURIComponent(club.slug)}`);
+  select.innerHTML = ['<option value="">— None — general club coverage —</option>']
+    .concat(fullClub.players.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`))
+    .join('');
 }
 
 function populateSelect(select, items) {
@@ -113,6 +132,9 @@ function editArticle(article) {
   document.getElementById('competitionId').value = article.competitionId || '';
   populateClubOptions(article.competitionId || '');
   document.getElementById('clubId').value = article.clubId || '';
+  populatePlayerOptions(article.clubId || '').then(() => {
+    document.getElementById('playerId').value = article.playerId || '';
+  });
   document.getElementById('video-fields').style.display = article.contentType === 'VIDEO_POST' ? 'block' : 'none';
   showForm();
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -143,6 +165,7 @@ function collectFormData() {
     runtimeLabel: document.getElementById('runtimeLabel').value.trim() || null,
     competitionId: document.getElementById('competitionId').value || null,
     clubId: document.getElementById('clubId').value || null,
+    playerId: document.getElementById('playerId').value || null,
   };
 }
 
@@ -184,6 +207,9 @@ async function initArticlesPage() {
   });
   document.getElementById('competitionId').addEventListener('change', (e) => {
     populateClubOptions(e.target.value);
+  });
+  document.getElementById('clubId').addEventListener('change', (e) => {
+    populatePlayerOptions(e.target.value);
   });
 
   document.getElementById('article-form').addEventListener('submit', async (e) => {
