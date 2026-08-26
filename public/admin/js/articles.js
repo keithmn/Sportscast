@@ -2,6 +2,7 @@ let allSports = [];
 let allAuthors = [];
 let allTags = [];
 let allCompetitions = [];
+let allClubs = [];
 
 // Competition picker is scoped to whichever sport is currently selected —
 // a competition tag only makes sense within its own sport, and the list
@@ -12,6 +13,18 @@ function populateCompetitionOptions(sportId) {
   const competitions = allCompetitions.filter((c) => c.sportId === sportId);
   select.innerHTML = ['<option value="">— None — general sport commentary —</option>']
     .concat(competitions.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`))
+    .join('');
+  populateClubOptions(select.value);
+}
+
+// Club picker cascades from the competition select the same way the
+// competition select cascades from sport — a club tag only makes sense
+// within its own competition (public/js/subnav.js's team pages).
+function populateClubOptions(competitionId) {
+  const select = document.getElementById('clubId');
+  const clubs = competitionId ? allClubs.filter((c) => c.competitionId === competitionId) : [];
+  select.innerHTML = ['<option value="">— None — competition-wide —</option>']
+    .concat(clubs.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`))
     .join('');
 }
 
@@ -98,6 +111,8 @@ function editArticle(article) {
   setSelectedTagIds(article.tags.map((t) => t.id));
   populateCompetitionOptions(article.sport.id);
   document.getElementById('competitionId').value = article.competitionId || '';
+  populateClubOptions(article.competitionId || '');
+  document.getElementById('clubId').value = article.clubId || '';
   document.getElementById('video-fields').style.display = article.contentType === 'VIDEO_POST' ? 'block' : 'none';
   showForm();
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -127,6 +142,7 @@ function collectFormData() {
     episodeLabel: document.getElementById('episodeLabel').value.trim() || null,
     runtimeLabel: document.getElementById('runtimeLabel').value.trim() || null,
     competitionId: document.getElementById('competitionId').value || null,
+    clubId: document.getElementById('clubId').value || null,
   };
 }
 
@@ -140,13 +156,14 @@ async function initArticlesPage() {
   }
   document.getElementById('articles-app').style.display = 'block';
 
-  const [sportsRes, authorsRes, tagsRes, competitionsRes] = await Promise.all([
-    api('/api/sports'), api('/api/authors'), api('/api/tags'), api('/api/competitions'),
+  const [sportsRes, authorsRes, tagsRes, competitionsRes, clubsRes] = await Promise.all([
+    api('/api/sports'), api('/api/authors'), api('/api/tags'), api('/api/competitions'), api('/api/clubs'),
   ]);
   allSports = sportsRes.sports;
   allAuthors = authorsRes.authors;
   allTags = tagsRes.tags;
   allCompetitions = competitionsRes.competitions;
+  allClubs = clubsRes.clubs;
   populateSelect(document.getElementById('sportId'), allSports);
   populateSelect(document.getElementById('authorId'), allAuthors);
   populateTagCheckboxes(allTags);
@@ -164,6 +181,9 @@ async function initArticlesPage() {
   });
   document.getElementById('sportId').addEventListener('change', (e) => {
     populateCompetitionOptions(e.target.value);
+  });
+  document.getElementById('competitionId').addEventListener('change', (e) => {
+    populateClubOptions(e.target.value);
   });
 
   document.getElementById('article-form').addEventListener('submit', async (e) => {

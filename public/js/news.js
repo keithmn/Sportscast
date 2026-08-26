@@ -32,27 +32,33 @@ function storyCardHtml(a) {
     </a>`;
 }
 
-async function loadLatest(container, sportSlug) {
+// `scopeQuery` is a pre-built query-string fragment, e.g. "sport=football",
+// "competition=kenyan-premier-league", or "club=tusker-fc" — the caller
+// decides which single dimension to filter by (public/js/subnav.js scopes
+// to whichever is narrowest: club > competition > sport), not this file.
+// Empty/undefined means unfiltered (every published brief/story).
+async function loadLatest(container, scopeQuery, emptyLabel) {
   container.innerHTML = '<div class="empty-state">Loading…</div>';
-  const query = sportSlug ? `&sport=${encodeURIComponent(sportSlug)}` : '';
+  const query = scopeQuery ? `&${scopeQuery}` : '';
   const { articles } = await api(`/api/articles?isBrief=true&limit=20${query}`);
   container.innerHTML = articles.length
     ? articles.map(latestRowHtml).join('')
-    : '<p class="empty-state">No news briefs yet for this sport.</p>';
+    : `<p class="empty-state">No news briefs yet${emptyLabel ? ` for ${escapeHtml(emptyLabel)}` : ''}.</p>`;
 }
 
-async function loadStories(container, sportSlug) {
+async function loadStories(container, scopeQuery, emptyLabel) {
   container.innerHTML = '<div class="empty-state">Loading…</div>';
-  const query = sportSlug ? `&sport=${encodeURIComponent(sportSlug)}` : '';
+  const query = scopeQuery ? `&${scopeQuery}` : '';
   const { articles } = await api(`/api/articles?contentType=ARTICLE&isBrief=false&limit=100${query}`);
   container.innerHTML = articles.length
     ? articles.map(storyCardHtml).join('')
-    : '<p class="empty-state">No stories yet for this sport.</p>';
+    : `<p class="empty-state">No stories yet${emptyLabel ? ` for ${escapeHtml(emptyLabel)}` : ''}.</p>`;
 }
 
 function loadBoth(sportSlug) {
-  loadLatest(document.getElementById('latest-root'), sportSlug).catch((err) => console.warn('Could not load latest:', err));
-  loadStories(document.getElementById('stories-root'), sportSlug).catch((err) => console.warn('Could not load stories:', err));
+  const scopeQuery = sportSlug ? `sport=${encodeURIComponent(sportSlug)}` : '';
+  loadLatest(document.getElementById('latest-root'), scopeQuery).catch((err) => console.warn('Could not load latest:', err));
+  loadStories(document.getElementById('stories-root'), scopeQuery).catch((err) => console.warn('Could not load stories:', err));
 }
 
 async function loadFilters() {

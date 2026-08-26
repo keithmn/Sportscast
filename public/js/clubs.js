@@ -29,7 +29,13 @@ function renderClubsSportPanel(panelEl, sportClubs) {
 
 async function loadClubs() {
   const root = document.getElementById('clubs-root');
-  const { clubs } = await api('/api/clubs');
+  const { clubs: allClubs } = await api('/api/clubs');
+
+  // Jurisdictional policy: the Teams/Clubs browsing page is strictly
+  // Kenyan teams, never Global ones — Arsenal/Bayern/etc. have Club rows
+  // (for competition-page context, e.g. a Premier League fixture's Teams
+  // tab) but don't belong in a general "browse teams" surface.
+  const clubs = allClubs.filter((c) => c.competition.region === 'KENYA');
 
   if (!clubs.length) {
     root.innerHTML = '<p class="empty-state">No clubs added yet.</p>';

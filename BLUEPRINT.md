@@ -539,3 +539,78 @@ and Shop.
 linked to Club records — they stay plain strings, matched by convention
 (aided by the team-name autocomplete built in §19). Linking them would be
 a bigger, riskier schema change for limited practical benefit right now.
+
+## 21. Sky Sports-style secondary nav unified across Sport/Competition/Team, Tables regrouped (2026-08-26)
+
+Client watched skysports.com and wanted the sport hub's secondary nav
+(News/Watch/Scores & Fixtures/Tables/Transfers[football]/Teams/
+Competitions — built in an earlier pass not otherwise logged in this file)
+to persist as the *same* bar when
+drilling into one competition or one team, scoped down rather than
+replaced by a different, page-specific tab set — `competition.html` used
+to have its own separate, narrower bar (Table/Fixtures/Results/Teams) and
+`club.html` had none at all. Also wanted the Tables tab to visually
+regroup like Sky's: a category tab bar with compact preview tables
+side-by-side, not full stacked tables.
+
+**New `public/js/subnav.js`**, extracted from `sport.js`'s tab mechanism
+(`BASE_SPORT_TABS`, `SPORT_SPECIFIC_TABS`, `TAB_LOADERS`, the tab-bar
+renderer) and generalized to take a `scope` object (`{sportSlug,
+sportName, competition, club}`, at most one of the last two set) instead
+of a bare sport slug — same "built once, used by several pages" reasoning
+as `category-toggle.js`/`nav-dropdown.js` (§16). `sport.js` now only keeps
+`loadOverviewTab` (the sport-hub-only digest shown before any tab is
+picked) and its own bootstrap. `competition.js` and `club.js` were
+rewritten to fetch their own detail, build a scope, render their own page
+header, and hand off to the shared renderer — `club.html` keeps its Squad
+grid as static content above the tabs (the one thing that doesn't map onto
+the shared tab set, same as Sky's own team pages).
+
+Two real gaps this surfaced, both put to the client directly rather than
+decided silently:
+
+- **`Article` had no per-team dimension** — only `competitionId`. Client
+  chose to add real tagging: `Article.clubId` (mirrors `competitionId`
+  exactly, migration `20260825223853_add_article_club`), a `club` query
+  filter on `GET /api/articles` (`competition` filter added too, was
+  missing despite the field existing), and a cascading `clubId` select in
+  the admin article form (sport → competition → club, same cascade
+  `competitionId` already had from sport). A club page's News/Watch/
+  Transfers tabs only ever show that club's own tagged content — no
+  fallback to the competition's wider feed, which would have silently
+  shown a different team's news as if it were this team's own. An empty
+  tag list shows an honest "No [x] yet for {team}" rather than borrowing
+  content.
+- **Club names don't reliably match Fixture/StandingRow team-name
+  strings** (§20's already-accepted gap — "Gor Mahia FC" vs "Gor Mahia",
+  confirmed live). Client chose best-effort fuzzy matching (strip FC/AFC,
+  case-insensitive substring either direction) over skipping team-scoped
+  fixtures — labeled in the UI as best-effort so it isn't mistaken for
+  exact.
+
+The Competitions tab stays sport-wide regardless of scope, deliberately —
+a "browse sideways" affordance, same tab and query whether reached from
+the sport hub, a competition page, or a team page.
+
+**Tables tab rework** (`scores.js`): the existing region-first (Kenya,
+then Global), category-second grouping stays — Sky's own flat category
+list only works because their site is implicitly England-centric, this
+one genuinely needs Kenya separated from foreign competitions first.
+Within a region, `category-toggle.js` now replaces the old plain
+subheading wherever that region spans more than one category (same guard
+as before — a region with just one category still doesn't get a pointless
+single-item pill). Each competition renders as a new compact
+`.mini-table-card` (name + top 5 rows + "View full table →") in the
+existing `.card-grid`, not the old full stacked-table treatment — its own
+CSS class, not a reuse of `.data-table` (that one's sized for its own
+horizontal-scroll context, would force scrolling inside every card).
+
+**Jurisdictional policy, stated explicitly by the client**: the sport-wide
+Teams browsing surfaces — the sport hub's Teams tab (`subnav.js`) and the
+standalone `/clubs.html` page (`clubs.js`) — are strictly Kenyan teams,
+never Global ones, filtered on `competition.region === 'KENYA'`. Global
+clubs (Arsenal, Bayern, ...) keep their own `Club` rows (needed for their
+own competition page's Teams tab, e.g. Premier League's own team list) —
+this only restricts the two general "browse teams in this sport" surfaces,
+not a specific competition's own page, where seeing its real teams is
+still expected.

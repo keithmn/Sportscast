@@ -1,3 +1,12 @@
+// club.html's bootstrap. The tab bar itself is the shared one from
+// subnav.js (News/Watch/Scores & Fixtures/Tables/Transfers/Teams/
+// Competitions) — this file fetches the club, renders its own header
+// (crest/name/venue) plus the Squad grid (the one piece of real content
+// that doesn't map onto any of the shared tabs — Sky's own team pages
+// keep a squad list outside their tab set too), then hands off to the
+// shared tabs for everything else. See subnav.js for the tab mechanism,
+// sport.js/competition.js for the other two callers.
+
 function playerCardHtml(p) {
   return `
     <div class="player-card">
@@ -35,7 +44,18 @@ async function loadClub() {
         ? `<div class="player-grid">${club.players.map(playerCardHtml).join('')}</div>`
         : `<p class="empty-state">${club.source === 'API' ? 'No current squad data available yet for this club.' : 'No players added yet.'}</p>`}
       ${club.source === 'API' ? '<p class="empty-state" style="margin-top:1.5rem;">Squad sourced from Wikidata\'s public records — reliably current where shown, but not guaranteed to list every player on the books.</p>' : ''}
-    </div>`;
+    </div>
+    <div id="club-tab-root"></div>`;
+
+  const competitionDetail = await fetchCompetitionDetail(club.competition.slug);
+  const tabRoot = document.getElementById('club-tab-root');
+  const scope = {
+    sportSlug: club.competition.sport.slug,
+    sportName: club.competition.sport.name,
+    competition: null,
+    club: { slug: club.slug, name: club.name, detail: club, competitionDetail },
+  };
+  renderSecondaryNav(tabRoot, scope, 'tables');
 }
 
 document.addEventListener('DOMContentLoaded', () => {

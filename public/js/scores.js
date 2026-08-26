@@ -229,11 +229,52 @@ function groupCompetitionsByRegionThenCategory(sportCompetitions) {
     }));
 }
 
-// Full detail panels (Tables/Scores tabs) — each (region × category)
-// bucket reuses renderCompetitionsSportPanel completely unchanged; since a
-// bucket is already single-region, that function's own Kenya-expanded/
-// Global-pill split behaves correctly with zero changes to it.
-async function renderGroupedCompetitionsPanel(panelEl, sportCompetitions, detailRenderer) {
+// Compact preview — competition name + top 5 standings rows (position/team/
+// played/points only, no GD, to stay narrow) + a link into the full table.
+// Deliberately its own class, not a reuse of .data-table (site.css's
+// full-standings table has min-width:560px for its own .table-wrap
+// horizontal-scroll context — reused as-is here it would force scrolling
+// inside every card instead of the compact preview this is for).
+function miniTableCardHtml(competition) {
+  const rows = competition.standings.slice(0, 5);
+  return `
+    <div class="card mini-table-card">
+      <h3 class="card-title">${escapeHtml(competition.name)}</h3>
+      ${rows.length ? `
+        <table class="mini-table">
+          <tbody>
+            ${rows.map((r) => `
+              <tr>
+                <td class="num">${r.position}</td>
+                <td>${escapeHtml(r.teamName)}</td>
+                <td class="num">${r.played}</td>
+                <td class="num"><strong>${r.points}</strong></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`
+        : '<p class="empty-state">No standings yet.</p>'}
+      <a class="btn-link" href="/competition.html?slug=${encodeURIComponent(competition.slug)}">View full table →</a>
+    </div>`;
+}
+
+// Sky Sports-style compact grid — every competition in this (region ×
+// category) bucket fetched in parallel and rendered as a mini-table-card,
+// not the full stacked-table treatment. Region no longer matters once
+// we're inside a single bucket (that split already happened one level up),
+// so Kenya and Global competitions render identically here.
+async function renderMiniTablesGrid(panelEl, sportCompetitions) {
+  panelEl.innerHTML = '<div class="empty-state">Loading…</div>';
+  const details = await Promise.all(sportCompetitions.map((c) => fetchCompetitionDetail(c.slug)));
+  panelEl.innerHTML = `<div class="card-grid">${details.map(miniTableCardHtml).join('')}</div>`;
+}
+
+// Tables tab — each region (Kenya, then Global) keeps its own heading;
+// within a region, a category tab bar (category-toggle.js, the site's
+// existing shared "pick a category, see its items" component) replaces the
+// old plain subheading, but only when the region actually spans more than
+// one category (unchanged guard — a sport with just Kenyan leagues still
+// doesn't get a pointless single-item "Leagues" pill).
+async function renderGroupedCompetitionsPanel(panelEl, sportCompetitions) {
   const sections = groupCompetitionsByRegionThenCategory(sportCompetitions);
   if (!sections.length) {
     panelEl.innerHTML = '<p class="empty-state">No competitions added for this sport yet.</p>';
@@ -248,18 +289,21 @@ async function renderGroupedCompetitionsPanel(panelEl, sportCompetitions, detail
 
   await Promise.all(sections.map(async ({ region, categories }) => {
     const regionEl = panelEl.querySelector(`[data-region-panel="${region}"]`);
-    const showCategoryHeadings = categories.length > 1;
 
-    regionEl.innerHTML = categories.map(({ category }) => `
-      <div style="margin-top:1.5rem;">
-        ${showCategoryHeadings ? `<span class="section-label" style="font-size:0.75rem; opacity:0.75;">${escapeHtml(CATEGORY_LABELS[category])}</span>` : ''}
-        <div data-category-panel="${region}-${category}"></div>
-      </div>`).join('');
-
-    await Promise.all(categories.map(({ category, items }) => {
-      const catEl = regionEl.querySelector(`[data-category-panel="${region}-${category}"]`);
-      return renderCompetitionsSportPanel(catEl, items, detailRenderer);
-    }));
+    if (categories.length > 1) {
+      renderCategoryToggle({
+        container: regionEl,
+        categories: categories.map(({ category, items }) => ({ key: category, label: CATEGORY_LABELS[category], items })),
+        renderItem: () => '', // unused — afterRender does the real rendering, same pattern as this file's own sport-level toggle
+        afterRender: (toggledPanelEl, category) => {
+          renderMiniTablesGrid(toggledPanelEl, category.items).catch((err) => {
+            toggledPanelEl.innerHTML = `<p class="empty-state">Could not load tables: ${escapeHtml(err.message)}</p>`;
+          });
+        },
+      });
+    } else {
+      await renderMiniTablesGrid(regionEl, categories[0].items);
+    }
   }));
 }
 

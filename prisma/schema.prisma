@@ -82,6 +82,13 @@ model Article {
   // competition, so this stays nullable rather than forcing a choice.
   competitionId String?
   competition   Competition? @relation(fields: [competitionId], references: [id])
+  // Optional club tag — real per-team News/Watch/Transfers scoping for a
+  // club's own page (added once club pages actually needed to distinguish
+  // "this club's news" from "this competition's news," not at launch).
+  // Independent of competitionId: a club-tagged article doesn't need a
+  // competition tag too, since the club already implies one.
+  clubId        String?
+  club          Club?        @relation(fields: [clubId], references: [id])
   publishedAt   DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -283,6 +290,7 @@ model Club {
   externalId   String? // Wikidata QID ("Q18656") — null for MANUAL clubs
   lastSyncedAt DateTime?
   players      Player[]
+  articles     Article[]
   createdAt    DateTime  @default(now())
 }
 

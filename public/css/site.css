@@ -237,6 +237,16 @@ table.data-table th { font-family: 'Montserrat', sans-serif; text-transform: upp
 table.data-table tr:hover td { background: var(--bg-elevated); }
 table.data-table td.num { text-align: center; }
 
+/* Compact preview table (Tables tab's Sky Sports-style grid) — its own
+   rules, not a reuse of .data-table: that one has min-width:560px for its
+   .table-wrap horizontal-scroll context, which would force scrolling
+   inside a .card-grid card instead of the narrow preview this is for. */
+.mini-table-card { gap: 0.75rem; }
+.mini-table { width: 100%; border-collapse: collapse; }
+.mini-table td { padding: 0.4rem 0.25rem; font-size: var(--text-small); border-bottom: 1px solid var(--border); }
+.mini-table tr:last-child td { border-bottom: none; }
+.mini-table td.num { text-align: center; width: 2rem; color: var(--text-secondary); }
+
 /* ===== PROFILE HEADER (team/player) ===== */
 .profile-header { display: flex; align-items: center; gap: 1.5rem; padding: 3rem 0 2rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .profile-badge { width: 80px; height: 80px; border-radius: 50%; background: var(--bg-elevated); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.5rem; color: var(--gold-text); overflow: hidden; }
