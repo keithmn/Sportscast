@@ -18,6 +18,13 @@
     .player-photo-empty { width: 100%; aspect-ratio: 3/4; background: var(--bg-elevated); margin-bottom: 0.6rem; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-size: var(--text-micro); }
     .player-name { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 0.95rem; }
     .player-meta { font-size: var(--text-micro); color: var(--text-secondary); }
+    /* Staff cards reuse .player-card's layout exactly (same grid, same
+       photo/name/meta shape) — .staff-card adds nothing on top, it's just
+       a marker class kept distinct in case coach cards ever need their own
+       treatment later. */
+    .sponsor-row { display: flex; flex-wrap: wrap; align-items: center; gap: 2rem; margin-top: 1.5rem; }
+    .sponsor-logo { display: block; max-height: 48px; max-width: 140px; }
+    .sponsor-logo img { max-height: 48px; max-width: 140px; object-fit: contain; }
   </style>
 </head>
 <body>

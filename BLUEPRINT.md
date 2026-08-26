@@ -614,3 +614,44 @@ own competition page's Teams tab, e.g. Premier League's own team list) —
 this only restricts the two general "browse teams in this sport" surfaces,
 not a specific competition's own page, where seeing its real teams is
 still expected.
+
+## 22. Rich club profile template for Kenyan teams (2026-08-26)
+
+`club.html` was crest+name+squad. Client wanted a real profile — coach,
+players, sponsorships — for Kenyan teams specifically, with News/Scores/
+Fixtures staying exactly as their own nav-driven tabs underneath (the
+subnav from §21, unchanged). Closes a gap that's sat in `site.css` since
+before this file's own log started: a complete, entirely unused
+`.profile-header`/`.profile-badge`/`.profile-name`/`.profile-meta` block,
+explicitly commented "PROFILE HEADER (team/player)," never wired to any
+page until now.
+
+**Schema**: `Club` gains `owner String?` (simple field). New `Staff`
+model — mirrors `Player`'s shape (name/nationality/photoUrl), `role`
+instead of `position`. New `Sponsor` model — a real list per club (name/
+logoUrl/website), not a single field, once the client confirmed a club can
+have more than one sponsor. Both are Kenyan-club-only in practice (Global
+clubs' data comes from Wikidata sync, which has no coach/sponsor concept),
+enforced by template branching rather than a schema constraint.
+
+**`server/routes/clubs.js`**: Staff/Sponsor CRUD added, mirroring the
+existing Player CRUD routes' exact shape and role gating (`POST /:id/
+staff`, `PUT /staff/:staffId`, `DELETE /staff/:staffId`, same pattern for
+`/sponsors`). `GET /:slug` and club update now include/accept the new
+fields.
+
+**Admin** (`admin/clubs.html`/`admin/js/clubs.js`): the existing per-club
+card gained two more sections using the exact same row-grid/add/save/
+delete pattern already built for Players — not a new UI pattern, the same
+one twice more. Both sections (like Players) only show their "add" row for
+`source === 'MANUAL'` clubs. `owner` added to the "Add a Club" form only
+(matching how `crestUrl`/`venue` are handled — creation-time fields, no
+separate per-card edit UI exists for those either).
+
+**Public** (`public/js/club.js`): branches on `club.competition.region`.
+Kenyan clubs get the new profile — `.profile-header` badge, then Coach &
+Staff / Squad / Sponsors as three static sections above the shared subnav
+(Sponsors omitted entirely, not shown-empty, when a club has none — its
+absence isn't a data gap worth flagging the way an empty squad is). Global
+clubs keep the original simple template unchanged, verified live against
+Arsenal FC's own page.

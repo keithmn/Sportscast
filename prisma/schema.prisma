@@ -286,12 +286,47 @@ model Club {
   competition   Competition @relation(fields: [competitionId], references: [id])
   crestUrl     String?
   venue        String?
+  // The club's owner/proprietor — e.g. a chairman's name or a holding
+  // group. Simple field, not a relation: there's only ever one at a time,
+  // unlike Staff/Sponsors below which are real lists.
+  owner        String?
   source       String    @default("MANUAL") // MANUAL | API
   externalId   String? // Wikidata QID ("Q18656") — null for MANUAL clubs
   lastSyncedAt DateTime?
   players      Player[]
+  staff        Staff[]
+  sponsors     Sponsor[]
   articles     Article[]
   createdAt    DateTime  @default(now())
+}
+
+// The technical bench — coach, assistants, etc. Mirrors Player's shape
+// closely (name/nationality/photoUrl), "role" instead of "position" since
+// "Head Coach"/"Team Doctor" reads as a role, not a playing position. Only
+// ever populated for Kenyan (MANUAL) clubs — see public/js/club.js, which
+// is the one place this actually renders.
+model Staff {
+  id          String   @id @default(cuid())
+  clubId      String
+  club        Club     @relation(fields: [clubId], references: [id])
+  name        String
+  role        String?
+  nationality String?
+  photoUrl    String?
+  createdAt   DateTime @default(now())
+}
+
+// A club's sponsors — a real list (shirt sponsor, kit supplier, ... can
+// all be different entities), not a single field. Also Kenyan-club-only in
+// practice, same as Staff.
+model Sponsor {
+  id        String   @id @default(cuid())
+  clubId    String
+  club      Club     @relation(fields: [clubId], references: [id])
+  name      String
+  logoUrl   String?
+  website   String?
+  createdAt DateTime @default(now())
 }
 
 model Player {

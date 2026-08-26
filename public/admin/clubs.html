@@ -12,6 +12,8 @@
   <link rel="stylesheet" href="/css/site.css">
   <style>
     .player-row-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 0.6fr 2fr auto; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
+    .staff-row-grid { display: grid; grid-template-columns: 2fr 1.4fr 1fr 2fr auto; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
+    .sponsor-row-grid { display: grid; grid-template-columns: 2fr 2fr 2fr auto; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
   </style>
 </head>
 <body>
@@ -61,6 +63,12 @@
             <div class="form-field">
               <label for="club-venue">Home venue (optional)</label>
               <input type="text" id="club-venue" placeholder="Moi International Stadium">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label for="club-owner">Owner (optional)</label>
+              <input type="text" id="club-owner" placeholder="Chairman / holding group">
             </div>
           </div>
           <button type="button" class="btn-red" id="add-club-btn" style="width:fit-content;">Add Club</button>

@@ -15,6 +15,34 @@ function playerRowHtml(p) {
     </div>`;
 }
 
+// Same shape as playerRowHtml minus age — a coaching role doesn't need one.
+function staffRowHtml(s) {
+  return `
+    <div class="staff-row-grid" data-staff-id="${s.id}">
+      <input type="text" value="${escapeHtml(s.name)}" data-field="name" placeholder="Staff name">
+      <input type="text" value="${escapeHtml(s.role || '')}" data-field="role" placeholder="Role (Head Coach, ...)">
+      <input type="text" value="${escapeHtml(s.nationality || '')}" data-field="nationality" placeholder="Nationality">
+      <input type="text" value="${escapeHtml(s.photoUrl || '')}" data-field="photoUrl" placeholder="Photo URL">
+      <span>
+        <button type="button" class="btn-outline-sm save-staff-btn">Save</button>
+        <button type="button" class="btn-outline-sm delete-staff-btn" style="color:var(--danger); border-color:var(--danger);">✕</button>
+      </span>
+    </div>`;
+}
+
+function sponsorRowHtml(sp) {
+  return `
+    <div class="sponsor-row-grid" data-sponsor-id="${sp.id}">
+      <input type="text" value="${escapeHtml(sp.name)}" data-field="name" placeholder="Sponsor name">
+      <input type="text" value="${escapeHtml(sp.logoUrl || '')}" data-field="logoUrl" placeholder="Logo URL">
+      <input type="text" value="${escapeHtml(sp.website || '')}" data-field="website" placeholder="Website">
+      <span>
+        <button type="button" class="btn-outline-sm save-sponsor-btn">Save</button>
+        <button type="button" class="btn-outline-sm delete-sponsor-btn" style="color:var(--danger); border-color:var(--danger);">✕</button>
+      </span>
+    </div>`;
+}
+
 function clubBlockHtml(club) {
   const sourceTag = club.source === 'API'
     ? `<span class="status-badge" style="margin-left:0.5rem;">Wikidata · synced ${club.lastSyncedAt ? formatDate(club.lastSyncedAt) : 'never'}</span>`
@@ -23,6 +51,7 @@ function clubBlockHtml(club) {
     <div class="card" style="margin-bottom:2.5rem; cursor:default;">
       <span class="card-eyebrow">${escapeHtml(club.competition.sport.name)} · ${escapeHtml(club.competition.name)}</span>
       <h3 class="card-title">${escapeHtml(club.name)}${sourceTag}</h3>
+      ${club.owner ? `<p class="page-sub" style="margin-top:0.4rem;">Owned by ${escapeHtml(club.owner)}</p>` : ''}
 
       <div style="margin-top:1.25rem;">
         <span class="section-label" style="font-size:0.68rem;">Players</span>
@@ -41,6 +70,33 @@ function clubBlockHtml(club) {
       </div>
 
       ${club.source === 'MANUAL' ? `
+        <div style="margin-top:1.25rem;">
+          <span class="section-label" style="font-size:0.68rem;">Coach &amp; Staff</span>
+          <div id="staff-rows-${club.id}">
+            ${club.staff.map(staffRowHtml).join('') || '<p class="empty-state" style="padding:0.5rem 0;">No staff yet.</p>'}
+          </div>
+          <div class="staff-row-grid" style="margin-top:0.75rem;">
+            <input type="text" placeholder="Staff name" data-new-staff="name">
+            <input type="text" placeholder="Role (Head Coach, ...)" data-new-staff="role">
+            <input type="text" placeholder="Nationality" data-new-staff="nationality">
+            <input type="text" placeholder="Photo URL" data-new-staff="photoUrl">
+            <button type="button" class="btn-outline-sm add-staff-btn" data-club-id="${club.id}">+ Add Staff</button>
+          </div>
+        </div>
+
+        <div style="margin-top:1.25rem;">
+          <span class="section-label" style="font-size:0.68rem;">Sponsors</span>
+          <div id="sponsors-rows-${club.id}">
+            ${club.sponsors.map(sponsorRowHtml).join('') || '<p class="empty-state" style="padding:0.5rem 0;">No sponsors yet.</p>'}
+          </div>
+          <div class="sponsor-row-grid" style="margin-top:0.75rem;">
+            <input type="text" placeholder="Sponsor name" data-new-sponsor="name">
+            <input type="text" placeholder="Logo URL" data-new-sponsor="logoUrl">
+            <input type="text" placeholder="Website" data-new-sponsor="website">
+            <button type="button" class="btn-outline-sm add-sponsor-btn" data-club-id="${club.id}">+ Add Sponsor</button>
+          </div>
+        </div>
+
         <div style="margin-top:1.25rem;">
           <button type="button" class="btn-outline-sm delete-club-btn" data-club-id="${club.id}" style="color:var(--danger); border-color:var(--danger);">Delete Club</button>
         </div>` : ''}
@@ -99,6 +155,74 @@ async function loadClubs() {
       loadClubs();
     });
   });
+
+  root.querySelectorAll('.add-staff-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const row = btn.closest('.staff-row-grid');
+      const get = (f) => row.querySelector(`[data-new-staff="${f}"]`).value.trim();
+      const name = get('name');
+      if (!name) return;
+      await api(`/api/clubs/${btn.dataset.clubId}/staff`, {
+        method: 'POST',
+        body: JSON.stringify({ name, role: get('role'), nationality: get('nationality'), photoUrl: get('photoUrl') }),
+      });
+      loadClubs();
+    });
+  });
+
+  root.querySelectorAll('.save-staff-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const row = btn.closest('[data-staff-id]');
+      const get = (f) => row.querySelector(`[data-field="${f}"]`).value.trim();
+      await api(`/api/clubs/staff/${row.dataset.staffId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name: get('name'), role: get('role'), nationality: get('nationality'), photoUrl: get('photoUrl') }),
+      });
+      loadClubs();
+    });
+  });
+
+  root.querySelectorAll('.delete-staff-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Delete this staff member?')) return;
+      await api(`/api/clubs/staff/${btn.closest('[data-staff-id]').dataset.staffId}`, { method: 'DELETE' });
+      loadClubs();
+    });
+  });
+
+  root.querySelectorAll('.add-sponsor-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const row = btn.closest('.sponsor-row-grid');
+      const get = (f) => row.querySelector(`[data-new-sponsor="${f}"]`).value.trim();
+      const name = get('name');
+      if (!name) return;
+      await api(`/api/clubs/${btn.dataset.clubId}/sponsors`, {
+        method: 'POST',
+        body: JSON.stringify({ name, logoUrl: get('logoUrl'), website: get('website') }),
+      });
+      loadClubs();
+    });
+  });
+
+  root.querySelectorAll('.save-sponsor-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const row = btn.closest('[data-sponsor-id]');
+      const get = (f) => row.querySelector(`[data-field="${f}"]`).value.trim();
+      await api(`/api/clubs/sponsors/${row.dataset.sponsorId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name: get('name'), logoUrl: get('logoUrl'), website: get('website') }),
+      });
+      loadClubs();
+    });
+  });
+
+  root.querySelectorAll('.delete-sponsor-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Delete this sponsor?')) return;
+      await api(`/api/clubs/sponsors/${btn.closest('[data-sponsor-id]').dataset.sponsorId}`, { method: 'DELETE' });
+      loadClubs();
+    });
+  });
 }
 
 async function initClubsPage() {
@@ -120,11 +244,13 @@ async function initClubsPage() {
     const competitionId = document.getElementById('club-competition').value;
     const crestUrl = document.getElementById('club-crest').value.trim();
     const venue = document.getElementById('club-venue').value.trim();
+    const owner = document.getElementById('club-owner').value.trim();
     if (!name || !competitionId) return;
-    await api('/api/clubs', { method: 'POST', body: JSON.stringify({ name, competitionId, crestUrl, venue }) });
+    await api('/api/clubs', { method: 'POST', body: JSON.stringify({ name, competitionId, crestUrl, venue, owner }) });
     document.getElementById('club-name').value = '';
     document.getElementById('club-crest').value = '';
     document.getElementById('club-venue').value = '';
+    document.getElementById('club-owner').value = '';
     loadClubs();
   });
 
