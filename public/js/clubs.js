@@ -9,24 +9,6 @@ function clubCardHtml(club) {
     </a>`;
 }
 
-// Sport is the top-level toggle (reusing category-toggle.js, same as
-// Shows/Scores); within a sport, clubs are grouped by competition with a
-// plain label rather than a second full toggle level — most sports only
-// have one or two competitions here, not enough to need another layer.
-function renderClubsSportPanel(panelEl, sportClubs) {
-  const byCompetition = new Map();
-  sportClubs.forEach((c) => {
-    if (!byCompetition.has(c.competition.slug)) byCompetition.set(c.competition.slug, { name: c.competition.name, clubs: [] });
-    byCompetition.get(c.competition.slug).clubs.push(c);
-  });
-
-  panelEl.innerHTML = Array.from(byCompetition.values()).map(({ name, clubs }) => `
-    <div style="margin-bottom:2.5rem;">
-      <span class="section-label">${escapeHtml(name)}</span>
-      <div class="card-grid">${clubs.map(clubCardHtml).join('')}</div>
-    </div>`).join('');
-}
-
 async function loadClubs() {
   const root = document.getElementById('clubs-root');
   const { clubs: allClubs } = await api('/api/clubs');
@@ -54,7 +36,9 @@ async function loadClubs() {
     container: root,
     categories,
     renderItem: () => '',
-    afterRender: (panelEl, category) => renderClubsSportPanel(panelEl, category.items),
+    afterRender: (panelEl, category) => renderCompetitionCategorizedGrid(
+      panelEl, category.items, (c) => c.competition, clubCardHtml, 'No teams added yet for this sport.',
+    ),
   });
 }
 

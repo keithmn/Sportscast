@@ -42,12 +42,31 @@ function competitionTeamCardHtml(club) {
     </a>`;
 }
 
+// Moved here from club.js so both it and the new Players tab (below) can
+// use it without pulling in club.js's own page-bootstrap side effects
+// (its DOMContentLoaded handler assumes #club-root exists). `linked` is
+// only true for Kenyan clubs' players — Global clubs have no profile page
+// to link to (player.html is Kenyan-only, same jurisdictional split as
+// everything else here).
+function playerCardHtml(p, linked) {
+  const card = `
+    <div class="player-card">
+      ${p.photoUrl
+        ? `<img class="player-photo" src="${escapeHtml(p.photoUrl)}" alt="${escapeHtml(p.name)}" onerror="this.replaceWith(Object.assign(document.createElement('div'), {className:'player-photo-empty', textContent:'No photo'}))">`
+        : `<div class="player-photo-empty">No photo</div>`}
+      <div class="player-name">${escapeHtml(p.name)}</div>
+      <div class="player-meta">${escapeHtml(p.position || '')}${p.position && p.nationality ? ' · ' : ''}${escapeHtml(p.nationality || '')}</div>
+    </div>`;
+  return linked ? `<a href="/player.html?slug=${encodeURIComponent(p.slug)}" style="display:contents;">${card}</a>` : card;
+}
+
 const BASE_SPORT_TABS = [
   { key: 'news', label: 'News' },
   { key: 'watch', label: 'Watch' },
   { key: 'scores', label: 'Scores & Fixtures' },
   { key: 'tables', label: 'Tables' },
   { key: 'clubs', label: 'Teams' },
+  { key: 'players', label: 'Players' },
   { key: 'competitions', label: 'Competitions' },
 ];
 
@@ -58,9 +77,14 @@ const SPORT_SPECIFIC_TABS = {
   football: [{ after: 'tables', tab: { key: 'transfers', label: 'Transfers' } }],
 };
 
-function getSportTabs(sportSlug) {
-  const extra = SPORT_SPECIFIC_TABS[sportSlug] || [];
-  const tabs = [...BASE_SPORT_TABS];
+// Takes the whole scope (not just sportSlug) — a team's own page already
+// shows its Squad as a static section, so Players would just repeat the
+// same roster a second time if it appeared there too; excluded whenever
+// scope.club is set, sport/competition scope keep it.
+function getSportTabs(scope) {
+  const extra = SPORT_SPECIFIC_TABS[scope.sportSlug] || [];
+  let tabs = [...BASE_SPORT_TABS];
+  if (scope.club) tabs = tabs.filter((t) => t.key !== 'players');
   extra.forEach(({ after, tab }) => {
     const i = tabs.findIndex((t) => t.key === after);
     tabs.splice(i === -1 ? tabs.length : i + 1, 0, tab);
@@ -269,7 +293,21 @@ async function loadClubsTab(panelEl, scope) {
   // unaffected — if you're on the Premier League's own competition page,
   // seeing its real teams is expected, not a jurisdiction violation.
   const sportClubs = clubs.filter((c) => c.competition.sport.slug === scope.sportSlug && c.competition.region === 'KENYA');
-  return renderClubsSportPanel(panelEl, sportClubs);
+  return renderCompetitionCategorizedGrid(panelEl, sportClubs, (c) => c.competition, competitionTeamCardHtml, 'No teams added yet for this sport.');
+}
+
+// Sport/competition scope only — never called at club scope, since the
+// team's own page already shows its Squad as a static section (see
+// getSportTabs' comment). GET /api/players enforces Kenya-only server-side,
+// so no client-side region filter is needed here (unlike loadClubsTab's
+// sport-wide branch above, which predates that endpoint).
+async function loadPlayersTab(panelEl, scope) {
+  panelEl.innerHTML = '<div class="empty-state">Loading…</div>';
+  const query = scope.competition
+    ? `competition=${encodeURIComponent(scope.competition.slug)}`
+    : `sport=${encodeURIComponent(scope.sportSlug)}`;
+  const { players } = await api(`/api/players?${query}`);
+  renderCompetitionCategorizedGrid(panelEl, players, (p) => p.club.competition, (p) => playerCardHtml(p, true), 'No players added yet for this sport.');
 }
 
 const TAB_LOADERS = {
@@ -279,6 +317,7 @@ const TAB_LOADERS = {
   tables: loadTablesTab,
   transfers: loadTransfersTab,
   clubs: loadClubsTab,
+  players: loadPlayersTab,
   competitions: loadCompetitionsTab,
 };
 
@@ -298,7 +337,7 @@ function subnavLabel(scope) {
 // or per-team Overview concept.
 function renderSecondaryNav(root, scope, initialTab, defaultTabRenderer) {
   const subnavEl = document.getElementById('subnav-placeholder');
-  const sportTabs = getSportTabs(scope.sportSlug);
+  const sportTabs = getSportTabs(scope);
 
   if (subnavEl) {
     subnavEl.innerHTML = `

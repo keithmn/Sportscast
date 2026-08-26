@@ -207,6 +207,16 @@ const CATEGORY_ORDER = ['LEAGUE', 'CUP', 'CONTINENTAL', 'INTERNATIONAL'];
 const CATEGORY_LABELS = { LEAGUE: 'Leagues', CUP: 'Cups', CONTINENTAL: 'Continental', INTERNATIONAL: 'International' };
 const REGION_LABELS = { KENYA: 'Kenya', GLOBAL: 'Global' };
 
+// Buckets `items` into CATEGORY_ORDER groups using `getCategory(item)`,
+// dropping empty buckets — shared by the region+category grouping below
+// and by renderCompetitionCategorizedGrid (Teams/Players tabs), which only
+// needs the category level since they're already Kenya-only.
+function groupByCategory(items, getCategory) {
+  return CATEGORY_ORDER
+    .map((category) => ({ category, items: items.filter((i) => getCategory(i) === category) }))
+    .filter((c) => c.items.length);
+}
+
 // Region-first (Kenya, then Global), category-second grouping used by the
 // sport hub's Tables and Competitions tabs. Sky Sports's own category
 // names (Domestic Leagues, Europe, ...) only work as a flat list because
@@ -221,12 +231,7 @@ function groupCompetitionsByRegionThenCategory(sportCompetitions) {
   return ['KENYA', 'GLOBAL']
     .map((region) => ({ region, items: sportCompetitions.filter((c) => c.region === region) }))
     .filter((s) => s.items.length)
-    .map((s) => ({
-      ...s,
-      categories: CATEGORY_ORDER
-        .map((category) => ({ category, items: s.items.filter((c) => c.category === category) }))
-        .filter((c) => c.items.length),
-    }));
+    .map((s) => ({ ...s, categories: groupByCategory(s.items, (c) => c.category) }));
 }
 
 // Compact preview — competition name + top 5 standings rows (position/team/
@@ -266,6 +271,49 @@ async function renderMiniTablesGrid(panelEl, sportCompetitions) {
   panelEl.innerHTML = '<div class="empty-state">Loading…</div>';
   const details = await Promise.all(sportCompetitions.map((c) => fetchCompetitionDetail(c.slug)));
   panelEl.innerHTML = `<div class="card-grid">${details.map(miniTableCardHtml).join('')}</div>`;
+}
+
+// Shared by the Teams and Players tabs (subnav.js/clubs.js) — already
+// Kenya-only by the time either calls this, so only the category level
+// applies (no region split, unlike Tables above). Groups `items` by their
+// own competition first, then those competition-groups by category;
+// category-toggle.js wraps them when more than one category exists (same
+// "no pointless single-item pill" guard Tables already uses), each
+// category showing its competitions as plain headings over a card-grid of
+// `cardRenderer(item)`.
+function renderCompetitionCategorizedGrid(panelEl, items, getCompetition, cardRenderer, emptyMessage) {
+  if (!items.length) {
+    panelEl.innerHTML = `<p class="empty-state">${escapeHtml(emptyMessage)}</p>`;
+    return;
+  }
+
+  const byCompetition = new Map();
+  items.forEach((item) => {
+    const competition = getCompetition(item);
+    if (!byCompetition.has(competition.slug)) byCompetition.set(competition.slug, { competition, items: [] });
+    byCompetition.get(competition.slug).items.push(item);
+  });
+  const competitionGroups = Array.from(byCompetition.values());
+  const categories = groupByCategory(competitionGroups, (g) => g.competition.category);
+
+  function renderGroups(el, groups) {
+    el.innerHTML = groups.map(({ competition, items }) => `
+      <div style="margin-bottom:2.5rem;">
+        <span class="section-label">${escapeHtml(competition.name)}</span>
+        <div class="card-grid">${items.map(cardRenderer).join('')}</div>
+      </div>`).join('');
+  }
+
+  if (categories.length > 1) {
+    renderCategoryToggle({
+      container: panelEl,
+      categories: categories.map(({ category, items }) => ({ key: category, label: CATEGORY_LABELS[category], items })),
+      renderItem: () => '',
+      afterRender: (el, category) => renderGroups(el, category.items),
+    });
+  } else {
+    renderGroups(panelEl, categories[0] ? categories[0].items : []);
+  }
 }
 
 // Tables tab — each region (Kenya, then Global) keeps its own heading;

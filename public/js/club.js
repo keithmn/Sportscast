@@ -11,25 +11,9 @@
 // only ever entered for Kenyan clubs (client's own jurisdictional call,
 // same split as the Teams tab).
 
-// `linked` is only true for Kenyan clubs (profileHeaderHtml, below) — a
-// Global club's players have no profile page to link to (player.html is
-// Kenyan-only, same jurisdictional split as the club profile itself), so
-// their cards stay plain, matching today's existing behavior unchanged.
-function playerCardHtml(p, linked) {
-  const card = `
-    <div class="player-card">
-      ${p.photoUrl
-        ? `<img class="player-photo" src="${escapeHtml(p.photoUrl)}" alt="${escapeHtml(p.name)}" onerror="this.replaceWith(Object.assign(document.createElement('div'), {className:'player-photo-empty', textContent:'No photo'}))">`
-        : `<div class="player-photo-empty">No photo</div>`}
-      <div class="player-name">${escapeHtml(p.name)}</div>
-      <div class="player-meta">${escapeHtml(p.position || '')}${p.position && p.nationality ? ' · ' : ''}${escapeHtml(p.nationality || '')}</div>
-    </div>`;
-  // Matches this file's other card-link pattern (clubCardHtml/
-  // competitionTeamCardHtml in subnav.js) — an outer `display:contents`
-  // anchor so the link doesn't bleed default anchor styling into the
-  // card's own children.
-  return linked ? `<a href="/player.html?slug=${encodeURIComponent(p.slug)}" style="display:contents;">${card}</a>` : card;
-}
+// playerCardHtml now lives in subnav.js (shared with the new Players tab)
+// — this file just calls it, `linked` true only for Kenyan clubs
+// (profileHeaderHtml, below).
 
 // Same card shape as a player's — role stands in for position.
 function staffCardHtml(s) {

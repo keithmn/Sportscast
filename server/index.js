@@ -22,6 +22,7 @@ const competitionRoutes = require('./routes/competitions');
 const fixtureRoutes = require('./routes/fixtures');
 const submissionRoutes = require('./routes/submissions');
 const clubRoutes = require('./routes/clubs');
+const playerRoutes = require('./routes/players');
 // Kits/Shop (Team/Kit/Order/OrderItem) retired for legal reasons — routes,
 // pages, and Prisma models left on disk (dormant, not deleted) but
 // unmounted here so nothing reachable actually depends on them. See
@@ -49,6 +50,7 @@ app.use('/api/competitions', competitionRoutes);
 app.use('/api/fixtures', fixtureRoutes);
 app.use('/api/submissions', submissionRoutes);
 app.use('/api/clubs', clubRoutes);
+app.use('/api/players', playerRoutes);
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 

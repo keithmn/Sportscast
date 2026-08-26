@@ -706,3 +706,44 @@ article to them through the new cascading admin select, confirmed it
 appears on that player's new profile page and the squad card links there
 correctly; confirmed Arsenal FC's squad cards are unaffected; confirmed a
 nonexistent player slug fails gracefully rather than erroring.
+
+## 24. Players tab in the secondary nav, Teams categorized like Tables (2026-08-26)
+
+Two gaps in the shared subnav: no way to browse players except drilling
+into one team's squad at a time, and the Teams tab grouped by a flat
+competition heading while Tables (§21) already grouped by category
+(Leagues/Cups/Continental/International) via `category-toggle.js`.
+**Players appears at the sport hub and competition levels only, not on a
+team's own page** — that page already shows its Squad as a static
+section, and a Players tab there would just repeat the same roster.
+
+New `GET /api/players` (`server/routes/players.js`, `sport`/`competition`
+filters) enforces Kenya-only server-side — cleaner than the client-side
+filter the Teams tab has used since §21, and the right layer for a
+brand-new endpoint to get right from the start (the older client-side
+filter in `clubs.js`/`subnav.js` was left as-is, not retrofitted — out of
+scope for this pass).
+
+`subnav.js`'s `getSportTabs` now takes the whole `scope`, not just a
+sport slug — filters the `players` tab out whenever `scope.club` is set.
+`playerCardHtml` moved from `club.js` into `subnav.js` (alongside its
+other shared card renderers, `articleCardHtml`/`competitionTeamCardHtml`)
+so both the new Players tab and `club.js`'s own Squad section can use it
+without pulling in `club.js`'s page-bootstrap side effects.
+
+`scores.js` gained `groupByCategory` (extracted from the existing
+region+category grouping, which now calls it per-region — behavior
+unchanged, re-verified against Tables) and a new shared
+`renderCompetitionCategorizedGrid`, used by both the Teams tab (replacing
+`clubs.js`'s old flat-by-competition `renderClubsSportPanel`) and the new
+Players tab — category-toggled when more than one category exists, same
+"no pointless single-item pill" guard Tables already has, with an honest
+empty state Teams never had before.
+
+Verified live: the Players tab lands between Teams and Competitions on
+the sport hub, correctly scoped down on a competition's own page, and
+absent from a team's own page; Teams and the standalone `/clubs.html`
+both still work through the new shared grouping; the Tables tab (sharing
+the refactored grouping logic) and a Global competition's own Teams tab
+(e.g. Premier League, unaffected by the Kenya-only endpoint) both
+regression-checked clean.
