@@ -7,44 +7,63 @@ let allClubs = [];
 // Competition picker is scoped to whichever sport is currently selected —
 // a competition tag only makes sense within its own sport, and the list
 // would otherwise be confusing (KPL showing up while editing a Rugby
-// episode).
+// episode). An article can now tag several competitions at once, so this
+// renders checkboxes and cascades the club list off the CHECKED set, not
+// a single value — carrying over any still-valid checked competitions
+// across a re-render (e.g. switching sport) rather than wiping them.
 function populateCompetitionOptions(sportId) {
-  const select = document.getElementById('competitionId');
+  const el = document.getElementById('competitions-checkboxes');
+  const previouslyChecked = getSelectedCompetitionIds();
   const competitions = allCompetitions.filter((c) => c.sportId === sportId);
-  select.innerHTML = ['<option value="">— None — general sport commentary —</option>']
-    .concat(competitions.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`))
-    .join('');
-  populateClubOptions(select.value);
+  el.innerHTML = competitions.map((c) => `
+    <label class="checkbox-row" style="min-width:auto;">
+      <input type="checkbox" value="${c.id}" class="competition-checkbox"> ${escapeHtml(c.name)}
+    </label>`).join('');
+  const stillValid = previouslyChecked.filter((id) => competitions.some((c) => c.id === id));
+  setSelectedCompetitionIds(stillValid);
+  return populateClubOptions(stillValid);
 }
 
-// Club picker cascades from the competition select the same way the
-// competition select cascades from sport — a club tag only makes sense
-// within its own competition (public/js/subnav.js's team pages).
-function populateClubOptions(competitionId) {
-  const select = document.getElementById('clubId');
-  const clubs = competitionId ? allClubs.filter((c) => c.competitionId === competitionId) : [];
-  select.innerHTML = ['<option value="">— None — competition-wide —</option>']
-    .concat(clubs.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`))
-    .join('');
-  populatePlayerOptions(select.value);
+// Club picker cascades from the checked competitions the same way it
+// cascades from sport above — a club tag only makes sense within one of
+// the article's tagged competitions (public/js/subnav.js's team pages).
+// Union across every checked competition, not just one.
+function populateClubOptions(competitionIds) {
+  const el = document.getElementById('clubs-checkboxes');
+  const previouslyChecked = getSelectedClubIds();
+  const clubs = competitionIds.length ? allClubs.filter((c) => competitionIds.includes(c.competitionId)) : [];
+  el.innerHTML = clubs.map((c) => `
+    <label class="checkbox-row" style="min-width:auto;">
+      <input type="checkbox" value="${c.id}" class="club-checkbox"> ${escapeHtml(c.name)}
+    </label>`).join('');
+  const stillValid = previouslyChecked.filter((id) => clubs.some((c) => c.id === id));
+  setSelectedClubIds(stillValid);
+  return populatePlayerOptions(stillValid);
 }
 
-// Player picker cascades from the club select the same way club cascades
-// from competition — a player tag only makes sense within their own club
-// (public/js/player.js's profile page). GET /api/clubs (already fetched
-// into allClubs) doesn't include players, so this fetches that one club's
-// detail on demand — the same endpoint the public club page already uses.
-async function populatePlayerOptions(clubId) {
-  const select = document.getElementById('playerId');
-  const club = clubId && allClubs.find((c) => c.id === clubId);
-  if (!club) {
-    select.innerHTML = '<option value="">— None — general club coverage —</option>';
+// Player picker cascades from the checked clubs the same way clubs cascade
+// from competitions — a player tag only makes sense within one of the
+// article's tagged clubs (public/js/player.js's profile page). Union
+// across every checked club. GET /api/clubs (already fetched into
+// allClubs) doesn't include players, so this fetches each checked club's
+// detail on demand, in parallel — the same endpoint the public club page
+// already uses.
+async function populatePlayerOptions(clubIds) {
+  const el = document.getElementById('players-checkboxes');
+  const previouslyChecked = getSelectedPlayerIds();
+  if (!clubIds.length) {
+    el.innerHTML = '';
     return;
   }
-  const { club: fullClub } = await api(`/api/clubs/${encodeURIComponent(club.slug)}`);
-  select.innerHTML = ['<option value="">— None — general club coverage —</option>']
-    .concat(fullClub.players.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`))
-    .join('');
+  const clubs = clubIds.map((id) => allClubs.find((c) => c.id === id)).filter(Boolean);
+  const fullClubs = await Promise.all(clubs.map((c) => api(`/api/clubs/${encodeURIComponent(c.slug)}`).then((r) => r.club)));
+  const players = fullClubs.flatMap((c) => c.players.map((p) => ({ ...p, clubName: c.name })));
+  el.innerHTML = players.map((p) => `
+    <label class="checkbox-row" style="min-width:auto;">
+      <input type="checkbox" value="${p.id}" class="player-checkbox"> ${escapeHtml(p.name)} <span style="color:var(--text-secondary); font-size:0.85em;">(${escapeHtml(p.clubName)})</span>
+    </label>`).join('');
+  const stillValid = previouslyChecked.filter((id) => players.some((p) => p.id === id));
+  setSelectedPlayerIds(stillValid);
 }
 
 function populateSelect(select, items) {
@@ -65,6 +84,36 @@ function getSelectedTagIds() {
 
 function setSelectedTagIds(ids) {
   document.querySelectorAll('.tag-checkbox').forEach((cb) => {
+    cb.checked = ids.includes(cb.value);
+  });
+}
+
+function getSelectedCompetitionIds() {
+  return Array.from(document.querySelectorAll('.competition-checkbox:checked')).map((cb) => cb.value);
+}
+
+function setSelectedCompetitionIds(ids) {
+  document.querySelectorAll('.competition-checkbox').forEach((cb) => {
+    cb.checked = ids.includes(cb.value);
+  });
+}
+
+function getSelectedClubIds() {
+  return Array.from(document.querySelectorAll('.club-checkbox:checked')).map((cb) => cb.value);
+}
+
+function setSelectedClubIds(ids) {
+  document.querySelectorAll('.club-checkbox').forEach((cb) => {
+    cb.checked = ids.includes(cb.value);
+  });
+}
+
+function getSelectedPlayerIds() {
+  return Array.from(document.querySelectorAll('.player-checkbox:checked')).map((cb) => cb.value);
+}
+
+function setSelectedPlayerIds(ids) {
+  document.querySelectorAll('.player-checkbox').forEach((cb) => {
     cb.checked = ids.includes(cb.value);
   });
 }
@@ -128,13 +177,15 @@ function editArticle(article) {
   document.getElementById('episodeLabel').value = article.episodeLabel || '';
   document.getElementById('runtimeLabel').value = article.runtimeLabel || '';
   setSelectedTagIds(article.tags.map((t) => t.id));
+
   populateCompetitionOptions(article.sport.id);
-  document.getElementById('competitionId').value = article.competitionId || '';
-  populateClubOptions(article.competitionId || '');
-  document.getElementById('clubId').value = article.clubId || '';
-  populatePlayerOptions(article.clubId || '').then(() => {
-    document.getElementById('playerId').value = article.playerId || '';
+  setSelectedCompetitionIds(article.competitions.map((c) => c.id));
+  populateClubOptions(article.competitions.map((c) => c.id));
+  setSelectedClubIds(article.clubs.map((c) => c.id));
+  populatePlayerOptions(article.clubs.map((c) => c.id)).then(() => {
+    setSelectedPlayerIds(article.players.map((p) => p.id));
   });
+
   document.getElementById('video-fields').style.display = article.contentType === 'VIDEO_POST' ? 'block' : 'none';
   showForm();
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -163,9 +214,9 @@ function collectFormData() {
     videoSeries: document.getElementById('videoSeries').value.trim() || null,
     episodeLabel: document.getElementById('episodeLabel').value.trim() || null,
     runtimeLabel: document.getElementById('runtimeLabel').value.trim() || null,
-    competitionId: document.getElementById('competitionId').value || null,
-    clubId: document.getElementById('clubId').value || null,
-    playerId: document.getElementById('playerId').value || null,
+    competitionIds: getSelectedCompetitionIds(),
+    clubIds: getSelectedClubIds(),
+    playerIds: getSelectedPlayerIds(),
   };
 }
 
@@ -205,11 +256,11 @@ async function initArticlesPage() {
   document.getElementById('sportId').addEventListener('change', (e) => {
     populateCompetitionOptions(e.target.value);
   });
-  document.getElementById('competitionId').addEventListener('change', (e) => {
-    populateClubOptions(e.target.value);
+  document.getElementById('competitions-checkboxes').addEventListener('change', (e) => {
+    if (e.target.classList.contains('competition-checkbox')) populateClubOptions(getSelectedCompetitionIds());
   });
-  document.getElementById('clubId').addEventListener('change', (e) => {
-    populatePlayerOptions(e.target.value);
+  document.getElementById('clubs-checkboxes').addEventListener('change', (e) => {
+    if (e.target.classList.contains('club-checkbox')) populatePlayerOptions(getSelectedClubIds());
   });
 
   document.getElementById('article-form').addEventListener('submit', async (e) => {

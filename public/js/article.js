@@ -48,6 +48,9 @@ async function loadArticle() {
       ${coverHtml}
       ${bodyHtml}
       ${article.tags && article.tags.length ? `<p class="source-note">Tagged: ${article.tags.map((t) => escapeHtml(t.name)).join(', ')}</p>` : ''}
+      ${article.competitions && article.competitions.length ? `<p class="source-note">Competitions: ${article.competitions.map((c) => `<a href="/competition.html?slug=${encodeURIComponent(c.slug)}">${escapeHtml(c.name)}</a>`).join(', ')}</p>` : ''}
+      ${article.clubs && article.clubs.length ? `<p class="source-note">Clubs: ${article.clubs.map((c) => `<a href="/club.html?slug=${encodeURIComponent(c.slug)}">${escapeHtml(c.name)}</a>`).join(', ')}</p>` : ''}
+      ${article.players && article.players.length ? `<p class="source-note">Players: ${article.players.map((p) => `<a href="/player.html?slug=${encodeURIComponent(p.slug)}">${escapeHtml(p.name)}</a>`).join(', ')}</p>` : ''}
     </div>`;
 }
 

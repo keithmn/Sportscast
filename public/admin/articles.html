@@ -65,6 +65,18 @@
             <label>Tags</label>
             <div id="tags-checkboxes" class="form-row"></div>
           </div>
+          <div class="form-field">
+            <label>Competitions (optional)</label>
+            <div id="competitions-checkboxes" class="form-row"></div>
+          </div>
+          <div class="form-field">
+            <label>Teams (optional — scopes to just those teams' pages)</label>
+            <div id="clubs-checkboxes" class="form-row"></div>
+          </div>
+          <div class="form-field">
+            <label>Players (optional — scopes to just those players' profiles)</label>
+            <div id="players-checkboxes" class="form-row"></div>
+          </div>
           <div class="form-row">
             <div class="form-field">
               <label for="status">Status</label>
@@ -113,24 +125,6 @@
                 <label for="runtimeLabel">Runtime label</label>
                 <input type="text" id="runtimeLabel" placeholder="52 min">
               </div>
-            </div>
-            <div class="form-field">
-              <label for="competitionId">Competition (optional)</label>
-              <select id="competitionId">
-                <option value="">— None — general sport commentary —</option>
-              </select>
-            </div>
-            <div class="form-field">
-              <label for="clubId">Team (optional — scopes to just that team's page)</label>
-              <select id="clubId">
-                <option value="">— None — competition-wide —</option>
-              </select>
-            </div>
-            <div class="form-field">
-              <label for="playerId">Player (optional — scopes to just that player's profile)</label>
-              <select id="playerId">
-                <option value="">— None — general club coverage —</option>
-              </select>
             </div>
           </div>
           <p class="form-error" id="article-form-error" style="display:none;"></p>

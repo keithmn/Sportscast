@@ -34,14 +34,14 @@ model Author {
 // are kept consistent by slug convention, not a shared database, since an
 // 8-row lookup list isn't worth coupling two products over.
 model Sport {
-  id       String    @id @default(cuid())
-  name     String    @unique
-  slug     String    @unique
+  id           String        @id @default(cuid())
+  name         String        @unique
+  slug         String        @unique
   // Gates the top-level /sports.html index and its per-sport hub page —
   // every sport already has seeded articles, so "has any data" can't be
   // the signal for "ready to feature." Flipped on by hand, one sport at a
   // time, as real local league/club data lands for it (Football first).
-  isActive Boolean   @default(false)
+  isActive     Boolean       @default(false)
   articles     Article[]
   competitions Competition[]
   teams        Team[]
@@ -55,48 +55,38 @@ model Tag {
 }
 
 model Article {
-  id            String    @id @default(cuid())
+  id            String        @id @default(cuid())
   title         String
-  slug          String    @unique
+  slug          String        @unique
   dek           String
   body          String
   coverImageUrl String?
   sportId       String
-  sport         Sport     @relation(fields: [sportId], references: [id])
+  sport         Sport         @relation(fields: [sportId], references: [id])
   authorId      String
-  author        Author    @relation(fields: [authorId], references: [id])
+  author        Author        @relation(fields: [authorId], references: [id])
   tags          Tag[]
-  status        String    @default("DRAFT") // DRAFT | PUBLISHED
-  featured      Boolean   @default(false)
-  contentType   String    @default("ARTICLE") // ARTICLE | VIDEO_POST
+  status        String        @default("DRAFT") // DRAFT | PUBLISHED
+  featured      Boolean       @default(false)
+  contentType   String        @default("ARTICLE") // ARTICLE | VIDEO_POST
   // A brief is a short, fast-turnaround factual update (a signing, a fixture
   // reschedule) — it still lives in the same Archive as full features, just
   // surfaced separately via the News view so it doesn't get lost among them.
-  isBrief       Boolean   @default(false)
+  isBrief       Boolean       @default(false)
   youtubeId     String?
   videoSeries   String?
   episodeLabel  String? // "Episode 001"
   runtimeLabel  String? // "58 min"
-  // Optional competition tag for Watch content (mirrors Team.leagueId
-  // below) — most episodes are general sport commentary, not tied to one
-  // competition, so this stays nullable rather than forcing a choice.
-  competitionId String?
-  competition   Competition? @relation(fields: [competitionId], references: [id])
-  // Optional club tag — real per-team News/Watch/Transfers scoping for a
-  // club's own page (added once club pages actually needed to distinguish
-  // "this club's news" from "this competition's news," not at launch).
-  // Independent of competitionId: a club-tagged article doesn't need a
+  // Many-to-many tags — an article can cover several competitions/clubs/
+  // players at once (e.g. a relegation dispute naming six clubs). Each is
+  // independent of the others: a club-tagged article doesn't need a
   // competition tag too, since the club already implies one.
-  clubId        String?
-  club          Club?        @relation(fields: [clubId], references: [id])
-  // Optional player tag — an article/podcast about one specific player
-  // (not the whole club) shows up on that player's own profile page.
-  // Independent of clubId/competitionId, same reasoning as clubId above.
-  playerId      String?
-  player        Player?      @relation(fields: [playerId], references: [id])
+  competitions  Competition[] @relation("ArticleCompetitionTags")
+  clubs         Club[]        @relation("ArticleClubTags")
+  players       Player[]      @relation("ArticlePlayerTags")
   publishedAt   DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 }
 
 // ===================== SCORES & FIXTURES (football-first) =====================
@@ -136,7 +126,7 @@ model Competition {
   fixtures         Fixture[]
   teams            Team[]
   clubs            Club[]
-  articles         Article[]
+  articles         Article[]     @relation("ArticleCompetitionTags")
 
   @@unique([externalProvider, externalId])
 }
@@ -145,16 +135,16 @@ model StandingRow {
   id            String      @id @default(cuid())
   competitionId String
   competition   Competition @relation(fields: [competitionId], references: [id])
-  position     Int
-  teamName     String
-  played       Int      @default(0)
-  won          Int      @default(0)
-  drawn        Int      @default(0)
-  lost         Int      @default(0)
-  goalsFor     Int      @default(0)
-  goalsAgainst Int      @default(0)
-  points       Int      @default(0)
-  updatedAt    DateTime @updatedAt
+  position      Int
+  teamName      String
+  played        Int         @default(0)
+  won           Int         @default(0)
+  drawn         Int         @default(0)
+  lost          Int         @default(0)
+  goalsFor      Int         @default(0)
+  goalsAgainst  Int         @default(0)
+  points        Int         @default(0)
+  updatedAt     DateTime    @updatedAt
 }
 
 model Fixture {
@@ -167,8 +157,8 @@ model Fixture {
   originalKickoff DateTime? // set once, the first time a fixture is postponed — so "was X, now Y" can be shown, not just the new date
   homeScore       Int?
   awayScore       Int?
-  status          String    @default("SCHEDULED") // SCHEDULED | LIVE | FINISHED | POSTPONED
-  updatedAt       DateTime  @updatedAt
+  status          String      @default("SCHEDULED") // SCHEDULED | LIVE | FINISHED | POSTPONED
+  updatedAt       DateTime    @updatedAt
 
   // Lets the sync job upsert instead of wholesale delete+recreate (unlike
   // standings, blowing fixtures away every run would lose POSTPONED/manual
@@ -184,16 +174,16 @@ model Fixture {
 // optional/informational (which league the team plays in, for admin
 // grouping) — the public sport→team toggle only needs sportId.
 model Team {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   name      String
-  slug      String   @unique
+  slug      String       @unique
   sportId   String
-  sport     Sport    @relation(fields: [sportId], references: [id])
+  sport     Sport        @relation(fields: [sportId], references: [id])
   leagueId  String?
   league    Competition? @relation(fields: [leagueId], references: [id])
   crestUrl  String? // fixed convention: /images/teams/<slug>.jpg
   kits      Kit[]
-  createdAt DateTime @default(now())
+  createdAt DateTime     @default(now())
 }
 
 // Open-ended per team — most have Home + Away, some more (a third/alternate
@@ -289,20 +279,20 @@ model Club {
   slug          String      @unique
   competitionId String
   competition   Competition @relation(fields: [competitionId], references: [id])
-  crestUrl     String?
-  venue        String?
+  crestUrl      String?
+  venue         String?
   // The club's owner/proprietor — e.g. a chairman's name or a holding
   // group. Simple field, not a relation: there's only ever one at a time,
   // unlike Staff/Sponsors below which are real lists.
-  owner        String?
-  source       String    @default("MANUAL") // MANUAL | API
-  externalId   String? // Wikidata QID ("Q18656") — null for MANUAL clubs
-  lastSyncedAt DateTime?
-  players      Player[]
-  staff        Staff[]
-  sponsors     Sponsor[]
-  articles     Article[]
-  createdAt    DateTime  @default(now())
+  owner         String?
+  source        String      @default("MANUAL") // MANUAL | API
+  externalId    String? // Wikidata QID ("Q18656") — null for MANUAL clubs
+  lastSyncedAt  DateTime?
+  players       Player[]
+  staff         Staff[]
+  sponsors      Sponsor[]
+  articles      Article[]   @relation("ArticleClubTags")
+  createdAt     DateTime    @default(now())
 }
 
 // The technical bench — coach, assistants, etc. Mirrors Player's shape
@@ -335,18 +325,18 @@ model Sponsor {
 }
 
 model Player {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   clubId      String
-  club        Club     @relation(fields: [clubId], references: [id])
+  club        Club      @relation(fields: [clubId], references: [id])
   name        String
   // Never regenerated after creation, even if name changes later — same
   // convention Club/Competition slugs already follow.
-  slug        String   @unique
+  slug        String    @unique
   position    String?
   nationality String?
   age         Int?
   photoUrl    String?
   externalId  String? // Wikidata QID ("Q7550600") — null for MANUAL entries
-  articles    Article[]
-  createdAt   DateTime @default(now())
+  articles    Article[] @relation("ArticlePlayerTags")
+  createdAt   DateTime  @default(now())
 }
