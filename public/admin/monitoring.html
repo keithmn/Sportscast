@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monitoring — The Sportscast Newsroom</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&family=Nunito:wght@400;600;700;900&family=Anton&display=swap" rel="stylesheet">
+  <link rel="icon" href="/brand/favicon/favicon-32.png" sizes="32x32">
+  <link rel="icon" href="/brand/favicon/favicon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="/brand/favicon/favicon-180.png">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="admin-sidebar">
+      <div class="nav-logo" style="margin-bottom:2rem;">
+        <div><img src="/brand/logo/lockup-lower-black.png" alt="The Sportscast" style="height:26px; width:auto; display:block;"><span style="font-family:'Nunito',sans-serif; font-size:0.7rem; color:var(--text-secondary); display:block; margin-top:0.35rem;">Newsroom</span></div>
+      </div>
+      <a href="/admin/dashboard.html">Dashboard</a>
+      <a href="/admin/articles.html">Articles</a>
+      <a href="/admin/competitions.html">Competitions</a>
+      <a href="/admin/clubs.html">Clubs &amp; Players</a>
+      <a href="/admin/submissions.html">Submissions</a>
+      <a href="/admin/monitoring.html" class="active">Monitoring</a>
+      <a href="/admin/sources.html">Sources</a>
+      <a href="/admin/sports.html">Sports</a>
+      <a href="/index.html">View Site</a>
+      <a href="#" id="logout-link">Log Out</a>
+    </aside>
+    <main class="admin-main">
+      <div class="admin-topbar">
+        <h1 class="page-title" style="font-size:1.75rem;">Monitoring</h1>
+        <span id="whoami" class="page-sub"></span>
+      </div>
+      <p class="page-sub" style="margin-bottom:2rem;">
+        Leads found by the monitoring engine — news, government, club, and stadium-project sources, AI-summarized for
+        triage. Nothing here is public until you promote an item into a real (draft) article. See
+        <a href="/admin/sources.html">Sources</a> to add or manage what gets watched.
+      </p>
+      <div id="access-denied" class="form-error" style="display:none;">You don't have permission to view this.</div>
+      <div id="monitoring-app" style="display:none;">
+        <div class="form-row" style="margin-bottom:1.5rem;">
+          <div class="form-field">
+            <label for="status-filter">Status</label>
+            <select id="status-filter">
+              <option value="NEW">New</option>
+              <option value="REVIEWED">Reviewed</option>
+              <option value="PROMOTED">Promoted</option>
+              <option value="DISMISSED">Dismissed</option>
+              <option value="">All statuses</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="category-filter">Category</label>
+            <select id="category-filter">
+              <option value="">All categories</option>
+              <option value="NEWS">News</option>
+              <option value="GOVERNMENT">Government</option>
+              <option value="CLUB">Club</option>
+              <option value="STADIUM_PROJECT">Stadium Project</option>
+              <option value="CAF">CAF</option>
+              <option value="SOCIAL">Social</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Source</th><th>Item</th><th>AI Summary</th><th>Relevance</th><th>Status</th><th></th></tr></thead>
+            <tbody id="monitoring-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/site.js"></script>
+  <script src="/admin/js/guard.js"></script>
+  <script src="/admin/js/monitoring.js"></script>
+</body>
+</html>

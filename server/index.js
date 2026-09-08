@@ -23,6 +23,8 @@ const fixtureRoutes = require('./routes/fixtures');
 const submissionRoutes = require('./routes/submissions');
 const clubRoutes = require('./routes/clubs');
 const playerRoutes = require('./routes/players');
+const sourceRoutes = require('./routes/sources');
+const monitoringRoutes = require('./routes/monitoring');
 // Kits/Shop (Team/Kit/Order/OrderItem) retired for legal reasons — routes,
 // pages, and Prisma models left on disk (dormant, not deleted) but
 // unmounted here so nothing reachable actually depends on them. See
@@ -32,6 +34,8 @@ const { syncSquads } = require('./jobs/syncSquads');
 const { syncKenyaCup } = require('./jobs/syncKenyaCup');
 const { syncTheSportsDB } = require('./jobs/syncTheSportsDB');
 const { syncBallDontLie } = require('./jobs/syncBallDontLie');
+const { runMonitoringFetch } = require('./jobs/runMonitoringFetch');
+const { runMonitoringEnrich } = require('./jobs/runMonitoringEnrich');
 
 const app = express();
 
@@ -51,6 +55,8 @@ app.use('/api/fixtures', fixtureRoutes);
 app.use('/api/submissions', submissionRoutes);
 app.use('/api/clubs', clubRoutes);
 app.use('/api/players', playerRoutes);
+app.use('/api/sources', sourceRoutes);
+app.use('/api/monitoring', monitoringRoutes);
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -106,4 +112,19 @@ cron.schedule(THESPORTSDB_SYNC_CRON, () => {
 const BALLDONTLIE_SYNC_CRON = process.env.BALLDONTLIE_SYNC_CRON || '35 4 * * *';
 cron.schedule(BALLDONTLIE_SYNC_CRON, () => {
   syncBallDontLie().catch((err) => console.error('[syncBallDontLie] Unhandled error:', err));
+});
+
+// Monitoring engine (internal newsroom leads dashboard — see
+// prisma/schema.prisma's Source/MonitoredItem block and BLUEPRINT.md §11).
+// Fetch and enrich run on separate cadences deliberately: fetching is
+// cheap and safe to run often, enrichment calls a paid LLM API per item,
+// so it runs less frequently and just picks up whatever fetch has queued.
+const MONITORING_FETCH_CRON = process.env.MONITORING_FETCH_CRON || '*/20 * * * *';
+cron.schedule(MONITORING_FETCH_CRON, () => {
+  runMonitoringFetch().catch((err) => console.error('[runMonitoringFetch] Unhandled error:', err));
+});
+
+const MONITORING_ENRICH_CRON = process.env.MONITORING_ENRICH_CRON || '*/10 * * * *';
+cron.schedule(MONITORING_ENRICH_CRON, () => {
+  runMonitoringEnrich().catch((err) => console.error('[runMonitoringEnrich] Unhandled error:', err));
 });

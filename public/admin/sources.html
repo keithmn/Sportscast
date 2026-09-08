@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sources — The Sportscast Newsroom</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&family=Nunito:wght@400;600;700;900&family=Anton&display=swap" rel="stylesheet">
+  <link rel="icon" href="/brand/favicon/favicon-32.png" sizes="32x32">
+  <link rel="icon" href="/brand/favicon/favicon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="/brand/favicon/favicon-180.png">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="admin-sidebar">
+      <div class="nav-logo" style="margin-bottom:2rem;">
+        <div><img src="/brand/logo/lockup-lower-black.png" alt="The Sportscast" style="height:26px; width:auto; display:block;"><span style="font-family:'Nunito',sans-serif; font-size:0.7rem; color:var(--text-secondary); display:block; margin-top:0.35rem;">Newsroom</span></div>
+      </div>
+      <a href="/admin/dashboard.html">Dashboard</a>
+      <a href="/admin/articles.html">Articles</a>
+      <a href="/admin/competitions.html">Competitions</a>
+      <a href="/admin/clubs.html">Clubs &amp; Players</a>
+      <a href="/admin/submissions.html">Submissions</a>
+      <a href="/admin/monitoring.html">Monitoring</a>
+      <a href="/admin/sources.html" class="active">Sources</a>
+      <a href="/admin/sports.html">Sports</a>
+      <a href="/index.html">View Site</a>
+      <a href="#" id="logout-link">Log Out</a>
+    </aside>
+    <main class="admin-main">
+      <div class="admin-topbar">
+        <h1 class="page-title" style="font-size:1.75rem;">Sources</h1>
+        <span id="whoami" class="page-sub"></span>
+      </div>
+      <p class="page-sub" style="margin-bottom:1.5rem;">
+        What the monitoring engine watches. Verify a source's own terms/robots.txt allow this before adding an
+        <strong>HTML_LIST</strong> source — see the note in server/jobs/runMonitoringFetch.js.
+      </p>
+
+      <div id="access-denied" style="display:none;" class="empty-state">Your role does not have access to source management.</div>
+
+      <div id="sources-app" style="display:none;">
+        <button class="btn-sm-red" id="new-source-btn" style="margin-bottom:1.5rem;">+ New Source</button>
+
+        <form id="source-form" class="form-grid" style="display:none; margin-bottom:3rem; background:var(--bg-surface); padding:1.5rem; border:1px solid var(--border);">
+          <input type="hidden" id="source-id">
+          <div class="form-field">
+            <label for="name">Name</label>
+            <input type="text" id="name" required>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label for="category">Category</label>
+              <select id="category" required>
+                <option value="NEWS">News</option>
+                <option value="GOVERNMENT">Government</option>
+                <option value="CLUB">Club</option>
+                <option value="STADIUM_PROJECT">Stadium Project</option>
+                <option value="CAF">CAF</option>
+                <option value="SOCIAL">Social</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label for="fetchMethod">Fetch Method</label>
+              <select id="fetchMethod" required>
+                <option value="RSS">RSS feed</option>
+                <option value="HTML_LIST">HTML list page (scraped)</option>
+                <option value="YOUTUBE_CHANNEL">YouTube channel</option>
+                <option value="MANUAL">Manual (paste items by hand)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-field">
+            <label for="url" id="url-label">URL</label>
+            <input type="text" id="url" required>
+            <span id="url-hint" style="font-size:0.8rem; color:var(--text-secondary);"></span>
+          </div>
+          <div id="html-list-fields" style="display:none;">
+            <div class="form-row">
+              <div class="form-field">
+                <label for="listItemSelector">List item selector</label>
+                <input type="text" id="listItemSelector" placeholder="e.g. ul.press-list > li">
+              </div>
+              <div class="form-field">
+                <label for="titleSelector">Title selector</label>
+                <input type="text" id="titleSelector" placeholder="e.g. .headline">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label for="linkSelector">Link selector</label>
+                <input type="text" id="linkSelector" placeholder="e.g. a">
+              </div>
+              <div class="form-field">
+                <label for="dateSelector">Date selector (optional)</label>
+                <input type="text" id="dateSelector" placeholder="e.g. time.published">
+              </div>
+            </div>
+          </div>
+          <div class="form-field">
+            <label for="fetchIntervalCron">Fetch interval override (optional cron expression)</label>
+            <input type="text" id="fetchIntervalCron" placeholder="leave blank to use the category default">
+          </div>
+          <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="isActive" checked> Active</label>
+          <p class="form-error" id="source-form-error" style="display:none;"></p>
+          <div style="display:flex; gap:0.75rem;">
+            <button type="submit" class="btn-red">Save</button>
+            <button type="button" class="btn-outline-sm" id="cancel-edit-btn">Cancel</button>
+          </div>
+        </form>
+
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Name</th><th>Category</th><th>Fetch Method</th><th>Last Fetched</th><th>Status</th><th>Active</th><th></th></tr></thead>
+            <tbody id="sources-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/site.js"></script>
+  <script src="/admin/js/guard.js"></script>
+  <script src="/admin/js/sources.js"></script>
+</body>
+</html>

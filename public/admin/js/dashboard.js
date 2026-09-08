@@ -16,6 +16,17 @@ async function loadDashboard() {
         </div>
       </a>`);
   }
+  if (canManageArticles(user)) {
+    const { items } = await api('/api/monitoring?status=NEW');
+    cards.push(`
+      <a href="/admin/monitoring.html" style="display:contents;">
+        <div class="card">
+          <span class="card-eyebrow">Monitoring</span>
+          <h3 class="card-title">${items.length} new lead${items.length === 1 ? '' : 's'}</h3>
+          <p class="card-desc">AI-triaged news/government/club leads awaiting review.</p>
+        </div>
+      </a>`);
+  }
   document.getElementById('dashboard-root').innerHTML = `<div class="card-grid">${cards.join('')}</div>`;
 }
 

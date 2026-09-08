@@ -10,12 +10,13 @@ datasource db {
 // ===================== AUTH =====================
 
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  role         String // ADMIN | EDITOR
-  createdAt    DateTime @default(now())
+  id            String          @id @default(cuid())
+  name          String
+  email         String          @unique
+  passwordHash  String
+  role          String // ADMIN | EDITOR
+  createdAt     DateTime        @default(now())
+  reviewedItems MonitoredItem[]
 }
 
 // ===================== CMS / ARTICLES (Phase 1) =====================
@@ -87,6 +88,10 @@ model Article {
   publishedAt   DateTime?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+  // Set only when this article was created via the monitoring engine's
+  // "promote" action (server/routes/monitoring.js) — optional, most
+  // articles are still written from scratch with no monitored origin.
+  monitoredFrom MonitoredItem?
 }
 
 // ===================== SCORES & FIXTURES (football-first) =====================
@@ -339,4 +344,78 @@ model Player {
   externalId  String? // Wikidata QID ("Q7550600") — null for MANUAL entries
   articles    Article[] @relation("ArticlePlayerTags")
   createdAt   DateTime  @default(now())
+}
+
+// ===================== MONITORING ENGINE (2026-09-06) =====================
+// An internal newsroom leads dashboard, deliberately separate from Article's
+// public-facing CMS flow — see BLUEPRINT.md §11's guardrail against News
+// becoming "an automated wire-scrape of third-party headlines." Nothing
+// here ever reaches the public site directly: a MonitoredItem only becomes
+// visible to readers once an editor explicitly promotes it into a real
+// Article (still DRAFT, still theirs to rewrite) via
+// server/routes/monitoring.js's /:id/promote action.
+//
+// Registry of things to watch — news sites, government press pages, club
+// sites, YouTube channels. Same MANUAL/API/SCRAPED-style provenance
+// pattern as Competition/Club above (source/externalProvider/externalId/
+// lastSyncedAt/syncStatus), reused here as fetchMethod/lastFetchedAt/
+// syncStatus. HTML_LIST's four selector columns are the one deviation from
+// this schema's plain-scalar style forced by needing per-source config —
+// kept as named columns, not a JSON blob, since nothing else in this
+// schema uses JSON and a source only ever needs these four selectors.
+model Source {
+  id                String          @id @default(cuid())
+  name              String
+  category          String // NEWS | GOVERNMENT | CLUB | STADIUM_PROJECT | CAF | SOCIAL
+  fetchMethod       String // RSS | HTML_LIST | YOUTUBE_CHANNEL | MANUAL
+  url               String
+  // HTML_LIST-only — CSS selectors for the list page. Null/unused for
+  // every other fetchMethod.
+  listItemSelector  String?
+  titleSelector     String?
+  linkSelector      String?
+  dateSelector      String?
+  isActive          Boolean         @default(true)
+  // Per-source override, a plain cron expression string (e.g. "*/30 * * *
+  // *"). Null means "use this category's default interval" — see
+  // server/jobs/runMonitoringFetch.js.
+  fetchIntervalCron String?
+  lastFetchedAt     DateTime?
+  syncStatus        String? // OK | ERROR — set by runMonitoringFetch.js
+  lastError         String?
+  items             MonitoredItem[]
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
+// One row per fetched/scraped candidate item, staged for editorial review.
+model MonitoredItem {
+  id               String    @id @default(cuid())
+  sourceId         String
+  source           Source    @relation(fields: [sourceId], references: [id])
+  externalUrl      String
+  title            String
+  snippet          String?
+  publishedAt      DateTime?
+  fetchedAt        DateTime  @default(now())
+  status           String    @default("NEW") // NEW | REVIEWED | PROMOTED | DISMISSED
+  // AI enrichment (server/jobs/runMonitoringEnrich.js, Claude via
+  // @anthropic-ai/sdk) — null until that job processes the row.
+  aiSummary        String?
+  aiRelevanceScore Int? // 0-100, sport-relevance specifically, calibrated per source category
+  // Free-text, comma-separated AI guesses — deliberately NOT the curated
+  // Tag/Sport/Competition/Club/Player relations Article uses. An editor
+  // picks the real taxonomy by hand at promote time; this field is only
+  // ever a provisional hint shown in the review UI.
+  aiCategoryTags   String?
+  promotedArticleId String?  @unique
+  promotedArticle  Article?  @relation(fields: [promotedArticleId], references: [id])
+  reviewedByUserId String?
+  reviewedByUser   User?     @relation(fields: [reviewedByUserId], references: [id])
+  createdAt        DateTime  @default(now())
+
+  // Lets a re-fetch of the same source upsert instead of duplicating rows,
+  // without ever touching a row an editor has already reviewed/promoted —
+  // same reasoning as Fixture's composite unique key above.
+  @@unique([sourceId, externalUrl])
 }
