@@ -364,6 +364,18 @@ function renderSecondaryNav(root, scope, initialTab, defaultTabRenderer) {
     const btn = e.target.closest('button');
     if (!btn) return;
     openTab(btn.dataset.key);
+    // club.html in particular puts a long static profile (crest/Coach &
+    // Staff/Squad) between the subnav and `root` — without this, tapping a
+    // tab while scrolled past that block loads genuinely different content
+    // (verified: News/Watch/Scores/Transfers all scope correctly) that the
+    // user never sees, since it renders far below their current scroll
+    // position. Bring `root` up to just under the sticky chrome so the new
+    // panel is actually visible. No-op-ish on sport.html/competition.html,
+    // where root already sits right under the subnav.
+    const chrome = document.querySelector('.sticky-chrome');
+    const offset = (chrome ? chrome.getBoundingClientRect().height : 0) + 12;
+    const targetY = root.getBoundingClientRect().top + window.scrollY - offset;
+    window.scrollTo({ top: Math.max(targetY, 0), behavior: 'smooth' });
   });
 
   if (sportTabs.some((t) => t.key === initialTab)) {
