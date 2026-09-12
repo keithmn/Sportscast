@@ -243,6 +243,11 @@ img { display: block; max-width: 100%; }
 .fixture-status.LIVE { color: var(--danger); border-color: var(--danger); }
 .fixture-status.FINISHED { color: var(--success); border-color: var(--success); }
 .fixture-status.POSTPONED { color: var(--gold-text); border-color: var(--brand-gold); }
+/* ===== Club/player "content hub" strip — next fixture + latest story ===== */
+.hub-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+.hub-strip-col .section-label { display: block; margin-bottom: 0.75rem; }
+@media (max-width: 700px) { .hub-strip { grid-template-columns: 1fr; } }
+
 /* ===== HOMEPAGE: What's On strip (cross-sport fixtureRowHtml usage) ===== */
 .whats-on-list { display: flex; flex-direction: column; gap: 0.85rem; }
 .whats-on-item .fixture-row { border-top: 1px solid var(--border); }

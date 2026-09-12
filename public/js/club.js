@@ -92,6 +92,39 @@ function profileHeaderHtml(club) {
       </div>` : '<div style="padding-bottom:2rem;"></div>'}`;
 }
 
+// A small "content hub" strip between the header and the tab bar — the
+// club's own next fixture and latest tagged story, so a visitor doesn't
+// have to click into the Scores & Fixtures or News tab just to see
+// what's coming up or what was last written about this club. Each half
+// is simply omitted (not shown-empty) when there's nothing to show —
+// same convention club.js already uses for an empty Sponsors row.
+function clubHubStripHtml(club, competitionDetail, latestArticle) {
+  const fixtures = competitionDetail.fixtures
+    .filter((f) => fuzzyTeamMatch(f.homeTeam, club.name) || fuzzyTeamMatch(f.awayTeam, club.name))
+    .filter((f) => f.status !== 'FINISHED')
+    .slice()
+    .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
+  const nextFixture = fixtures[0];
+
+  if (!nextFixture && !latestArticle) return '';
+
+  return `
+    <div style="max-width:900px; margin:0 auto; padding:1.5rem 0;">
+      <div class="hub-strip">
+        ${nextFixture ? `
+          <div class="hub-strip-col">
+            <span class="section-label">Next Fixture</span>
+            ${fixtureRowHtml(nextFixture)}
+          </div>` : ''}
+        ${latestArticle ? `
+          <div class="hub-strip-col">
+            <span class="section-label">Latest</span>
+            ${articleCardHtml(latestArticle)}
+          </div>` : ''}
+      </div>
+    </div>`;
+}
+
 async function loadClub() {
   const root = document.getElementById('club-root');
   const slug = qs('slug');
@@ -104,9 +137,14 @@ async function loadClub() {
   document.title = `${club.name} — The Sportscast`;
 
   const isKenyan = club.competition.region === 'KENYA';
-  root.innerHTML = `${isKenyan ? profileHeaderHtml(club) : simpleHeaderHtml(club)}<div id="club-tab-root"></div>`;
+  root.innerHTML = `${isKenyan ? profileHeaderHtml(club) : simpleHeaderHtml(club)}<div id="club-hub-strip"></div><div id="club-tab-root"></div>`;
 
-  const competitionDetail = await fetchCompetitionDetail(club.competition.slug);
+  const [competitionDetail, { articles: latestArticles }] = await Promise.all([
+    fetchCompetitionDetail(club.competition.slug),
+    api(`/api/articles?club=${encodeURIComponent(club.slug)}&limit=1`),
+  ]);
+  document.getElementById('club-hub-strip').innerHTML = clubHubStripHtml(club, competitionDetail, latestArticles[0] || null);
+
   const tabRoot = document.getElementById('club-tab-root');
   const scope = {
     sportSlug: club.competition.sport.slug,
