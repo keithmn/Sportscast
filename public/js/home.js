@@ -10,6 +10,10 @@
 // an oversight. Uses the same fixtureRowHtml/api() this page's Sports
 // tiles already lean on; see js/scores.js (now loaded on this page too)
 // and GET /api/fixtures/upcoming.
+//
+// Same day: a "Following" strip — purely client-side (js/follows.js,
+// localStorage, no visitor accounts exist). Section stays hidden entirely
+// (not an empty-state) for anyone who hasn't followed anything yet.
 
 // Quick-jump into each active sport's hub — same active-sports list and
 // filter as the nav's own Sports dropdown (nav-dropdown.js), just
@@ -91,6 +95,27 @@ async function loadNewsStrip() {
     </a>`).join('');
 }
 
+const FOLLOW_TYPE_LABEL = { club: 'Team', player: 'Player', competition: 'Competition' };
+
+function followingChipHtml(f) {
+  return `
+    <a class="following-chip" href="${escapeHtml(f.href)}">
+      <span class="following-chip-type">${escapeHtml(FOLLOW_TYPE_LABEL[f.type] || f.type)}</span>
+      <span class="following-chip-name">${escapeHtml(f.name)}</span>
+    </a>`;
+}
+
+// Synchronous, localStorage-only — no network call, so this runs directly
+// rather than as one of the async loaders below.
+function loadFollowing() {
+  const follows = getFollows();
+  const section = document.getElementById('following-section');
+  if (!follows.length) { section.style.display = 'none'; return; }
+
+  document.getElementById('following-list').innerHTML = follows.map(followingChipHtml).join('');
+  section.style.display = '';
+}
+
 // Cross-sport "what's happening" strip — soonest-kickoff-first, across
 // every active sport, not scoped to one competition the way the shared
 // fixtureRowHtml normally is (it's usually shown under a single
@@ -120,6 +145,7 @@ async function loadWhatsOn() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  loadFollowing();
   loadSportsTiles().catch((err) => console.warn('Could not load sports tiles:', err));
   loadWhatsOn().catch((err) => console.warn('Could not load what\'s on:', err));
   loadTopStories().catch((err) => console.warn('Could not load top stories:', err));

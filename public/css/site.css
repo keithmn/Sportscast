@@ -248,6 +248,17 @@ img { display: block; max-width: 100%; }
 .hub-strip-col .section-label { display: block; margin-bottom: 0.75rem; }
 @media (max-width: 700px) { .hub-strip { grid-template-columns: 1fr; } }
 
+/* ===== HOMEPAGE: Following strip (js/follows.js, localStorage) ===== */
+.following-list { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.following-chip {
+  display: flex; flex-direction: column; gap: 0.15rem;
+  border: 1px solid var(--border); padding: 0.7rem 1.1rem;
+  transition: border-color 0.15s, background 0.15s;
+}
+.following-chip:hover { border-color: var(--brand-gold); background: var(--bg-elevated); }
+.following-chip-type { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: var(--text-micro); letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold-text); }
+.following-chip-name { font-weight: 700; }
+
 /* ===== HOMEPAGE: What's On strip (cross-sport fixtureRowHtml usage) ===== */
 .whats-on-list { display: flex; flex-direction: column; gap: 0.85rem; }
 .whats-on-item .fixture-row { border-top: 1px solid var(--border); }
@@ -391,6 +402,7 @@ table.data-table td.num { text-align: center; }
    that page's separate CSS in favour of this shared stylesheet). */
 .sports-section { padding: 5rem 0; border-top: 1px solid var(--border); }
 .whats-on-section { padding: 5rem 0; border-top: 1px solid var(--border); }
+.following-section { padding: 5rem 0; border-top: 1px solid var(--border); }
 .sports-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 0.75rem; }
 .sport-tile {
   background: var(--bg-surface); border: 1px solid var(--border); border-left: 3px solid transparent;
@@ -457,6 +469,17 @@ table.data-table td.num { text-align: center; }
 }
 .filter-pill:hover { color: var(--text-primary); }
 .filter-pill.active { color: var(--text-primary); border-color: var(--text-primary); }
+
+/* ===== Follow button (localStorage-backed, no accounts yet — js/follows.js) ===== */
+.follow-btn {
+  font-family: 'Nunito', sans-serif; font-weight: 700; font-size: var(--text-small);
+  color: var(--text-primary); background: transparent; border: 1px solid var(--brand-gold);
+  padding: 0.6rem 1.25rem; border-radius: var(--radius); cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.follow-btn:hover { background: var(--brand-gold); color: var(--sc-black); }
+.follow-btn.following { background: var(--brand-gold); color: var(--sc-black); }
+.follow-btn.following:hover { background: transparent; color: var(--text-primary); }
 
 /* ===== FOOTER + CONTACT (consolidated 2026-08-19 — was index.html-only
    inline CSS + a separate bare .footer-simple used by every other page;

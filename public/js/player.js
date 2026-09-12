@@ -38,6 +38,7 @@ async function loadPlayer() {
           <a href="/club.html?slug=${encodeURIComponent(player.club.slug)}">${escapeHtml(player.club.name)}</a>
         </p>
       </div>
+      <div style="margin-left:auto;">${followButtonHtml('player', player.slug, player.name, `/player.html?slug=${encodeURIComponent(player.slug)}`)}</div>
     </div>
     <div style="max-width:900px; margin:0 auto; padding:2rem 0 4rem;" id="player-articles">
       <span class="section-label">News &amp; Podcasts</span>

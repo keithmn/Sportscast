@@ -15,9 +15,12 @@ async function loadCompetitionPage() {
 
   root.innerHTML = `
     <header class="page-header">
-      <div class="container">
-        <span class="card-eyebrow">${escapeHtml(competition.sport.name)}</span>
-        <h1 class="page-title">${escapeHtml(competition.name)}</h1>
+      <div class="container" style="display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap;">
+        <div>
+          <span class="card-eyebrow">${escapeHtml(competition.sport.name)}</span>
+          <h1 class="page-title">${escapeHtml(competition.name)}</h1>
+        </div>
+        <div style="margin-left:auto;">${followButtonHtml('competition', competition.slug, competition.name, `/competition.html?slug=${encodeURIComponent(competition.slug)}`)}</div>
       </div>
     </header>
     <div class="container" id="competition-tab-root" style="padding-top:2rem;"></div>`;

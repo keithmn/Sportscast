@@ -45,6 +45,7 @@ function simpleHeaderHtml(club) {
         <h1 class="page-title" style="font-size:2rem;">${escapeHtml(club.name)}</h1>
         ${club.venue ? `<p class="page-sub">${escapeHtml(club.venue)}</p>` : ''}
       </div>
+      <div style="margin-left:auto;">${followButtonHtml('club', club.slug, club.name, `/club.html?slug=${encodeURIComponent(club.slug)}`)}</div>
     </div>
     <div style="max-width:900px; margin:0 auto; padding:2rem 0 4rem;">
       <span class="section-label">Squad</span>
@@ -71,6 +72,7 @@ function profileHeaderHtml(club) {
           <h1 class="profile-name">${escapeHtml(club.name)}</h1>
           <p class="profile-meta">${metaParts.map(escapeHtml).join(' · ')}</p>
         </div>
+        <div style="margin-left:auto;">${followButtonHtml('club', club.slug, club.name, `/club.html?slug=${encodeURIComponent(club.slug)}`)}</div>
       </div>
     </div>
     <div style="max-width:900px; margin:0 auto; padding:2rem 0 1rem;">

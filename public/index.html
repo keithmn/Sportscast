@@ -45,6 +45,15 @@
   </div>
 </section>
 
+<!-- Hidden entirely (not an empty-state) when the visitor follows nothing —
+     purely localStorage-driven, js/home.js decides visibility at render time. -->
+<section class="following-section fade-up" id="following-section" aria-label="Following" style="display:none;">
+  <div class="container">
+    <span class="section-label fade-up">Following</span>
+    <div class="following-list fade-up" id="following-list"></div>
+  </div>
+</section>
+
 <section class="whats-on-section fade-up" id="whats-on" aria-label="What's on">
   <div class="container">
     <span class="section-label fade-up">What&apos;s On</span>
@@ -78,6 +87,7 @@
 
 <script src="/js/nav-dropdown.js"></script>
 <script src="/js/site.js"></script>
+<script src="/js/follows.js"></script>
 <script src="/js/scores.js"></script>
 <script src="/js/home.js"></script>
 </body>
