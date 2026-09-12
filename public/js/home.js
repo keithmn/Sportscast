@@ -1,10 +1,15 @@
 // Populates the homepage — 2026-08-20: rebuilt to be strictly a news
-// feed (Sports tiles → Top Stories → Latest briefs), so this file only
-// deals with those three sections now. The podcast carousel, niche shows
-// grid, Scores/Teams teasers, shop promo, and newsletter all used to live
-// here too — removed along with their markup in index.html, not just
-// hidden; that content already has a home on /shows.html, /scores.html,
-// /clubs.html, and /shop.html.
+// feed (Sports tiles → Top Stories → Latest briefs). The podcast
+// carousel, niche shows grid, Teams teaser, shop promo, and newsletter
+// all used to live here too — removed along with their markup in
+// index.html, not just hidden; that content already has a home on
+// /shows.html, /clubs.html, and /shop.html.
+//
+// 2026-09-13: a "What's On" fixtures strip was deliberately added back —
+// a real, explicit reversal of the "no teaser sections" call above, not
+// an oversight. Uses the same fixtureRowHtml/api() this page's Sports
+// tiles already lean on; see js/scores.js (now loaded on this page too)
+// and GET /api/fixtures/upcoming.
 
 // Quick-jump into each active sport's hub — same active-sports list and
 // filter as the nav's own Sports dropdown (nav-dropdown.js), just
@@ -86,8 +91,37 @@ async function loadNewsStrip() {
     </a>`).join('');
 }
 
+// Cross-sport "what's happening" strip — soonest-kickoff-first, across
+// every active sport, not scoped to one competition the way the shared
+// fixtureRowHtml normally is (it's usually shown under a single
+// competition's own heading). Each row gets its own sport/competition
+// label prepended here rather than teaching fixtureRowHtml itself a new
+// "show your own context" mode other callers don't need.
+function whatsOnItemHtml(f) {
+  return `
+    <div class="whats-on-item">
+      <div class="whats-on-context">
+        <span class="whats-on-sport">${escapeHtml(f.competition.sport.name)}</span>
+        <a href="/competition.html?slug=${encodeURIComponent(f.competition.slug)}">${escapeHtml(f.competition.name)}</a>
+      </div>
+      ${fixtureRowHtml(f)}
+    </div>`;
+}
+
+async function loadWhatsOn() {
+  const list = document.getElementById('whats-on-list');
+  const { fixtures } = await api('/api/fixtures/upcoming?limit=5');
+
+  if (!fixtures.length) {
+    list.innerHTML = '<p class="empty-state">Nothing scheduled right now — check back soon.</p>';
+    return;
+  }
+  list.innerHTML = fixtures.map(whatsOnItemHtml).join('');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   loadSportsTiles().catch((err) => console.warn('Could not load sports tiles:', err));
+  loadWhatsOn().catch((err) => console.warn('Could not load what\'s on:', err));
   loadTopStories().catch((err) => console.warn('Could not load top stories:', err));
   loadNewsStrip().catch((err) => console.warn('Could not load news strip:', err));
 

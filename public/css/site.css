@@ -243,6 +243,14 @@ img { display: block; max-width: 100%; }
 .fixture-status.LIVE { color: var(--danger); border-color: var(--danger); }
 .fixture-status.FINISHED { color: var(--success); border-color: var(--success); }
 .fixture-status.POSTPONED { color: var(--gold-text); border-color: var(--brand-gold); }
+/* ===== HOMEPAGE: What's On strip (cross-sport fixtureRowHtml usage) ===== */
+.whats-on-list { display: flex; flex-direction: column; gap: 0.85rem; }
+.whats-on-item .fixture-row { border-top: 1px solid var(--border); }
+.whats-on-context { display: flex; align-items: baseline; gap: 0.6rem; margin-bottom: 0.35rem; }
+.whats-on-sport { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: var(--text-micro); letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold-text); }
+.whats-on-context a { font-size: var(--text-small); color: var(--text-secondary); }
+.whats-on-context a:hover { color: var(--text-primary); }
+
 .table-wrap { overflow-x: auto; border: 1px solid var(--border); }
 table.data-table { width: 100%; border-collapse: collapse; min-width: 560px; }
 table.data-table th, table.data-table td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border); font-size: var(--text-small); }
@@ -377,6 +385,7 @@ table.data-table td.num { text-align: center; }
    duplicate <style> block 2026-08-20, once the homepage rebuild retired
    that page's separate CSS in favour of this shared stylesheet). */
 .sports-section { padding: 5rem 0; border-top: 1px solid var(--border); }
+.whats-on-section { padding: 5rem 0; border-top: 1px solid var(--border); }
 .sports-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 0.75rem; }
 .sport-tile {
   background: var(--bg-surface); border: 1px solid var(--border); border-left: 3px solid transparent;
