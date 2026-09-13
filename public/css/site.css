@@ -496,6 +496,16 @@ table.data-table td.num { text-align: center; }
 .footer-socials svg { width: 26px; height: 26px; fill: var(--text-primary); transition: fill 0.3s; }
 .footer-socials a:hover svg { fill: var(--brand-gold); }
 
+.footer-newsletter { padding: 2rem 0; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
+.footer-newsletter-sub { color: var(--text-secondary); font-size: var(--text-small); margin: 0.5rem 0 1.25rem; max-width: 480px; }
+.newsletter-form { display: flex; gap: 0.75rem; flex-wrap: wrap; max-width: 480px; }
+.newsletter-form input {
+  flex: 1; min-width: 220px; background: var(--bg-primary); border: 1px solid var(--border);
+  color: var(--text-primary); padding: 0.7rem 0.9rem; font-family: 'Nunito', sans-serif; font-size: var(--text-small); outline: none;
+}
+.newsletter-form input:focus { border-color: var(--brand-gold); }
+.footer-newsletter-success { color: var(--gold-text); font-size: var(--text-small); margin-top: 1rem; }
+
 .footer-contact { padding-bottom: 3rem; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
 .contact-tabs { display: flex; gap: 0.5rem; margin: 1.5rem 0 2rem; flex-wrap: wrap; }
 .contact-tab { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 0.9rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); background: var(--bg-elevated); border: 1px solid var(--border); padding: 0.8rem 1.4rem; cursor: pointer; transition: color 0.15s, border-color 0.15s; }

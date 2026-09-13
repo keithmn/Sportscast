@@ -154,6 +154,17 @@ function renderFooter() {
           </div>
         </div>
 
+        <div class="footer-newsletter" id="newsletter">
+          <span class="section-label">The Sportscast Weekly</span>
+          <p class="footer-newsletter-sub">The biggest Kenyan sports stories, upcoming fixtures, and results — once a week, nothing else.</p>
+          <form class="newsletter-form" id="newsletter-form">
+            <input type="email" id="nl-email" placeholder="you@example.com" required aria-label="Email address">
+            <button type="submit" class="btn-red">Subscribe</button>
+          </form>
+          <p class="form-error" id="newsletter-error" style="display:none;"></p>
+          <p class="footer-newsletter-success" id="newsletter-success" style="display:none;">You&apos;re subscribed — first issue lands this week.</p>
+        </div>
+
         <div class="footer-contact" id="contact">
           <span class="section-label">Get In Touch</span>
           <div class="contact-tabs" role="tablist">
@@ -265,9 +276,36 @@ function initContactForm() {
   });
 }
 
+// A single email field, not the Contact/Tip/Partnership tabbed form — a
+// newsletter signup isn't a message with a body, and forcing it through
+// that form's shape (name + message required) would be friction this
+// doesn't need. Posts straight to /api/submissions with type: NEWSLETTER
+// (server dedupes by email — see server/routes/submissions.js).
+function initNewsletterForm() {
+  const form = document.getElementById('newsletter-form');
+  if (!form) return;
+  const errorEl = document.getElementById('newsletter-error');
+  const successEl = document.getElementById('newsletter-success');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorEl.style.display = 'none';
+    const email = document.getElementById('nl-email').value.trim();
+    try {
+      await api('/api/submissions', { method: 'POST', body: JSON.stringify({ type: 'NEWSLETTER', email }) });
+      form.style.display = 'none';
+      successEl.style.display = 'block';
+    } catch (err) {
+      errorEl.textContent = err.message;
+      errorEl.style.display = 'block';
+    }
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   renderHeader();
   renderNav();
   renderFooter();
   initContactForm();
+  initNewsletterForm();
 });

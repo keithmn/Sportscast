@@ -4,13 +4,24 @@ const { requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-const VALID_TYPES = ['CONTACT', 'TIP', 'PARTNERSHIP', 'SHOP_INTEREST'];
+const VALID_TYPES = ['CONTACT', 'TIP', 'PARTNERSHIP', 'SHOP_INTEREST', 'NEWSLETTER'];
 
-// ---- Public: submit a contact message, tip, partnership inquiry, or shop-waitlist signup ----
+// ---- Public: submit a contact message, tip, partnership inquiry, shop-waitlist
+// signup, or newsletter signup ----
 router.post('/', async (req, res) => {
   const { type, name, email, message } = req.body;
   if (!VALID_TYPES.includes(type)) return res.status(400).json({ error: 'Invalid submission type' });
   if (!email) return res.status(400).json({ error: 'email is required' });
+
+  // A newsletter signup is a single yes/no relationship, not an incremental
+  // message like a Contact/Tip/Partnership row — resubmitting the same
+  // email (double-click, revisit) should be idempotent rather than
+  // quietly duplicating rows on whatever list eventually gets built from
+  // this table.
+  if (type === 'NEWSLETTER') {
+    const existing = await prisma.submission.findFirst({ where: { type: 'NEWSLETTER', email } });
+    if (existing) return res.status(201).json({ submission: existing });
+  }
 
   const submission = await prisma.submission.create({
     data: { type, name: name || null, email, message: message || null },

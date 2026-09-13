@@ -3,6 +3,7 @@ const TYPE_LABELS = {
   TIP: 'News Tip',
   PARTNERSHIP: 'Work With Us',
   SHOP_INTEREST: 'Shop Waitlist',
+  NEWSLETTER: 'Newsletter Signup',
 };
 
 function submissionRowHtml(s) {
