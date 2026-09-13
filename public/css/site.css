@@ -403,6 +403,21 @@ table.data-table td.num { text-align: center; }
 .sports-section { padding: 5rem 0; border-top: 1px solid var(--border); }
 .whats-on-section { padding: 5rem 0; border-top: 1px solid var(--border); }
 .following-section { padding: 5rem 0; border-top: 1px solid var(--border); }
+.lead-section { padding: 5rem 0 0; }
+.watch-section { padding: 5rem 0; border-top: 1px solid var(--border); }
+.watch-section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 1.25rem; }
+.local-section { padding: 5rem 0; border-top: 1px solid var(--border); }
+.local-list { display: flex; flex-direction: column; gap: 1.5rem; }
+.local-group-sport {
+  display: block; font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: var(--text-micro);
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold-text); margin-bottom: 0.6rem;
+}
+.local-group-links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.local-group-links a {
+  font-size: var(--text-small); color: var(--text-secondary); border: 1px solid var(--border);
+  padding: 0.5rem 0.9rem; transition: color 0.15s, border-color 0.15s;
+}
+.local-group-links a:hover { color: var(--text-primary); border-color: var(--brand-gold); }
 .sports-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 0.75rem; }
 .sport-tile {
   background: var(--bg-surface); border: 1px solid var(--border); border-left: 3px solid transparent;

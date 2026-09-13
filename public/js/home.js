@@ -1,19 +1,23 @@
-// Populates the homepage — 2026-08-20: rebuilt to be strictly a news
-// feed (Sports tiles → Top Stories → Latest briefs). The podcast
-// carousel, niche shows grid, Teams teaser, shop promo, and newsletter
-// all used to live here too — removed along with their markup in
-// index.html, not just hidden; that content already has a home on
-// /shows.html, /clubs.html, and /shop.html.
+// Populates the homepage.
 //
-// 2026-09-13: a "What's On" fixtures strip was deliberately added back —
-// a real, explicit reversal of the "no teaser sections" call above, not
-// an oversight. Uses the same fixtureRowHtml/api() this page's Sports
-// tiles already lean on; see js/scores.js (now loaded on this page too)
-// and GET /api/fixtures/upcoming.
+// 2026-08-20: rebuilt to be strictly a news feed (Sports tiles → Top
+// Stories → Latest briefs). The podcast carousel, niche shows grid, Teams
+// teaser, shop promo, and newsletter all used to live here too — removed
+// along with their markup in index.html, not just hidden; that content
+// already has a home on /shows.html, /clubs.html, and /shop.html.
 //
-// Same day: a "Following" strip — purely client-side (js/follows.js,
-// localStorage, no visitor accounts exist). Section stays hidden entirely
-// (not an empty-state) for anyone who hasn't followed anything yet.
+// 2026-09-13, first pass: added back a "What's On" fixtures strip and a
+// "Following" strip (localStorage, js/follows.js) — both explicit,
+// deliberate reversals of the "no teaser sections" call above.
+//
+// 2026-09-13, second pass — full reorder: taxonomy-first (Sports →
+// Following → What's On → Stories → Latest) became time-and-fan-intent-
+// first. A visitor should find "what matters right now" before "what
+// this site contains". New order: lead story (TOP) → live/upcoming (NOW)
+// → flagship episodes (WATCH) → Kenyan competitions (LOCAL) → personal
+// follows (FOLLOW) → the rest of today's editorial (READ) → browse by
+// sport, last (DISCOVER — kept the "Sports" label; these are the major
+// sports, not just the lesser-covered ones, so "Discover" would overclaim).
 
 // Quick-jump into each active sport's hub — same active-sports list and
 // filter as the nav's own Sports dropdown (nav-dropdown.js), just
@@ -34,10 +38,9 @@ async function loadSportsTiles() {
     : '<p class="empty-state">No sports live yet.</p>';
 }
 
-// Top Stories — featured/full stories first, falling back to the most
-// recent full stories if nothing's flagged featured yet. Big lead item +
-// 2 alongside it + up to 3 more in a row below, matching the
-// .stories-r1/.stories-r2/.story--lg layout in site.css.
+// TOP (the lead story, alone) + READ (everything else from the same
+// fetch) — one query, two render targets, so "which article is the lead"
+// can never disagree between the two sections.
 function topStoryCardHtml(a, isLg) {
   return `
     <a href="/article.html?slug=${encodeURIComponent(a.slug)}" style="display:contents;">
@@ -54,8 +57,9 @@ function topStoryCardHtml(a, isLg) {
     </a>`;
 }
 
-async function loadTopStories() {
-  const section = document.getElementById('top-stories');
+async function loadLeadAndEditorial() {
+  const leadRoot = document.getElementById('lead-story-root');
+  const editorialSection = document.getElementById('editorial-section');
   const r1 = document.getElementById('stories-r1');
   const r2 = document.getElementById('stories-r2');
 
@@ -63,12 +67,18 @@ async function loadTopStories() {
   if (!articles.length) {
     ({ articles } = await api('/api/articles?isBrief=false&limit=6'));
   }
-  if (!articles.length) { section.style.display = 'none'; return; }
+  if (!articles.length) {
+    document.getElementById('lead-section').style.display = 'none';
+    editorialSection.style.display = 'none';
+    return;
+  }
 
-  const [big, ...rest] = articles;
-  r1.innerHTML = topStoryCardHtml(big, true)
-    + (rest.length ? `<div class="stories-r1-col">${rest.slice(0, 2).map((a) => topStoryCardHtml(a, false)).join('')}</div>` : '');
-  const r2Items = rest.slice(2, 5);
+  const [lead, ...rest] = articles;
+  leadRoot.innerHTML = topStoryCardHtml(lead, true);
+
+  if (!rest.length) { editorialSection.style.display = 'none'; return; }
+  r1.innerHTML = `<div class="stories-r1-col">${rest.slice(0, 3).map((a) => topStoryCardHtml(a, false)).join('')}</div>`;
+  const r2Items = rest.slice(3, 6);
   r2.innerHTML = r2Items.map((a) => topStoryCardHtml(a, false)).join('');
   r2.style.display = r2Items.length ? 'grid' : 'none';
 }
@@ -144,12 +154,77 @@ async function loadWhatsOn() {
   list.innerHTML = fixtures.map(whatsOnItemHtml).join('');
 }
 
+// WATCH — flagship episodes only (GET /api/shows/the-sportscast, added
+// alongside the Show/Episode models). The 5 dormant niche shows stay
+// unreferenced here too, same as nav/shows.html — this section isn't a
+// second, inconsistent way back into them.
+function watchCardHtml(ep) {
+  const a = ep.article;
+  const metaParts = [ep.episodeNumber ? `Episode ${ep.episodeNumber}` : null, ep.host, ep.guest].filter(Boolean);
+  return `
+    <a href="/article.html?slug=${encodeURIComponent(a.slug)}" style="display:contents;">
+      <article class="story">
+        ${a.coverImageUrl ? `<img class="story-thumb" src="${escapeHtml(a.coverImageUrl)}" alt="">` : ''}
+        <span class="story-cat">${escapeHtml(metaParts.join(' · ') || 'Episode')}</span>
+        <h3 class="story-hl">${escapeHtml(a.title)}</h3>
+        <p class="story-desc">${escapeHtml(a.dek)}</p>
+        <div class="story-foot">
+          <span class="story-author">${ep.durationSeconds ? `${Math.round(ep.durationSeconds / 60)} min` : ''}</span>
+          <span class="story-time">${formatDate(a.publishedAt)}</span>
+        </div>
+      </article>
+    </a>`;
+}
+
+async function loadWatchSection() {
+  const section = document.getElementById('watch-section');
+  const list = document.getElementById('watch-list');
+  const res = await fetch('/api/shows/the-sportscast');
+  if (!res.ok) { section.style.display = 'none'; return; }
+
+  const { show } = await res.json();
+  if (!show.episodes.length) { section.style.display = 'none'; return; }
+  list.innerHTML = show.episodes.slice(0, 3).map(watchCardHtml).join('');
+}
+
+// LOCAL — Kenyan competitions specifically, grouped by sport. Client-side
+// region filter rather than a new query param: /api/competitions has no
+// region filter today, and the full list is small enough that fetching it
+// once and filtering here isn't worth a backend change for.
+function localGroupHtml(sportName, competitions) {
+  return `
+    <div class="local-group">
+      <span class="local-group-sport">${escapeHtml(sportName)}</span>
+      <div class="local-group-links">
+        ${competitions.map((c) => `<a href="/competition.html?slug=${encodeURIComponent(c.slug)}">${escapeHtml(c.name)}</a>`).join('')}
+      </div>
+    </div>`;
+}
+
+async function loadLocalSection() {
+  const section = document.getElementById('local-section');
+  const list = document.getElementById('local-list');
+  const { competitions } = await api('/api/competitions');
+  const kenyan = competitions.filter((c) => c.region === 'KENYA');
+
+  if (!kenyan.length) { section.style.display = 'none'; return; }
+
+  const bySport = new Map();
+  kenyan.forEach((c) => {
+    if (!bySport.has(c.sport.name)) bySport.set(c.sport.name, []);
+    bySport.get(c.sport.name).push(c);
+  });
+  list.innerHTML = Array.from(bySport, ([sportName, comps]) => localGroupHtml(sportName, comps)).join('');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-  loadFollowing();
-  loadSportsTiles().catch((err) => console.warn('Could not load sports tiles:', err));
+  loadLeadAndEditorial().catch((err) => console.warn('Could not load lead/editorial stories:', err));
   loadWhatsOn().catch((err) => console.warn('Could not load what\'s on:', err));
-  loadTopStories().catch((err) => console.warn('Could not load top stories:', err));
+  loadWatchSection().catch((err) => console.warn('Could not load watch section:', err));
+  loadLocalSection().catch((err) => console.warn('Could not load local competitions:', err));
+  loadFollowing();
   loadNewsStrip().catch((err) => console.warn('Could not load news strip:', err));
+  loadSportsTiles().catch((err) => console.warn('Could not load sports tiles:', err));
 
   // Scroll-triggered fade-up reveal for sections marked .fade-up.
   const fadeEls = document.querySelectorAll('.fade-up');

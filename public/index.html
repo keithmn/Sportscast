@@ -30,16 +30,54 @@
   <div id="subnav-placeholder"></div>
 </div>
 
-<!-- 2026-08-20: homepage strictly for news now — no hero, no podcast/
-     show teasers, no shop/newsletter promos (all still live on their own
-     pages: /shows.html, /shop.html). Sports tiles (quick jump into a
-     hub) and the "Latest" briefs teaser are the two non-article elements
-     the client chose to keep; everything else was a summary of a part of
-     the site that already has its own page. -->
-<section class="sports-section" aria-label="Sports">
+<!-- 2026-08-20: homepage strictly for news, no hero/podcast/shop promos.
+     2026-09-13: reordered from taxonomy-first (Sports → Following → What's
+     On → Stories → Latest) to time-and-fan-intent-first — a visitor should
+     find "what matters right now" before "what this site contains". Order
+     is now: lead story (TOP) → live/upcoming (NOW) → episodes (WATCH) →
+     Kenyan competitions (LOCAL) → personal follows (FOLLOW) → the rest of
+     today's editorial (READ) → browse by sport (DISCOVER, was "Sports",
+     kept that honest label — these are the major sports, not just the
+     lesser-covered ones, so "Discover" would overclaim what it is). -->
+
+<!-- TOP: the single lead story, alone — no secondary items beside it,
+     those moved to READ further down. -->
+<section class="lead-section fade-up" id="lead-section" aria-label="Lead story">
   <div class="container">
-    <span class="section-label fade-up">Sports</span>
-    <div class="sports-grid fade-up" id="sports-tiles-grid">
+    <div class="fade-up" id="lead-story-root"></div>
+  </div>
+</section>
+
+<!-- NOW -->
+<section class="whats-on-section fade-up" id="whats-on" aria-label="What's on">
+  <div class="container">
+    <span class="section-label fade-up">What&apos;s On</span>
+    <div class="whats-on-list fade-up" id="whats-on-list">
+      <div class="empty-state">Loading…</div>
+    </div>
+  </div>
+</section>
+
+<!-- WATCH: flagship episodes only — the 5 dormant niche shows stay
+     unreferenced here too, same as everywhere else on the site now. -->
+<section class="watch-section fade-up" id="watch-section" aria-label="Watch">
+  <div class="container">
+    <div class="watch-section-head fade-up">
+      <span class="section-label">Watch</span>
+      <a href="/shows.html" class="btn-link">All episodes →</a>
+    </div>
+    <div class="card-grid fade-up" id="watch-list">
+      <div class="empty-state">Loading…</div>
+    </div>
+  </div>
+</section>
+
+<!-- LOCAL: Kenyan competitions specifically — distinct from the Discover
+     tiles below, which jump into a whole sport, not one competition. -->
+<section class="local-section fade-up" id="local-section" aria-label="Local competitions">
+  <div class="container">
+    <span class="section-label fade-up">Local Competitions</span>
+    <div class="local-list fade-up" id="local-list">
       <div class="empty-state">Loading…</div>
     </div>
   </div>
@@ -54,18 +92,11 @@
   </div>
 </section>
 
-<section class="whats-on-section fade-up" id="whats-on" aria-label="What's on">
+<!-- READ: everything from the old Top Stories grid except the single
+     lead item, which now lives in its own TOP section above. -->
+<section class="stories-section" id="editorial-section" aria-label="More stories">
   <div class="container">
-    <span class="section-label fade-up">What&apos;s On</span>
-    <div class="whats-on-list fade-up" id="whats-on-list">
-      <div class="empty-state">Loading…</div>
-    </div>
-  </div>
-</section>
-
-<section class="stories-section" id="top-stories" aria-label="Top stories">
-  <div class="container">
-    <span class="section-label fade-up">Top Stories</span>
+    <span class="section-label fade-up">Read</span>
     <div class="fade-up">
       <div class="stories-r1" id="stories-r1"></div>
       <div class="stories-r2" id="stories-r2"></div>
@@ -80,6 +111,16 @@
 
     <!-- populated live from /api/articles by js/home.js -->
     <div class="archive-list fade-up" id="archive-list"></div>
+  </div>
+</section>
+
+<!-- DISCOVER (kept the "Sports" label — see note above) -->
+<section class="sports-section" aria-label="Sports">
+  <div class="container">
+    <span class="section-label fade-up">Sports</span>
+    <div class="sports-grid fade-up" id="sports-tiles-grid">
+      <div class="empty-state">Loading…</div>
+    </div>
   </div>
 </section>
 
