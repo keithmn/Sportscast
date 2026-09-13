@@ -2,6 +2,7 @@ const express = require('express');
 const prisma = require('../db');
 const { slugify } = require('../utils/slugify');
 const { requireRole } = require('../middleware/auth');
+const { fetchCanonicalStandings } = require('../lib/canonicalData');
 
 const router = express.Router();
 
@@ -47,6 +48,20 @@ router.get('/:slug', async (req, res) => {
     },
   });
   if (!competition) return res.status(404).json({ error: 'Competition not found' });
+
+  // Prefer the canonical Underdawgs Sports Data platform's standings when
+  // this competition has one — currently just Kenya Cup. Fails soft: any
+  // problem reaching it (timeout, no mapping, empty response) means
+  // competition.standings stays exactly what it already was above, so a
+  // canonical-source outage can never break this page.
+  const canonicalStandings = await fetchCanonicalStandings(competition.id);
+  if (canonicalStandings) {
+    competition.standings = canonicalStandings;
+    competition.standingsSource = 'underdawgs-data';
+  } else {
+    competition.standingsSource = 'local';
+  }
+
   res.json({ competition });
 });
 
