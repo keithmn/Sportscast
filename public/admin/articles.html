@@ -167,6 +167,21 @@
             </div>
             <p class="form-error" id="canonical-event-error" style="display:none;"></p>
           </div>
+
+          <div id="poll-section" class="form-field" style="display:none; border-top:1px solid var(--border); padding-top:1rem; margin-top:0.5rem;">
+            <label>Poll (optional — e.g. &quot;Player of the Match&quot;)</label>
+            <div id="poll-existing" style="display:none;">
+              <p id="poll-existing-summary"></p>
+              <button type="button" class="btn-outline-sm" id="delete-poll-btn">Delete Poll</button>
+            </div>
+            <div id="poll-create-form">
+              <input type="text" id="poll-question" placeholder="Question, e.g. Player of the Match?" style="width:100%; margin-bottom:0.5rem;">
+              <div id="poll-options-list"></div>
+              <button type="button" class="btn-outline-sm" id="poll-add-option-btn">+ Add Option</button>
+              <button type="button" class="btn-outline-sm" id="create-poll-btn">Create Poll</button>
+            </div>
+            <p class="form-error" id="poll-error" style="display:none;"></p>
+          </div>
           <p class="form-error" id="article-form-error" style="display:none;"></p>
           <div class="form-row">
             <button type="submit" class="btn-red">Save</button>

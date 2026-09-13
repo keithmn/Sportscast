@@ -98,6 +98,9 @@ model Article {
   // runtimeLabel/youtubeId fields above, untouched and still functional,
   // just no longer linked from anywhere in the nav — dormant, not deleted.
   episode       Episode?
+  // Optional fan-engagement poll (e.g. "Player of the Match") — see the
+  // Poll model below. Not every article has one.
+  poll          Poll?
 }
 
 // ===================== SHOWS (flagship only, 2026-09-13) =====================
@@ -539,4 +542,46 @@ model Follow {
 
   @@unique([anonymousId, entityType, entitySlug])
   @@index([anonymousId])
+}
+
+// ===================== POLL (2026-09-13) =====================
+// Lightweight fan engagement, deliberately simple: one poll per article
+// (e.g. "Player of the Match" on a match report, or any other single-
+// question fan vote), created by an editor when writing/editing an
+// article — never auto-generated, so a poll only exists where an editor
+// actually put real, meaningful options in it. Voting is anonymous, same
+// anonymousId scheme as Follow (a device token, not an account) — one
+// vote per poll per anonymousId, enforced by PollVote's unique
+// constraint, not just client-side.
+model Poll {
+  id        String       @id @default(cuid())
+  articleId String       @unique
+  article   Article      @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  question  String
+  createdAt DateTime     @default(now())
+  options   PollOption[]
+  votes     PollVote[]
+}
+
+model PollOption {
+  id     String     @id @default(cuid())
+  pollId String
+  poll   Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  label  String
+  votes  PollVote[]
+}
+
+model PollVote {
+  id           String     @id @default(cuid())
+  pollId       String
+  poll         Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  pollOptionId String
+  pollOption   PollOption @relation(fields: [pollOptionId], references: [id], onDelete: Cascade)
+  anonymousId  String
+  createdAt    DateTime   @default(now())
+
+  // Enforced here, not just in the route handler — a second vote attempt
+  // from the same device for the same poll fails at the DB level even if
+  // a client somehow bypassed the app's own check.
+  @@unique([pollId, anonymousId])
 }

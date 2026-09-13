@@ -65,6 +65,27 @@ async function loadLatestBadges(container) {
   }));
 }
 
+// Shared anonymous-device identity — no visitor accounts exist yet, so
+// this identifies a browser, never a person, and is never derived from
+// anything identifying (crypto.randomUUID(), stored once). Used by both
+// the Follow system (public/js/follows.js) and Poll voting
+// (public/js/article.js) so a visitor's device is recognized consistently
+// across features, without ever creating an actual account.
+const ANON_ID_KEY = 'sc_anon_id_v1';
+
+function getAnonymousId() {
+  try {
+    let id = localStorage.getItem(ANON_ID_KEY);
+    if (!id) {
+      id = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`).replace(/[^a-zA-Z0-9_-]/g, '');
+      localStorage.setItem(ANON_ID_KEY, id);
+    }
+    return id;
+  } catch {
+    return null; // private browsing / storage disabled
+  }
+}
+
 function formatMoney(amount, currency) {
   if (amount == null) return '—';
   return `${currency || ''} ${Number(amount).toLocaleString()}`.trim();

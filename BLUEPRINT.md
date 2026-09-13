@@ -1062,3 +1062,32 @@ several awaited setup calls resolve, so a click before that resolves
 silently does nothing — not a product bug (a real user always waits for
 the page to render before clicking), but the test needed to wait for
 that same signal (`#sportId` having options) rather than racing it.
+
+## 33. Fan engagement: Polls (e.g. "Player of the Match") (2026-09-13)
+
+Lightweight fan engagement, one poll per article, created by an editor
+(never auto-generated — a poll only exists where an editor put real
+question/options in it, matching this project's zero-fabrication
+principle applied to a feature that has no "facts" to fabricate, just
+empty vote counts waiting for real visitors). New `Poll`/`PollOption`/
+`PollVote` models; `server/routes/polls.js` (`GET/POST/DELETE
+/api/articles/:id/poll`, `POST /api/polls/:id/vote`).
+
+Voting is anonymous — reuses Follow's `anonymousId` device-token scheme
+(moved `getAnonymousId()` from `follows.js` into `site.js` so both
+features, and any future one, share the same identity rather than each
+minting its own). One vote per poll per device, enforced by
+`PollVote`'s own unique constraint at the DB level, not just hidden
+client-side after voting — confirmed by hitting the vote endpoint twice
+with the same anonymousId and getting a 409 both from curl and from a
+real double-click in the browser.
+
+Admin: the article editor's new "Poll" section (question + dynamic
+add/remove option inputs) only appears once editing an existing article,
+same reasoning as the Canonical Event section (§29) — a poll needs a
+real article to attach to. Public: the article page renders clickable
+options if this device hasn't voted, or percentage-bar results (with the
+visitor's own choice marked) if it has — verified end-to-end with a real
+headless-Chrome session: poll renders, a click actually votes, results
+show correctly, and a page reload remembers the vote (no vote buttons
+shown again) without needing an account.

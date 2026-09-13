@@ -28,6 +28,7 @@ const sourceRoutes = require('./routes/sources');
 const monitoringRoutes = require('./routes/monitoring');
 const showRoutes = require('./routes/shows');
 const followRoutes = require('./routes/follows');
+const pollRoutes = require('./routes/polls');
 // Kits/Shop (Team/Kit/Order/OrderItem) retired for legal reasons.
 // server/routes/shop.js and server/routes/orders.js stay on disk, dormant
 // not deleted, unmounted here. The public-facing pages (shop.html,
@@ -93,6 +94,11 @@ app.use('/api/sources', sourceRoutes);
 app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/shows', showRoutes);
 app.use('/api/follows', followRoutes);
+// Mounted at /api, not /api/polls — polls.js's own routes already carry
+// full paths (/articles/:articleId/poll, /polls/:pollId/vote), matching
+// taxonomy.js's convention for the same reason (/api/sports, /api/tags,
+// /api/authors all coexisting under one router).
+app.use('/api', pollRoutes);
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 

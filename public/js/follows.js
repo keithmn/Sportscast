@@ -14,20 +14,10 @@
 // needed by the caller.
 
 const FOLLOWS_KEY = 'sc_follows_v1';
-const ANON_ID_KEY = 'sc_anon_id_v1';
 
-function getAnonymousId() {
-  try {
-    let id = localStorage.getItem(ANON_ID_KEY);
-    if (!id) {
-      id = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`).replace(/[^a-zA-Z0-9_-]/g, '');
-      localStorage.setItem(ANON_ID_KEY, id);
-    }
-    return id;
-  } catch {
-    return null; // private browsing / storage disabled — sync is skipped, local-only behavior unchanged
-  }
-}
+// getAnonymousId() now lives in site.js (shared with Poll voting,
+// public/js/article.js) — this file just consumes it. site.js loads
+// before this file on every page that includes both.
 
 // Fire-and-forget: a slow/offline/blocked request must never delay or
 // break the instant local toggle above it — this is a durability mirror,

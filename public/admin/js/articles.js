@@ -130,6 +130,9 @@ function resetForm() {
   document.getElementById('canonical-event-section').style.display = 'none';
   document.getElementById('canonical-event-id-input').value = '';
   document.getElementById('canonical-event-error').style.display = 'none';
+
+  document.getElementById('poll-section').style.display = 'none';
+  document.getElementById('poll-error').style.display = 'none';
 }
 
 function renderCanonicalEvent(event) {
@@ -173,6 +176,68 @@ async function unlinkCanonicalEvent() {
   const articleId = document.getElementById('article-id').value;
   await api(`/api/articles/${articleId}/canonical-event`, { method: 'DELETE' });
   renderCanonicalEvent(null);
+}
+
+function addPollOptionInput(value) {
+  const list = document.getElementById('poll-options-list');
+  const row = document.createElement('div');
+  row.className = 'form-row poll-option-row';
+  row.style.marginBottom = '0.5rem';
+  row.innerHTML = `
+    <input type="text" class="poll-option-input" placeholder="Option" value="${value ? escapeHtml(value) : ''}" style="flex:1;">
+    <button type="button" class="btn-outline-sm remove-poll-option-btn">Remove</button>`;
+  row.querySelector('.remove-poll-option-btn').addEventListener('click', () => row.remove());
+  list.appendChild(row);
+}
+
+function renderPoll(poll) {
+  const existingEl = document.getElementById('poll-existing');
+  const createFormEl = document.getElementById('poll-create-form');
+  if (poll) {
+    document.getElementById('poll-existing-summary').textContent =
+      `"${poll.question}" — ${poll.totalVotes} vote${poll.totalVotes === 1 ? '' : 's'} (${poll.options.map((o) => `${o.label}: ${o.votes}`).join(', ')})`;
+    existingEl.style.display = 'block';
+    createFormEl.style.display = 'none';
+  } else {
+    existingEl.style.display = 'none';
+    createFormEl.style.display = 'block';
+    document.getElementById('poll-question').value = '';
+    document.getElementById('poll-options-list').innerHTML = '';
+    addPollOptionInput('');
+    addPollOptionInput('');
+  }
+}
+
+async function loadPoll(articleId) {
+  const { poll } = await api(`/api/articles/${articleId}/poll`);
+  renderPoll(poll);
+}
+
+async function createPoll(articleId) {
+  const errorEl = document.getElementById('poll-error');
+  errorEl.style.display = 'none';
+  const question = document.getElementById('poll-question').value.trim();
+  const options = Array.from(document.querySelectorAll('.poll-option-input'))
+    .map((el) => el.value.trim())
+    .filter(Boolean);
+  if (!question || options.length < 2) {
+    errorEl.textContent = 'A question and at least 2 options are required';
+    errorEl.style.display = 'block';
+    return;
+  }
+  try {
+    const { poll } = await api(`/api/articles/${articleId}/poll`, { method: 'POST', body: JSON.stringify({ question, options }) });
+    renderPoll(poll);
+  } catch (err) {
+    errorEl.textContent = err.message;
+    errorEl.style.display = 'block';
+  }
+}
+
+async function deletePoll(articleId) {
+  if (!confirm('Delete this poll? Existing votes will be lost.')) return;
+  await api(`/api/articles/${articleId}/poll`, { method: 'DELETE' });
+  renderPoll(null);
 }
 
 function showForm() {
@@ -245,6 +310,9 @@ function editArticle(article) {
   document.getElementById('canonical-event-section').style.display = 'block';
   renderCanonicalEvent(null); // clear stale state from any previously-edited article while this one loads
   loadCanonicalEvent(article.id);
+
+  document.getElementById('poll-section').style.display = 'block';
+  loadPoll(article.id);
 
   showForm();
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -329,6 +397,13 @@ async function initArticlesPage() {
   });
   document.getElementById('link-canonical-event-btn').addEventListener('click', () => {
     linkCanonicalEvent(document.getElementById('article-id').value);
+  });
+  document.getElementById('poll-add-option-btn').addEventListener('click', () => addPollOptionInput(''));
+  document.getElementById('create-poll-btn').addEventListener('click', () => {
+    createPoll(document.getElementById('article-id').value);
+  });
+  document.getElementById('delete-poll-btn').addEventListener('click', () => {
+    deletePoll(document.getElementById('article-id').value);
   });
 
   document.getElementById('article-form').addEventListener('submit', async (e) => {
