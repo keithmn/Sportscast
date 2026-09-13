@@ -74,4 +74,67 @@ async function fetchCanonicalStandings(localCompetitionId) {
     }));
 }
 
-module.exports = { fetchCanonicalStandings };
+// Article -> Data Platform Event link (gap #17 of the 2026-09 remediation
+// audit: "no true data/media integration contract... any Article<->Fixture
+// content-graph link... remains genuinely absent"). An Event there is a
+// company-level occurrence (tournament, signing, athlete achievement —
+// see that repo's Event model comment), not the same thing as a Fixture;
+// this is deliberately the broader of the two to link against, since most
+// of what Sportscast actually publishes (a signing story, a tournament
+// preview) isn't fixture-shaped at all.
+//
+// Same fail-soft contract as fetchCanonicalStandings: no mapping, a
+// network error, or a 404 (the Event was deleted on the other side) all
+// return null, never throw. The mapping itself is only ever created after
+// a live fetch already succeeded once (see routes/articles.js's link
+// endpoint) — there is no path that stores a canonicalId nobody has ever
+// confirmed exists.
+async function fetchCanonicalEvent(localArticleId) {
+  const mapping = await prisma.canonicalMapping.findUnique({
+    where: {
+      localEntityType_localId_provider: {
+        localEntityType: 'ARTICLE',
+        localId: localArticleId,
+        provider: 'underdawgs-data',
+      },
+    },
+  });
+  if (!mapping) return null;
+
+  const data = await fetchWithTimeout(`${DATA_PLATFORM_BASE}/events/${encodeURIComponent(mapping.canonicalId)}`);
+  const event = data?.event;
+  if (!event) return null;
+
+  return {
+    id: event.id,
+    title: event.title,
+    category: event.category,
+    status: event.status,
+    competitionName: event.competition?.name ?? null,
+    teamName: event.team?.name ?? null,
+    athleteName: event.athlete?.fullName ?? null,
+  };
+}
+
+// Live-verifies a Data Platform Event id actually exists before
+// routes/articles.js is allowed to store a CanonicalMapping pointing at
+// it — the only way this repo can guarantee it never links to a
+// fabricated or mistyped id. Returns the same shape as
+// fetchCanonicalEvent (so the caller can show the editor what they're
+// about to link to), or null if it doesn't resolve.
+async function verifyCanonicalEvent(canonicalEventId) {
+  const data = await fetchWithTimeout(`${DATA_PLATFORM_BASE}/events/${encodeURIComponent(canonicalEventId)}`);
+  const event = data?.event;
+  if (!event) return null;
+  return {
+    id: event.id,
+    title: event.title,
+    category: event.category,
+    status: event.status,
+    competitionName: event.competition?.name ?? null,
+    teamName: event.team?.name ?? null,
+    athleteName: event.athlete?.fullName ?? null,
+  };
+}
+
+module.exports = { fetchCanonicalStandings, fetchCanonicalEvent, verifyCanonicalEvent };

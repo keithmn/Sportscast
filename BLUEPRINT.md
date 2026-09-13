@@ -942,3 +942,33 @@ removed show's URL (`/show.html?slug=the-ruck`) now cleanly shows "Show
 not found" rather than erroring, `shows.html` unaffected, and
 `GET /api/articles?contentType=VIDEO_POST` confirms only "The Sportscast"
 remains.
+
+## 29. Article ↔ Data Platform Event link (2026-09-13)
+
+Closes the "Article↔Fixture content-graph link... genuinely absent" half
+of gap #17 (2026-09 remediation audit). An editor can now link an Article
+to a company-level `Event` on the separate Underdawgs Sports Data
+platform (a tournament, a signing, an athlete achievement — not the same
+thing as a Fixture, and broader: most of what this site publishes isn't
+fixture-shaped at all) by pasting its Data Platform id into the article
+editor's new "Canonical Event" section.
+
+**Never stores an unverified link**: `PUT /api/articles/:id/canonical-event`
+live-fetches `GET /v1/events/:id` from the Data Platform before writing
+anything — an id that doesn't resolve (typo, deleted row, wrong repo's
+id) is rejected with a 422, same discipline as the zero-fabrication rule
+applied to a cross-repo reference instead of to a fact. The mapping
+itself reuses `CanonicalMapping` (already the Competition-standings
+bridge's own table — one generic entityType/entityId table, not a new
+one per relationship), keyed `localEntityType: 'ARTICLE'`.
+
+**Fails soft on read**: the public article page (`server/lib/canonicalData.js`'s
+new `fetchCanonicalEvent`) returns `null` — never throws — on no mapping,
+a network error, or the Event having been deleted on the other side
+since linking; the article renders exactly as it would with no link at
+all. Verified end-to-end against a scratch SQLite copy and a local stub
+standing in for the Data Platform (no real Event objects exist there yet
+to link against — the architecture is real, the row to point at isn't,
+same principle as every other "real architecture, no fabricated content"
+build this session): reject-invalid-id (422), link, fetch, public-page
+display, unlink, and fail-soft-during-an-outage all behave as designed.

@@ -125,6 +125,54 @@ function resetForm() {
   document.getElementById('video-fields').style.display = 'none';
   document.getElementById('article-form-error').style.display = 'none';
   populateCompetitionOptions(document.getElementById('sportId').value);
+  // Only shown once an article actually exists — see editArticle(); a new,
+  // unsaved article has no id to link a canonical Event against yet.
+  document.getElementById('canonical-event-section').style.display = 'none';
+  document.getElementById('canonical-event-id-input').value = '';
+  document.getElementById('canonical-event-error').style.display = 'none';
+}
+
+function renderCanonicalEvent(event) {
+  const el = document.getElementById('canonical-event-current');
+  if (!event) {
+    el.innerHTML = `<span style="color:var(--text-secondary); font-size:var(--text-small);">Not linked to a canonical Event.</span>`;
+    return;
+  }
+  const subject = event.competitionName || event.teamName || event.athleteName || '';
+  el.innerHTML = `
+    <span class="pill">${escapeHtml(event.category)}</span>
+    <strong>${escapeHtml(event.title)}</strong>${subject ? ` — ${escapeHtml(subject)}` : ''}
+    <button type="button" class="btn-outline-sm" id="unlink-canonical-event-btn" style="margin-left:0.5rem;">Unlink</button>`;
+  document.getElementById('unlink-canonical-event-btn').addEventListener('click', () => unlinkCanonicalEvent());
+}
+
+async function loadCanonicalEvent(articleId) {
+  const { canonicalEvent } = await api(`/api/articles/${articleId}/canonical-event`);
+  renderCanonicalEvent(canonicalEvent);
+}
+
+async function linkCanonicalEvent(articleId) {
+  const errorEl = document.getElementById('canonical-event-error');
+  errorEl.style.display = 'none';
+  const canonicalEventId = document.getElementById('canonical-event-id-input').value.trim();
+  if (!canonicalEventId) return;
+  try {
+    const { canonicalEvent } = await api(`/api/articles/${articleId}/canonical-event`, {
+      method: 'PUT',
+      body: JSON.stringify({ canonicalEventId }),
+    });
+    document.getElementById('canonical-event-id-input').value = '';
+    renderCanonicalEvent(canonicalEvent);
+  } catch (err) {
+    errorEl.textContent = err.message;
+    errorEl.style.display = 'block';
+  }
+}
+
+async function unlinkCanonicalEvent() {
+  const articleId = document.getElementById('article-id').value;
+  await api(`/api/articles/${articleId}/canonical-event`, { method: 'DELETE' });
+  renderCanonicalEvent(null);
 }
 
 function showForm() {
@@ -193,6 +241,11 @@ function editArticle(article) {
   });
 
   document.getElementById('video-fields').style.display = article.contentType === 'VIDEO_POST' ? 'block' : 'none';
+
+  document.getElementById('canonical-event-section').style.display = 'block';
+  renderCanonicalEvent(null); // clear stale state from any previously-edited article while this one loads
+  loadCanonicalEvent(article.id);
+
   showForm();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -273,6 +326,9 @@ async function initArticlesPage() {
   });
   document.getElementById('clubs-checkboxes').addEventListener('change', (e) => {
     if (e.target.classList.contains('club-checkbox')) populatePlayerOptions(getSelectedClubIds());
+  });
+  document.getElementById('link-canonical-event-btn').addEventListener('click', () => {
+    linkCanonicalEvent(document.getElementById('article-id').value);
   });
 
   document.getElementById('article-form').addEventListener('submit', async (e) => {

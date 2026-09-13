@@ -158,6 +158,15 @@
               <textarea id="chapters" rows="4" placeholder="00:00 Intro&#10;03:20 The interview begins"></textarea>
             </div>
           </div>
+          <div id="canonical-event-section" class="form-field" style="display:none; border-top:1px solid var(--border); padding-top:1rem; margin-top:0.5rem;">
+            <label>Canonical Event (optional — links this article to a real event on the Underdawgs Sports Data platform)</label>
+            <div id="canonical-event-current" style="margin-bottom:0.5rem;"></div>
+            <div class="form-row">
+              <input type="text" id="canonical-event-id-input" placeholder="Data Platform Event id (uuid)" style="flex:1;">
+              <button type="button" class="btn-outline-sm" id="link-canonical-event-btn">Link</button>
+            </div>
+            <p class="form-error" id="canonical-event-error" style="display:none;"></p>
+          </div>
           <p class="form-error" id="article-form-error" style="display:none;"></p>
           <div class="form-row">
             <button type="submit" class="btn-red">Save</button>

@@ -30,6 +30,14 @@ async function loadArticle() {
     ? `<img class="article-cover" src="${escapeHtml(article.coverImageUrl)}" alt="${escapeHtml(article.title)}">`
     : '';
 
+  // Fails soft server-side (see server/lib/canonicalData.js) — a Data
+  // Platform outage or an unlinked article just means this is absent,
+  // never a broken page.
+  const ce = article.canonicalEvent;
+  const canonicalEventHtml = ce
+    ? `<p class="source-note">Related to: ${escapeHtml(ce.competitionName || ce.teamName || ce.athleteName || ce.title)}${ce.competitionName || ce.teamName || ce.athleteName ? ` — ${escapeHtml(ce.title)}` : ''}</p>`
+    : '';
+
   root.innerHTML = `
     <div class="article-header">
       <span class="section-label">${escapeHtml(article.sport.name)}${article.videoSeries ? ' · ' + escapeHtml(article.videoSeries) : ''}</span>
@@ -51,6 +59,7 @@ async function loadArticle() {
       ${article.competitions && article.competitions.length ? `<p class="source-note">Competitions: ${article.competitions.map((c) => `<a href="/competition.html?slug=${encodeURIComponent(c.slug)}">${escapeHtml(c.name)}</a>`).join(', ')}</p>` : ''}
       ${article.clubs && article.clubs.length ? `<p class="source-note">Clubs: ${article.clubs.map((c) => `<a href="/club.html?slug=${encodeURIComponent(c.slug)}">${escapeHtml(c.name)}</a>`).join(', ')}</p>` : ''}
       ${article.players && article.players.length ? `<p class="source-note">Players: ${article.players.map((p) => `<a href="/player.html?slug=${encodeURIComponent(p.slug)}">${escapeHtml(p.name)}</a>`).join(', ')}</p>` : ''}
+      ${canonicalEventHtml}
     </div>`;
 }
 
