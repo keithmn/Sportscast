@@ -12,6 +12,7 @@ if (typeof globalThis.File === 'undefined') {
 
 const path = require('path');
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
 const cron = require('node-cron');
@@ -81,6 +82,20 @@ app.use(session({
     sameSite: 'lax',
   },
 }));
+
+// Login brute-forcing was flagged as the one open item in an earlier
+// security pass (BLUEPRINT.md's audit notes: "no login rate-limiting,
+// mitigated only by bcrypt cost") — this is that fix. Scoped to the login
+// route specifically (not every /api/auth/* route), matching the Data
+// Platform's own identical pattern (apps/api/src/index.ts).
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts — try again later.' },
+});
+app.use('/api/auth/login', loginLimiter);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/articles', articleRoutes);

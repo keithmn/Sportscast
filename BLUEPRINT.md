@@ -1091,3 +1091,11 @@ visitor's own choice marked) if it has — verified end-to-end with a real
 headless-Chrome session: poll renders, a click actually votes, results
 show correctly, and a page reload remembers the vote (no vote buttons
 shown again) without needing an account.
+
+## 34. Small real gaps closed: login rate-limiting, dead STEWARD reference, undefined .btn-link (2026-09-13)
+
+Three independent, previously-flagged findings, fixed together as one small pass:
+
+- **No login rate-limiting** (flagged in an earlier security pass as the one open item, "mitigated only by bcrypt cost"). `server/index.js` now scopes an `express-rate-limit` limiter to `/api/auth/login` specifically (10 attempts / 15 min), the exact same pattern the Data Platform's `apps/api` already uses. Verified: an 11th rapid attempt from one client returns 429, an unrelated route is unaffected.
+- **Dead `STEWARD` role reference** (`server/routes/taxonomy.js`'s `POST /sports`) — `User.role` has only ever supported `ADMIN`/`EDITOR` (the schema field's own comment says so); `STEWARD` could never match a real user, so this was inert, misleading dead code, not a real permission. Removed.
+- **`.btn-link` was entirely undefined** in `public/css/site.css` — every use (`public/index.html`'s "All episodes →", two spots in `public/js/scores.js`, and this session's own admin Unlink/Delete-poll buttons) rendered as an unstyled default anchor. Added a real rule matching the button family's typography (Montserrat, uppercase, letter-spacing) but with no box — this one's always an inline text link, never a boxed CTA. Verified via computed style in a real headless-Chrome session.

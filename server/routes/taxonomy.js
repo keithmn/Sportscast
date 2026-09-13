@@ -11,7 +11,7 @@ router.get('/sports', async (req, res) => {
   res.json({ sports });
 });
 
-router.post('/sports', requireRole('ADMIN', 'EDITOR', 'STEWARD'), async (req, res) => {
+router.post('/sports', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({ error: 'name is required' });
   const sport = await prisma.sport.create({ data: { name, slug: slugify(name) } });

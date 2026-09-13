@@ -210,6 +210,14 @@ img { display: block; max-width: 100%; }
 .btn-outline-sm { font-size: 0.85rem; color: var(--text-secondary); border: 1px solid var(--border); padding: 0.6rem 1.25rem; border-radius: var(--radius); }
 .btn-outline-sm:hover { color: var(--text-primary); border-color: var(--text-secondary); }
 .btn-sm-red { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sc-black); background: var(--sc-gold); padding: 0.5rem 1rem; display: inline-block; border-radius: var(--radius); }
+/* Referenced across public/index.html and public/js/scores.js as a plain
+   inline text link ("All episodes →", "View full table →") — never a
+   boxed CTA like the buttons above, so no padding/background/border of
+   its own, just the family's uppercase/letter-spacing treatment. Was
+   entirely undefined (known tech debt, BLUEPRINT.md's audit notes) —
+   every use rendered as an unstyled default anchor until now. */
+.btn-link { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold-text); text-decoration: none; }
+.btn-link:hover { text-decoration: underline; }
 .btn-sm-red:hover { background: var(--sc-gold-hover); }
 
 /* ===== PAGE HEADER ===== */
