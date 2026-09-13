@@ -972,3 +972,31 @@ to link against — the architecture is real, the row to point at isn't,
 same principle as every other "real architecture, no fabricated content"
 build this session): reject-invalid-id (422), link, fetch, public-page
 display, unlink, and fail-soft-during-an-outage all behave as designed.
+
+## 30. Follow system gets a durable (still anonymous) mirror (2026-09-13)
+
+Gap #5 (2026-09 remediation audit): the Follow system (`public/js/
+follows.js`) was localStorage-only — real, working, but doesn't survive a
+storage wipe/device change, and nothing server-side ever sees a follow at
+all. No visitor accounts exist yet, so this doesn't become an
+authenticated preference system; it stays anonymous, but durable.
+
+New `Follow` model (`anonymousId`/`entityType`/`entitySlug`/`name`/
+`href`) — `anonymousId` is a random token `follows.js` generates once per
+browser (`crypto.randomUUID()`, localStorage-persisted), identifying a
+device, never a person. New `server/routes/follows.js`
+(`GET/POST/DELETE /api/follows`, entityType allow-listed, no auth needed
+since there's no account to require).
+
+The interaction pattern on the page is unchanged: `toggleFollow()` still
+writes to localStorage first and updates the button instantly, then
+fires a best-effort `syncFollowToServer()` call that's swallowed on
+failure — offline, an ad-blocker, whatever — never delaying or breaking
+the local toggle. This is a durability layer added underneath the
+existing UX, not a redesign of it, so it carries over unchanged again if
+this ever becomes a real authenticated preference system later (same
+reasoning the original 2026-08 comment gave for the localStorage design).
+
+Verified end-to-end against a scratch SQLite copy: create/list/upsert
+(re-following updates the row, not a duplicate)/delete, plus rejecting an
+invalid anonymousId and an unlisted entityType.

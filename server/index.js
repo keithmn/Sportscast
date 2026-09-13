@@ -27,6 +27,7 @@ const playerRoutes = require('./routes/players');
 const sourceRoutes = require('./routes/sources');
 const monitoringRoutes = require('./routes/monitoring');
 const showRoutes = require('./routes/shows');
+const followRoutes = require('./routes/follows');
 // Kits/Shop (Team/Kit/Order/OrderItem) retired for legal reasons.
 // server/routes/shop.js and server/routes/orders.js stay on disk, dormant
 // not deleted, unmounted here. The public-facing pages (shop.html,
@@ -91,6 +92,7 @@ app.use('/api/players', playerRoutes);
 app.use('/api/sources', sourceRoutes);
 app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/shows', showRoutes);
+app.use('/api/follows', followRoutes);
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 

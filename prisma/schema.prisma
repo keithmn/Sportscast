@@ -517,3 +517,26 @@ model MonitoredItem {
   // same reasoning as Fixture's composite unique key above.
   @@unique([sourceId, externalUrl])
 }
+
+// ===================== FOLLOW (2026-09-13) =====================
+// Durable mirror of public/js/follows.js's localStorage-based Follow
+// system — no real visitor accounts exist yet, so there is no user to own
+// this. anonymousId is a random token public/js/follows.js generates once
+// per browser and keeps in localStorage alongside the follows themselves;
+// it identifies a device, never a person, and carries no PII. This closes
+// the "doesn't survive a storage wipe" gap in the original localStorage-
+// only version without inventing accounts that don't exist — the
+// interaction stays exactly the same (instant, no login), this is purely
+// a durability layer underneath it.
+model Follow {
+  id          String   @id @default(cuid())
+  anonymousId String
+  entityType  String // club | player | competition | sport
+  entitySlug  String
+  name        String
+  href        String
+  createdAt   DateTime @default(now())
+
+  @@unique([anonymousId, entityType, entitySlug])
+  @@index([anonymousId])
+}
