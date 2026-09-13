@@ -92,6 +92,79 @@ model Article {
   // "promote" action (server/routes/monitoring.js) — optional, most
   // articles are still written from scratch with no monitored origin.
   monitoredFrom MonitoredItem?
+  // Set only for a VIDEO_POST belonging to a show that's been upgraded to
+  // a real Show/Episode record (currently just the flagship — see Show,
+  // below). The 5 niche shows stay on the legacy videoSeries/episodeLabel/
+  // runtimeLabel/youtubeId fields above, untouched and still functional,
+  // just no longer linked from anywhere in the nav — dormant, not deleted.
+  episode       Episode?
+}
+
+// ===================== SHOWS (flagship only, 2026-09-13) =====================
+// Reframes the flagship from a fixed shows-data.js entry into a real data
+// model — seasons, episode numbers, hosts/guests, transcripts, chapters —
+// per the explicit decision to go deep on one show rather than stay
+// shallow across six. The other 5 (The Hydration Break, The Ruck, Bully
+// Off, Fast Break, The Circuit) are deliberately NOT modelled here: they
+// keep working exactly as before via Article's legacy video fields, just
+// unreferenced from shows.html/nav — dormant, not deleted, reversible
+// later without a migration.
+model Show {
+  id            String    @id @default(cuid())
+  slug          String    @unique
+  name          String
+  tagline       String
+  description   String
+  color         String
+  coverImageUrl String?
+  sportLabel    String
+  isActive      Boolean   @default(true)
+  seasons       Season[]
+  episodes      Episode[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Season {
+  id        String    @id @default(cuid())
+  showId    String
+  show      Show      @relation(fields: [showId], references: [id])
+  number    Int
+  title     String?
+  startDate DateTime?
+  endDate   DateTime?
+  episodes  Episode[]
+  createdAt DateTime  @default(now())
+
+  @@unique([showId, number])
+}
+
+// One per flagship episode, 1:1 with the Article that actually carries the
+// title/dek/body/cover/publish-state a visitor sees — Episode only holds
+// the fields specific to being an episode. articleId is nullable because
+// an episode could theoretically be scheduled/planned before its article
+// is written, though today every Episode is created alongside its Article.
+model Episode {
+  id              String    @id @default(cuid())
+  showId          String
+  show            Show      @relation(fields: [showId], references: [id])
+  seasonId        String?
+  season          Season?   @relation(fields: [seasonId], references: [id])
+  articleId       String?   @unique
+  article         Article?  @relation(fields: [articleId], references: [id])
+  episodeNumber   Int?
+  host            String?
+  guest           String?
+  youtubeId       String?
+  durationSeconds Int?
+  recordingDate   DateTime?
+  transcript      String?
+  // Simple text blob (e.g. "00:00 Intro\n03:20 The interview begins") —
+  // not a separate table. A chapter list is small and always read as a
+  // whole; splitting it out would be structure this doesn't need yet.
+  chapters        String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 // ===================== SCORES & FIXTURES (football-first) =====================

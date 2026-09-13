@@ -176,6 +176,12 @@ function editArticle(article) {
   document.getElementById('videoSeries').value = article.videoSeries || '';
   document.getElementById('episodeLabel').value = article.episodeLabel || '';
   document.getElementById('runtimeLabel').value = article.runtimeLabel || '';
+  document.getElementById('episodeNumber').value = article.episode?.episodeNumber ?? '';
+  document.getElementById('host').value = article.episode?.host || '';
+  document.getElementById('guest').value = article.episode?.guest || '';
+  document.getElementById('recordingDate').value = article.episode?.recordingDate ? article.episode.recordingDate.slice(0, 10) : '';
+  document.getElementById('transcript').value = article.episode?.transcript || '';
+  document.getElementById('chapters').value = article.episode?.chapters || '';
   setSelectedTagIds(article.tags.map((t) => t.id));
 
   populateCompetitionOptions(article.sport.id);
@@ -214,6 +220,12 @@ function collectFormData() {
     videoSeries: document.getElementById('videoSeries').value.trim() || null,
     episodeLabel: document.getElementById('episodeLabel').value.trim() || null,
     runtimeLabel: document.getElementById('runtimeLabel').value.trim() || null,
+    episodeNumber: document.getElementById('episodeNumber').value ? parseInt(document.getElementById('episodeNumber').value, 10) : null,
+    host: document.getElementById('host').value.trim() || null,
+    guest: document.getElementById('guest').value.trim() || null,
+    recordingDate: document.getElementById('recordingDate').value || null,
+    transcript: document.getElementById('transcript').value.trim() || null,
+    chapters: document.getElementById('chapters').value.trim() || null,
     competitionIds: getSelectedCompetitionIds(),
     clubIds: getSelectedClubIds(),
     playerIds: getSelectedPlayerIds(),

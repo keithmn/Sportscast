@@ -1,13 +1,9 @@
-function nicheShowCardHtml(show) {
-  return `
-    <a class="niche-show-card" href="/show.html?slug=${encodeURIComponent(show.slug)}" style="--show-accent:${show.color};" data-video-series="${escapeHtml(show.videoSeries)}">
-      ${show.coverImageUrl ? `<img class="niche-show-thumb" src="${escapeHtml(show.coverImageUrl)}" alt="" onerror="this.remove()">` : ''}
-      <span class="niche-show-sport">${escapeHtml(show.sportLabel)}</span>
-      <span class="niche-show-name">${escapeHtml(show.name)}</span>
-      <span class="niche-show-tagline">${escapeHtml(show.tagline)}</span>
-      <span class="niche-show-latest" data-latest-badge>Loading…</span>
-    </a>`;
-}
+// shows.html's bootstrap — "Watch." Simplified 2026-09-13: this used to be
+// the flagship promo card plus a sport-category toggle over 5 niche shows
+// (shows-data.js). Now there's one show, so this page is just the flagship
+// promo plus its full episode list — no toggle, no niche-show cards.
+// The 5 niche shows still work at their own /show.html?slug=... URL
+// (js/show.js's legacy fallback), just not linked from here anymore.
 
 async function loadFlagshipCard() {
   const { articles } = await api('/api/articles?contentType=VIDEO_POST&videoSeries=' + encodeURIComponent('The Sportscast') + '&limit=1');
@@ -19,29 +15,35 @@ async function loadFlagshipCard() {
   if (ep.coverImageUrl) document.querySelector('#flagship-card .ep-art-photo').src = ep.coverImageUrl;
 }
 
-// Sport-category toggle over the 5 niche shows — the flagship stays a
-// separate, always-visible card above this (see loadFlagshipCard), never
-// part of the toggle. Each niche show's own sportLabel becomes its
-// category; today that's a 1:1 mapping (one show per sport/bundle), but
-// nothing here assumes that stays true if a sport ever gets a second show.
-function nicheShowCategories() {
-  const niche = SHOWS.filter((s) => s.kind === 'niche');
-  const bySport = new Map();
-  niche.forEach((show) => {
-    if (!bySport.has(show.sportLabel)) bySport.set(show.sportLabel, []);
-    bySport.get(show.sportLabel).push(show);
-  });
-  return Array.from(bySport, ([label, items]) => ({ key: items[0].slug, label, items }));
+function episodeCardHtml(ep) {
+  const a = ep.article;
+  const metaParts = [ep.episodeNumber ? `Episode ${ep.episodeNumber}` : null, ep.host, ep.guest].filter(Boolean);
+  return `
+    <a href="/article.html?slug=${encodeURIComponent(a.slug)}" style="display:contents;">
+      <article class="story">
+        ${a.coverImageUrl ? `<img class="story-thumb" src="${escapeHtml(a.coverImageUrl)}" alt="">` : ''}
+        <span class="story-cat">${escapeHtml(metaParts.join(' · ') || 'Episode')}</span>
+        <h3 class="story-hl">${escapeHtml(a.title)}</h3>
+        <p class="story-desc">${escapeHtml(a.dek)}</p>
+        <div class="story-foot">
+          <span class="story-author">${ep.durationSeconds ? `${Math.round(ep.durationSeconds / 60)} min` : ''}</span>
+          <span class="story-time">${formatDate(a.publishedAt)}</span>
+        </div>
+      </article>
+    </a>`;
+}
+
+async function loadEpisodes() {
+  const root = document.getElementById('episodes-root');
+  const res = await fetch('/api/shows/the-sportscast');
+  if (!res.ok) { root.innerHTML = '<p class="empty-state">No episodes published yet.</p>'; return; }
+  const { show } = await res.json();
+  root.innerHTML = show.episodes.length
+    ? `<div class="card-grid">${show.episodes.map(episodeCardHtml).join('')}</div>`
+    : '<p class="empty-state">No episodes published yet.</p>';
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  renderCategoryToggle({
-    container: document.getElementById('niche-shows-toggle'),
-    categories: nicheShowCategories(),
-    renderItem: nicheShowCardHtml,
-    afterRender: (panelEl) => {
-      if (panelEl) loadLatestBadges(panelEl).catch((err) => console.warn('Could not load show badges:', err));
-    },
-  });
   loadFlagshipCard().catch((err) => console.warn('Could not load flagship episode:', err));
+  loadEpisodes().catch((err) => console.warn('Could not load episodes:', err));
 });

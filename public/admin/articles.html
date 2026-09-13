@@ -128,6 +128,35 @@
                 <input type="text" id="runtimeLabel" placeholder="52 min">
               </div>
             </div>
+            <p style="margin:0.5rem 0; font-size:var(--text-small); color:var(--text-secondary);">Episode details below only take effect when the series name above is "The Sportscast" — the flagship's own data model. Other series stay on the fields above only.</p>
+            <div class="form-row">
+              <div class="form-field">
+                <label for="episodeNumber">Episode number</label>
+                <input type="number" id="episodeNumber" placeholder="5">
+              </div>
+              <div class="form-field">
+                <label for="host">Host</label>
+                <input type="text" id="host" placeholder="Keith Nyahach">
+              </div>
+              <div class="form-field">
+                <label for="guest">Guest</label>
+                <input type="text" id="guest" placeholder="e.g. a federation official, an athlete">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label for="recordingDate">Recording date</label>
+                <input type="date" id="recordingDate">
+              </div>
+            </div>
+            <div class="form-field">
+              <label for="transcript">Transcript</label>
+              <textarea id="transcript" rows="6"></textarea>
+            </div>
+            <div class="form-field">
+              <label for="chapters">Chapters</label>
+              <textarea id="chapters" rows="4" placeholder="00:00 Intro&#10;03:20 The interview begins"></textarea>
+            </div>
           </div>
           <p class="form-error" id="article-form-error" style="display:none;"></p>
           <div class="form-row">

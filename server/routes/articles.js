@@ -5,6 +5,37 @@ const { requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Upserts an Episode row for a VIDEO_POST article, but only when its
+// videoSeries names a show that's actually been upgraded to a real Show
+// record (currently just "The Sportscast"). Every other videoSeries value
+// (the 5 dormant niche shows) is left exactly as it was — legacy fields
+// on Article only, no Episode row, nothing to migrate.
+async function syncEpisodeForArticle(article, episodeFields) {
+  if (article.contentType !== 'VIDEO_POST' || !article.videoSeries) return;
+  const show = await prisma.show.findFirst({ where: { name: article.videoSeries } });
+  if (!show) return;
+
+  const epNumMatch = (article.episodeLabel || '').match(/(\d+)/);
+  const durationMatch = (article.runtimeLabel || '').match(/(\d+)/);
+  const data = {
+    showId: show.id,
+    episodeNumber: episodeFields.episodeNumber ?? (epNumMatch ? parseInt(epNumMatch[1], 10) : null),
+    host: episodeFields.host ?? null,
+    guest: episodeFields.guest ?? null,
+    youtubeId: article.youtubeId || null,
+    durationSeconds: durationMatch ? parseInt(durationMatch[1], 10) * 60 : null,
+    recordingDate: episodeFields.recordingDate ? new Date(episodeFields.recordingDate) : null,
+    transcript: episodeFields.transcript ?? null,
+    chapters: episodeFields.chapters ?? null,
+  };
+
+  await prisma.episode.upsert({
+    where: { articleId: article.id },
+    update: data,
+    create: { ...data, articleId: article.id },
+  });
+}
+
 const articleInclude = {
   sport: true,
   author: true,
@@ -12,6 +43,7 @@ const articleInclude = {
   competitions: true,
   clubs: true,
   players: true,
+  episode: true,
 };
 
 // ---- Public: list published articles ----
@@ -80,6 +112,7 @@ router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
     title, dek, body, coverImageUrl, sportId, authorId, tagIds,
     status, featured, contentType, isBrief, youtubeId, videoSeries,
     episodeLabel, runtimeLabel, competitionIds, clubIds, playerIds,
+    episodeNumber, host, guest, recordingDate, transcript, chapters,
   } = req.body;
 
   if (!title || !dek || !body || !sportId || !authorId) {
@@ -125,7 +158,10 @@ router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
     });
   }
 
-  res.status(201).json({ article });
+  await syncEpisodeForArticle(article, { episodeNumber, host, guest, recordingDate, transcript, chapters });
+  const freshArticle = await prisma.article.findUnique({ where: { id: article.id }, include: articleInclude });
+
+  res.status(201).json({ article: freshArticle });
 });
 
 // ---- Admin: update article ----
@@ -137,7 +173,10 @@ router.put('/:id', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
     title, dek, body, coverImageUrl, sportId, authorId, tagIds,
     status, featured, contentType, isBrief, youtubeId, videoSeries,
     episodeLabel, runtimeLabel, competitionIds, clubIds, playerIds,
+    episodeNumber, host, guest, recordingDate, transcript, chapters,
   } = req.body;
+
+  const existingEpisode = await prisma.episode.findUnique({ where: { articleId: existing.id } });
 
   const wasPublished = existing.status === 'PUBLISHED';
   const willBePublished = status === 'PUBLISHED';
@@ -175,7 +214,17 @@ router.put('/:id', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
     });
   }
 
-  res.json({ article });
+  await syncEpisodeForArticle(article, {
+    episodeNumber: episodeNumber !== undefined ? episodeNumber : existingEpisode?.episodeNumber,
+    host: host !== undefined ? host : existingEpisode?.host,
+    guest: guest !== undefined ? guest : existingEpisode?.guest,
+    recordingDate: recordingDate !== undefined ? recordingDate : existingEpisode?.recordingDate,
+    transcript: transcript !== undefined ? transcript : existingEpisode?.transcript,
+    chapters: chapters !== undefined ? chapters : existingEpisode?.chapters,
+  });
+  const freshArticle = await prisma.article.findUnique({ where: { id: article.id }, include: articleInclude });
+
+  res.json({ article: freshArticle });
 });
 
 // ---- Admin: delete article ----
