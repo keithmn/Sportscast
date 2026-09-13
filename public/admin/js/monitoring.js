@@ -16,12 +16,25 @@ function relevancePillHtml(score) {
   return `<span class="status-badge ${cls}">${score}</span>`;
 }
 
+// item.externalUrl comes from scraped/RSS/YouTube third-party content, so
+// it's untrusted — only ever render it as a clickable href if it's a plain
+// http(s) URL. Anything else (e.g. a javascript: URI) is shown as inert
+// escaped text instead of a link, since escaping alone stops attribute
+// breakout but not a dangerous URI scheme.
+function externalLinkHtml(url, label) {
+  const isSafe = /^https?:\/\//i.test(url || '');
+  const safeLabel = escapeHtml(label);
+  return isSafe
+    ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${safeLabel}</a>`
+    : safeLabel;
+}
+
 function itemRowHtml(item) {
   const promoted = item.status === 'PROMOTED';
   return `
     <tr data-row-id="${item.id}">
       <td>${escapeHtml(item.source.name)}<br><span style="color:var(--text-secondary); font-size:0.8em;">${escapeHtml(CATEGORY_LABELS[item.source.category] || item.source.category)}</span></td>
-      <td style="max-width:320px;"><a href="${item.externalUrl}" target="_blank" rel="noopener">${escapeHtml(item.title)}</a><br><span style="color:var(--text-secondary); font-size:0.8em;">${formatDate(item.publishedAt || item.fetchedAt)}</span></td>
+      <td style="max-width:320px;">${externalLinkHtml(item.externalUrl, item.title)}<br><span style="color:var(--text-secondary); font-size:0.8em;">${formatDate(item.publishedAt || item.fetchedAt)}</span></td>
       <td style="max-width:360px;">${escapeHtml(item.aiSummary || '—')}</td>
       <td>${relevancePillHtml(item.aiRelevanceScore)}</td>
       <td><span class="status-badge ${item.status === 'PROMOTED' ? 'published' : 'draft'}">${item.status}</span>${promoted && item.promotedArticle ? `<br><a href="/admin/articles.html" style="font-size:0.8em;">View draft</a>` : ''}</td>

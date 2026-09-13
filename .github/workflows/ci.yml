@@ -1,0 +1,51 @@
+name: CI
+
+# There are no automated tests in this repo yet (see BLUEPRINT.md's audit
+# notes), so this pipeline's job is narrower than a normal test suite: catch
+# what would otherwise only be discovered by a broken production deploy —
+# a bad migration, a boot-time crash, a dependency with a known-high/critical
+# vulnerability. It's a floor, not full coverage.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  boot-and-migrate:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: file:./ci-test.db
+      SESSION_SECRET: ci-test-secret-not-used-in-production
+      PORT: 3000
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply migrations against a throwaway SQLite database
+        run: npx prisma migrate deploy
+
+      - name: Boot the server and confirm it responds
+        run: |
+          node server/index.js &
+          SERVER_PID=$!
+          for i in $(seq 1 10); do
+            if curl -sf http://localhost:3000/api/sports > /dev/null; then
+              echo "Server responded — boot OK"
+              kill $SERVER_PID
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Server never responded within 10s"
+          kill $SERVER_PID 2>/dev/null || true
+          exit 1
+
+      - name: Fail on known high/critical dependency vulnerabilities
+        run: npm audit --audit-level=high

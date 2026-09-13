@@ -167,8 +167,13 @@ function renderCart() {
 
 document.addEventListener('DOMContentLoaded', () => {
   if (!document.getElementById('shop-root')) return;
-  loadShop().catch((err) => {
-    document.getElementById('shop-root').innerHTML = `<div class="empty-state">Could not load the shop: ${escapeHtml(err.message)}</div>`;
+  // The shop API is currently unmounted server-side (retired for legal
+  // reasons — see server/index.js), so any visitor reaching this page
+  // (it's unlinked from nav/footer, but still reachable by direct URL)
+  // gets a deliberate "not available" message instead of a raw request
+  // error.
+  loadShop().catch(() => {
+    document.getElementById('shop-root').innerHTML = '<div class="empty-state">The shop isn\'t available right now — check back later.</div>';
   });
   // renderCart() no longer called — Kits is display-only for now (see
   // kitTileHtml above). Cart/checkout code below stays dormant, not deleted.

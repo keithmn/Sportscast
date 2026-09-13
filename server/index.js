@@ -13,6 +13,7 @@ if (typeof globalThis.File === 'undefined') {
 const path = require('path');
 const express = require('express');
 const session = require('express-session');
+const FileStore = require('session-file-store')(session);
 const cron = require('node-cron');
 
 const authRoutes = require('./routes/auth');
@@ -38,14 +39,40 @@ const { syncBallDontLie } = require('./jobs/syncBallDontLie');
 const { runMonitoringFetch } = require('./jobs/runMonitoringFetch');
 const { runMonitoringEnrich } = require('./jobs/runMonitoringEnrich');
 
+if (!process.env.SESSION_SECRET) {
+  throw new Error('SESSION_SECRET must be set — refusing to start with a guessable session-signing key.');
+}
+
+// Sessions persist to disk (not the default in-memory MemoryStore), keyed
+// off the same directory Prisma's own SQLite file lives in — /data on
+// Railway (the persistent volume, see DATABASE_URL), a local prisma/
+// subfolder in dev. This means an admin login now survives a redeploy
+// instead of every deploy silently logging every admin out.
+const rawDbPath = (process.env.DATABASE_URL || 'file:./dev.db').replace(/^file:/, '');
+const dbDir = path.isAbsolute(rawDbPath)
+  ? path.dirname(rawDbPath)
+  : path.join(__dirname, '..', 'prisma', path.dirname(rawDbPath));
+const sessionsDir = path.join(dbDir, 'sessions');
+
 const app = express();
+
+// Railway terminates TLS at its own proxy and forwards plain HTTP to this
+// process — without trust proxy, Express never sees the connection as
+// secure, so the secure-cookie setting below would silently stop sessions
+// from persisting at all in production.
+app.set('trust proxy', 1);
 
 app.use(express.json());
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'dev-secret',
+  store: new FileStore({ path: sessionsDir, logFn: () => {}, retries: 0 }),
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 1000 * 60 * 60 * 8 },
+  cookie: {
+    maxAge: 1000 * 60 * 60 * 8,
+    secure: !!process.env.RAILWAY_ENVIRONMENT,
+    sameSite: 'lax',
+  },
 }));
 
 app.use('/api/auth', authRoutes);

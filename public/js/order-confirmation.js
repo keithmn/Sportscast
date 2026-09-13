@@ -35,7 +35,10 @@ async function pollOrder(orderId, attempt = 0) {
   try {
     ({ order } = await api(`/api/orders/${encodeURIComponent(orderId)}`));
   } catch (err) {
-    root.innerHTML = `<div class="empty-state">Could not find this order: ${escapeHtml(err.message)}</div>`;
+    // The orders API is currently unmounted server-side (retired alongside
+    // the shop — see server/index.js) — a generic request-failed message
+    // reads better here than surfacing that as an order-lookup failure.
+    root.innerHTML = '<div class="empty-state">Order lookup isn\'t available right now — check back later.</div>';
     return;
   }
 

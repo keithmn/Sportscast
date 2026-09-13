@@ -22,43 +22,43 @@
 
 ## 2. Architecture, As Built
 
-**Stack:** Node.js + Express + Prisma (SQLite) + vanilla HTML/CSS/JS. No frontend framework, no build step. This is intentional — the site is simple enough that a framework would be overhead, and it means anyone can open a `.html` file and understand the whole page.
+*(Rewritten 2026-09-13 — the version of this section below had drifted badly: it still described a 4-route, single-sync-engine, index.html-has-its-own-stylesheet version of the app. None of that is true anymore. See §J of the founding-team audit artifact for the full independent audit this correction is based on.)*
+
+**Stack:** Node.js + Express + Prisma (SQLite) + vanilla HTML/CSS/JS. No frontend framework, no build step. Still intentional, still true — nothing in the growth below changed that call.
 
 ```
 server/
-  index.js              — app entrypoint, route mounting, static file serving
+  index.js              — app entrypoint: session, 11 mounted routers, static serving, 7 node-cron schedules
   db.js                 — Prisma client singleton
-  middleware/auth.js     — requireRole() session-based auth guard
+  middleware/auth.js     — requireAuth()/requireRole() session-based guards
   routes/
-    auth.js              — login/logout/me
-    articles.js          — full CRUD for articles (public GET, admin-gated writes)
-    taxonomy.js          — sports/tags/authors (read + admin-write)
-    scores.js            — leagues/standings/fixtures (public GET, admin-gated writes) — see §12
+    auth.js, articles.js, taxonomy.js (sports/tags/authors), competitions.js, fixtures.js,
+    submissions.js, clubs.js, players.js, sources.js, monitoring.js, shows.js — all mounted.
+    shop.js, orders.js — NOT mounted (retired for legal reasons, see §7) — left on disk, dormant.
+  jobs/                  — 7 scheduled jobs: syncLeagues, syncSquads, syncKenyaCup, syncTheSportsDB,
+                            syncBallDontLie, runMonitoringFetch, runMonitoringEnrich
   utils/slugify.js
 
 prisma/
-  schema.prisma          — User, Author, Sport, Tag, Article (CMS-only, see §7), League/StandingRow/Fixture (see §12)
-  seed.js                — demo data: sports, authors, articles, show episodes, news briefs, empty league shell
-  dev.db                 — SQLite file (gitignored, regenerate via migrate+seed)
+  schema.prisma          — 21 models: auth/taxonomy, Article (+Show/Season/Episode, §5), Competition/
+                            StandingRow/Fixture, Team/Kit/Order (shop, dormant), Submission, ChangeLog,
+                            Club/Staff/Sponsor/Player, Source/MonitoredItem (newsroom monitoring engine)
+  dev.db                 — SQLite (gitignored). Production path is /data/dev.db, on a Railway persistent
+                            volume — confirmed actually attached and in use, not just assumed.
 
 public/
-  index.html             — homepage (own inline <style>, doesn't use site.css)
-  shows.html             — Shows hub (flagship + 5 niche show cards)
-  show.html?slug=X        — per-show episode archive
-  news.html               — News & Articles: "Latest" briefs strip + "Stories" features grid, one shared sport filter — see §11
-  scores.html              — standings/fixtures, football-only — see §12
-  article.html            — single article/episode view
-  sport.html?sport=X       — per-sport article listing (see §7 for what this lost)
-  css/site.css             — shared stylesheet for every page except index.html
-  js/
-    site.js                — renderNav()/renderFooter(), shared across all pages but index.html
-    home.js, shows.js, show.js, sport.js, article.js, news.js, scores.js — per-page logic
-    shows-data.js           — the fixed show taxonomy (not a DB model, see §5)
-  admin/                   — newsroom CMS (login, dashboard, article editor, scores.html for standings/fixtures entry)
-  images/                  — real photography, see §6
+  ~17 pages: index, article, sport(s), competition, club(s), player, show(s), scores, news, shop
+  (dormant), order-confirmation (dormant), and others.
+  css/site.css           — the ONE shared stylesheet, used by every page including index.html.
+  js/                     — ~20 page/shared-component scripts, no shared framework.
+  admin/                  — newsroom CMS: articles, competitions, clubs, submissions, monitoring,
+                             sources, sports. shop/orders admin pages exist but are unlinked from the
+                             sidebar (their APIs aren't mounted).
 ```
 
-**Why index.html doesn't share site.css:** it was built first, with its own animation/hero treatment, before site.css existed as a shared file. This means **any brand/color/nav change has to be made in two places** — `index.html`'s own `<style>` block *and* `site.css`. This is real, known duplication, not an oversight. Grep before you edit; check both.
+**index.html DOES share `site.css` now** — the old note below claiming otherwise (and the "change things in two places" warning) describes a state that was fixed a while ago and never corrected in this doc. Confirmed by direct inspection: zero `<style>` tags in `index.html`.
+
+**The newsroom monitoring engine exists and isn't described anywhere else in this file** — `Source`/`MonitoredItem` models, `routes/sources.js` + `routes/monitoring.js`, RSS/HTML-scrape/YouTube-channel ingestion (`runMonitoringFetch.js`) and Claude-Haiku-based triage (`runMonitoringEnrich.js`). Nothing it finds reaches readers automatically — an editor must hit "Promote" on `admin/monitoring.html`, which creates a DRAFT article. If you're looking for where AI touches this codebase, this is it, and only this.
 
 **Run it:**
 ```bash
@@ -69,7 +69,9 @@ npm run dev              # http://localhost:3000
 ```
 Demo logins (password `underdoggs2026`): `admin@underdoggs.co.ke`, `editor@underdoggs.co.ke`.
 
-**Env vars** (`.env`): `DATABASE_URL`, `SESSION_SECRET`, `PORT`. `DATA_SERVICE_URL` still exists in `.env` but is **dead** — leftover from the removed data-service integration (§7). Harmless, but delete it if you're cleaning up.
+**Env vars** (`.env`): `DATABASE_URL`, `SESSION_SECRET`, `PORT`, `SITE_BASE_URL`, `FOOTBALL_DATA_API_KEY`, `THESPORTSDB_API_KEY`, `BALLDONTLIE_API_KEY`, `FLW_SECRET_KEY`/`FLW_SECRET_HASH` (Flutterwave — currently unreachable, §7), `ANTHROPIC_API_KEY`, `YOUTUBE_API_KEY`, plus optional `*_CRON` overrides for every scheduled job. `API_FOOTBALL_KEY` still exists in `.env` but is **dead** — evaluated and rejected in favor of Wikidata (stale data, non-commercial terms) — zero code references it. Harmless, but delete it if you're cleaning up. (The older `DATA_SERVICE_URL` var this section used to mention is gone entirely — not even present in `.env` anymore.)
+
+**Known, unfixed as of 2026-09-13** (see the founding-team audit artifact for full detail): `MemoryStore`-based sessions were replaced with a disk-backed store (`session-file-store`, keyed off the same directory as the SQLite file) as part of that audit's Wave 0 — admin logins now survive a redeploy. A stored-XSS gap in `admin/js/monitoring.js` (unescaped scraped `externalUrl` in an href) was also fixed the same pass. Still open: no automated tests exist anywhere in this repo; a CI workflow (`.github/workflows/ci.yml`) now at least catches a broken migration or a boot-time crash, which is a floor, not coverage.
 
 ---
 
@@ -153,6 +155,8 @@ The underlying ambition **isn't dead, it's reframed** — see §10. The local Pr
 ## 8. Naming Debt (cosmetic, not urgent)
 
 CSS classes `.btn-red`, `.btn-sm-red`, `.nl-btn` render **brown**, not red — they kept their original names when the color system changed rather than triggering a repo-wide rename. Functionally fine, just don't be confused reading the class name.
+
+`.btn-link` is a different, slightly worse case — it's referenced in markup (`index.html`, `scores.js` ×2) but **has no CSS rule defined anywhere**. It renders as unstyled default anchor text everywhere it's used. Found during the 2026-09-13 audit; not yet fixed — either define it or stop referencing it, don't add a third option.
 
 Similarly, the homepage's small news teaser still uses `.archive-list`/`.archive-teaser-*`/`.archive-item*` CSS class names and an `#archive-list` element id, left over from when that section was called "From the Archive" and Archive was still its own page (§11). It now shows briefs, not archive features. Functionally fine, same story as above — don't be confused by the name.
 
@@ -746,4 +750,96 @@ absent from a team's own page; Teams and the standalone `/clubs.html`
 both still work through the new shared grouping; the Tables tab (sharing
 the refactored grouping logic) and a Global competition's own Teams tab
 (e.g. Premier League, unaffected by the Kenya-only endpoint) both
+
+---
+
+## 25. Newsroom Monitoring Engine + Show/Season/Episode Data Model (2026-09-06 → 2026-09-13)
+
+Two additive builds this stretch, neither previously logged here — the
+2026-09-13 audit specifically flagged this gap, so closing it now.
+
+**Monitoring engine** (`prisma/schema.prisma`'s `Source`/`MonitoredItem`,
+`server/routes/sources.js` + `monitoring.js`, `server/jobs/runMonitoringFetch.js`
++ `runMonitoringEnrich.js`): an internal newsroom leads dashboard. A
+`Source` (RSS feed, HTML page with CSS selectors, or a YouTube channel)
+gets fetched on a cron (`MONITORING_FETCH_CRON`, default every 20 min),
+upserted into `MonitoredItem` by `(sourceId, externalUrl)`, then enriched
+separately (`MONITORING_ENRICH_CRON`, default every 10 min) via a forced
+Claude Haiku tool-call that returns a structured summary/relevance
+score/category tags — never free-text parsed. Nothing here reaches
+readers automatically: an editor reviews the queue at
+`admin/monitoring.html` and must explicitly hit "Promote," which creates
+a `DRAFT` article (never auto-published) and marks the item `PROMOTED`.
+Configuring a `Source` (`admin/sources.html`) is the one admin surface
+that leaks technical/implementation language (raw CSS selectors, cron
+syntax) into the newsroom UI — flagged, not yet fixed.
+
+**Show → Season → Episode** (`prisma/schema.prisma`): added for the
+flagship show only. `Episode` is a nullable-unique 1:1 with `Article`
+(`articleId`), synced via `syncEpisodeForArticle()` in
+`server/routes/articles.js` whenever a `VIDEO_POST` article's
+`videoSeries` string matches a real `Show.name` — the 5 dormant niche
+shows are untouched and stay entirely on the old `videoSeries`/
+`episodeLabel`/`runtimeLabel`/`youtubeId` scalar fields on `Article`
+itself (per the "dormant, not deleted" call — they were removed from
+nav/`shows.html` but their content and code path still work). The
+activation match is a plain string comparison with no validation: a
+typo'd `videoSeries` silently produces no `Episode` row and no error.
+Homepage's WATCH section (`js/home.js`'s `loadWatchSection`) pulls only
+from the flagship show's real `Episode` rows via `GET /api/shows/the-sportscast`.
+
+---
+
+## 26. Wave 0 Stabilization (2026-09-13)
+
+Following a full independent audit of this repo (prompted by a founder
+directive to evaluate both this repo and the sibling Underdawgs Sports
+Data platform before any further build-out — see the "Current State &
+Target Architecture" artifact for the full report), a first pass of
+low-risk, high-value fixes landed same-day:
+
+- **Fixed a real stored-XSS gap**: `admin/js/monitoring.js` rendered a
+  scraped `MonitoredItem.externalUrl` directly into an `href` with no
+  escaping — a crafted URL from a compromised/malicious source could have
+  broken attribute context or used a `javascript:` scheme in an
+  admin-privileged session. Now escaped, and only rendered as a clickable
+  link at all if it's a plain `http(s)://` URL.
+- **Sessions now persist to disk**, not the default in-memory
+  `MemoryStore` — `session-file-store`, writing to a `sessions/`
+  directory alongside wherever the SQLite file already lives (so
+  production's Railway volume covers it too). Every redeploy used to log
+  out every admin; it no longer does. `SESSION_SECRET` is now required at
+  boot (throws immediately if unset) rather than silently falling back to
+  a public default string — moot in production, where a real secret was
+  already set, but real hardening for any future environment that forgets
+  to set one.
+- **`trust proxy` + secure/SameSite cookies**: added `app.set('trust
+  proxy', 1)` (required for Railway's TLS-terminating proxy) and marked
+  the session cookie `secure`/`sameSite: 'lax'` when running on Railway.
+- **Confirmed, not fixed** (already correct): production's
+  `DATABASE_URL` genuinely points at `/data/dev.db`, which genuinely is a
+  persistent Railway volume — the audit's SQLite-durability concern was
+  real to check but turned out to already be handled.
+- **Shop's dead-end pages now fail gracefully**: `shop.html`/
+  `order-confirmation.html` were still reachable by direct URL (unlinked
+  from nav, but not deleted) and called APIs that no longer exist,
+  surfacing a raw "Request failed (404)" to anyone who landed there.
+  `js/shop.js` and `js/order-confirmation.js` now show a deliberate "not
+  available right now" message instead. The underlying legal-retirement
+  decision (routes unmounted in `server/index.js`) was not revisited —
+  this only fixes how the already-dormant state behaves.
+- **`npm audit fix`** resolved the `body-parser` moderate vulnerability.
+  One remaining moderate `qs` advisory is bundled inside Express itself
+  with no newer patch release available yet — tracked, not ignorable,
+  but not fixable by a dependency bump today.
+- **Added `.github/workflows/ci.yml`**: this repo still has zero
+  automated tests, so CI's job is narrower than usual — it applies every
+  migration to a fresh throwaway SQLite database, boots the server and
+  confirms it responds, and fails on any high/critical `npm audit`
+  finding. A floor against a broken deploy, not real coverage.
+- **`.gitignore`** now covers `prisma/*.db`/`prisma/*.db-journal`
+  (previously only `prisma/dev.db` specifically) and `prisma/sessions/`.
+
+Not done in this pass (deliberately — needs a founder decision, not an
+engineering call): Shop's actual fate (remount vs. delete for good).
 regression-checked clean.
