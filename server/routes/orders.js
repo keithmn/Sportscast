@@ -1,6 +1,12 @@
 // Checkout — Flutterwave (card + M-Pesa in one integration, per the
-// client's choice). Cart lives client-side only (public/js/cart.js,
-// localStorage); this route only ever sees a finished checkout attempt.
+// client's choice). Cart lived client-side only (public/js/cart.js,
+// localStorage); this route only ever saw a finished checkout attempt.
+//
+// Dormant, unmounted (see server/index.js) — and unlike this file itself,
+// the pages it depended on (public/js/cart.js, and the redirect_url
+// target below, order-confirmation.html) were actually deleted
+// 2026-09-13, not just left dormant. Remounting this means rebuilding
+// those too.
 //
 // Needs FLW_SECRET_KEY (and FLW_SECRET_HASH for the webhook) in .env —
 // sign up free at https://dashboard.flutterwave.com/signup, use the test/

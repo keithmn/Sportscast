@@ -27,10 +27,15 @@ const playerRoutes = require('./routes/players');
 const sourceRoutes = require('./routes/sources');
 const monitoringRoutes = require('./routes/monitoring');
 const showRoutes = require('./routes/shows');
-// Kits/Shop (Team/Kit/Order/OrderItem) retired for legal reasons — routes,
-// pages, and Prisma models left on disk (dormant, not deleted) but
-// unmounted here so nothing reachable actually depends on them. See
-// server/routes/shop.js and server/routes/orders.js.
+// Kits/Shop (Team/Kit/Order/OrderItem) retired for legal reasons.
+// server/routes/shop.js and server/routes/orders.js stay on disk, dormant
+// not deleted, unmounted here. The public-facing pages (shop.html,
+// order-confirmation.html, js/shop.js, js/cart.js,
+// js/order-confirmation.js) were themselves actually deleted 2026-09-13 —
+// unlike the server side, they were reachable-but-broken dead ends with
+// nothing dormant about them, not a clean unreferenced state. Remounting
+// this later means rebuilding those pages too, not just re-adding these
+// two requires.
 const { syncLeagues } = require('./jobs/syncLeagues');
 const { syncSquads } = require('./jobs/syncSquads');
 const { syncKenyaCup } = require('./jobs/syncKenyaCup');

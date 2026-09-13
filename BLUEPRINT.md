@@ -842,4 +842,74 @@ low-risk, high-value fixes landed same-day:
 
 Not done in this pass (deliberately — needs a founder decision, not an
 engineering call): Shop's actual fate (remount vs. delete for good).
-regression-checked clean.
+Resolved shortly after, in §27 below.
+
+---
+
+## 27. Wave 1 — Canonical Data Foundation, Sources Rewrite, Shop Deleted (2026-09-13)
+
+Continuing same-day, once Wave 0 landed. Per the target architecture
+artifact, Wave 1 was gated on the sibling Underdawgs Sports Data platform
+holding one real (non-demo) competition's data — it now does.
+
+**Kenya Cup real data**: imported into the Data Platform (Federation
+"Kenya Rugby Union", Competition "Kenya Cup", 2026 season, 12 teams, full
+standings) from this site's own already-live scrape of kenyacup.co.ke —
+see that repo's `packages/database/scripts/import-kenya-cup.ts`. No
+Fixture/Match rows created — this site's Kenya Cup scraper is
+standings-only (`server/jobs/syncKenyaCup.js`), confirmed zero Fixture
+rows exist for this competition anywhere.
+
+**`CanonicalMapping` model** (`prisma/schema.prisma`): one generic table
+(same shape as `ChangeLog` — entityType/entityId, not a canonicalId column
+bolted onto every model that might need one) recording which of this
+site's rows correspond to which row in the Data Platform. Populated for
+Kenya Cup's Competition + all 12 Clubs
+(`prisma/populate-kenya-cup-canonical-mapping.js`, one-off, safe to
+re-run).
+
+**Kenya Cup's competition page now reads live from the canonical
+source**: `GET /api/competitions/:slug` (`server/routes/competitions.js`)
+checks `CanonicalMapping` for the competition, and if found, fetches that
+competition's current-season standings from the Data Platform's `/v1/*`
+API (`server/lib/canonicalData.js` — server-to-server, never a browser
+call, so no CORS exposure) in place of the local `StandingRow` table,
+transformed to the exact shape `scores.js`'s `standingsTableHtml` already
+renders — that renderer needed zero changes. **Fails soft by design**: no
+mapping, a timeout (3s), or an empty response all fall back to local data
+silently, logged not thrown — a canonical-source outage can never break a
+page that worked yesterday. A `standingsSource` field
+(`'underdawgs-data'` | `'local'`) on the response makes which source
+served a given request visible/debuggable. Every other competition (no
+mapping row) is entirely unaffected. Verified against the real production
+Data Platform API (live network call, not mocked) and separately verified
+the fallback path by pointing at an unreachable host.
+
+**Sources admin page rewritten in plain language** (`admin/sources.html`
++ `admin/js/sources.js`) — per the target architecture's §4 (the one
+admin surface where raw implementation language leaked through): fetch
+method options reframed as plain either/or choices; the CSS-selector
+fields (kept — removing them means building real scraping
+auto-detection, out of scope here) relabeled as plain questions with a
+note framing them as a one-time ask-a-developer step; the raw cron
+expression field replaced with a plain-language frequency dropdown
+(Every 20 minutes / hour / 6 hours / day / Custom…) that reverse-maps an
+existing source's stored cron correctly whether it matches a preset or
+not; removed a developer-facing file-path reference from the page's own
+copy. Verified via CDP: created a real source, edited it, changed its
+schedule, confirmed round-trip through save+reopen for both a preset and
+a non-preset value.
+
+**Shop's fate, finally resolved**: deleted the public-facing remnants —
+`shop.html`, `order-confirmation.html`, `js/shop.js`, `js/cart.js`,
+`js/order-confirmation.js` — rather than leave them as a permanent
+"not available" stub. These were reachable-but-broken dead ends with
+nothing dormant about them, a different situation from the server side.
+`server/routes/shop.js`/`orders.js` and the `Team`/`Kit`/`Order`/
+`OrderItem` Prisma models stay exactly as before — dormant, not deleted,
+still unmounted in `server/index.js` — the legal-retirement decision
+itself wasn't revisited, only the broken public pages it left behind.
+Remounting Shop later means rebuilding those five pages too, not just
+re-adding two `require`/`app.use` lines — noted directly in
+`server/index.js`'s and `server/routes/orders.js`'s own comments so this
+isn't a surprise for whoever picks it up.

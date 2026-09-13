@@ -281,11 +281,13 @@ model Kit {
 }
 
 // ===================== CHECKOUT (Flutterwave — card + M-Pesa) =====================
-// No customer-account model — orders are guest checkout by name/email/phone,
-// same precedent as Submission not requiring an account. Cart itself is
-// client-side only (localStorage, see public/js/cart.js) — this is a small
-// single-storefront catalog, not a multi-vendor cart system needing its own
-// DB-backed cart model.
+// Dormant, not deleted (server/index.js) — the public pages this fed
+// (js/cart.js and others) were themselves deleted 2026-09-13, see
+// BLUEPRINT.md §27. No customer-account model — orders are guest checkout
+// by name/email/phone, same precedent as Submission not requiring an
+// account. Cart itself was client-side only (localStorage) — this is a
+// small single-storefront catalog, not a multi-vendor cart system needing
+// its own DB-backed cart model.
 model Order {
   id              String      @id @default(cuid())
   customerName    String

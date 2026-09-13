@@ -4,7 +4,8 @@
 // Stories → Latest briefs). The podcast carousel, niche shows grid, Teams
 // teaser, shop promo, and newsletter all used to live here too — removed
 // along with their markup in index.html, not just hidden; that content
-// already has a home on /shows.html, /clubs.html, and /shop.html.
+// already had a home on /shows.html, /clubs.html, and /shop.html (the
+// last of these was itself deleted 2026-09-13 — see BLUEPRINT.md).
 //
 // 2026-09-13, first pass: added back a "What's On" fixtures strip and a
 // "Following" strip (localStorage, js/follows.js) — both explicit,
