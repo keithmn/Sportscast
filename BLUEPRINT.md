@@ -1033,3 +1033,32 @@ theme-color resolve in the live DOM, repeat navigation populates the
 cache with exactly the expected static paths and nothing under `/api/`,
 and `/admin/index.html` itself is confirmed never cached (HTML always
 network-only, including for admin).
+
+## 32. Playwright e2e acceptance suite (2026-09-13)
+
+Closes gap #11 — "no automated browser/UI acceptance suite," previously
+tagged DEFER, this repo's own CI header comment used to say so directly
+("There are no automated tests in this repo yet"). `playwright.config.js`
+runs the suite against a real, freshly `prisma migrate deploy`'d +
+seeded (`prisma/seed.js`) throwaway SQLite database and a real running
+`server/index.js` — never a mocked API, never the developer's own
+`dev.db`. New `e2e` CI job, kept separate from the existing
+`boot-and-migrate` job so a slower/flakier UI test never blocks the fast
+deploy-readiness check.
+
+Three real golden-path tests, not just page-loads: (1) the admin CMS
+create → publish → confirm-on-the-real-public-article-page path, the
+same proof structure used to verify every feature manually this session,
+now automated; (2) an admin activating a Sport (`isActive` defaults to
+`false` — seed data alone never populates `/sports.html`, so this
+exercises the real toggle workflow, not a shortcut around it) and
+confirming it appears on the public sports index; (3) the PWA foundation
+(§31) actually wired on a real page — manifest link, registered service
+worker.
+
+Found and fixed one real test-timing bug while building this: `articles.js`'s
+`initArticlesPage()` wires `#new-article-btn`'s click handler only after
+several awaited setup calls resolve, so a click before that resolves
+silently does nothing — not a product bug (a real user always waits for
+the page to render before clicking), but the test needed to wait for
+that same signal (`#sportId` having options) rather than racing it.

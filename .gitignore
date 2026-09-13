@@ -2,6 +2,8 @@ node_modules/
 .env
 prisma/*.db
 prisma/*.db-journal
+/test-results/
+/playwright-report/
 prisma/sessions/
 generated/
 .DS_Store

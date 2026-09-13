@@ -14,7 +14,8 @@
     "sync:squads": "node server/jobs/syncSquads.js",
     "sync:kenyacup": "node server/jobs/syncKenyaCup.js",
     "sync:thesportsdb": "node server/jobs/syncTheSportsDB.js",
-    "sync:balldontlie": "node server/jobs/syncBallDontLie.js"
+    "sync:balldontlie": "node server/jobs/syncBallDontLie.js",
+    "e2e": "playwright test"
   },
   "engines": {
     "node": ">=18"
@@ -32,6 +33,7 @@
     "session-file-store": "^1.5.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "prisma": "^5.19.1"
   },
   "allowScripts": {
