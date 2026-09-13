@@ -913,3 +913,32 @@ Remounting Shop later means rebuilding those five pages too, not just
 re-adding two `require`/`app.use` lines — noted directly in
 `server/index.js`'s and `server/routes/orders.js`'s own comments so this
 isn't a surprise for whoever picks it up.
+
+---
+
+## 28. The 5 Niche Shows — Actually Removed, Not Just Dormant (2026-09-13)
+
+A founder decision, not an engineering call: the 5 niche shows (The
+Hydration Break, The Ruck, Bully Off, Fast Break, The Circuit) had been
+unreferenced from nav/`shows.html` since earlier this project (§7),
+content left dormant. This time the explicit instruction was to actually
+remove them, not just keep them dormant.
+
+**Backed up first**: all 6 real articles (2 Hydration Break, 1 each of the
+rest) exported in full (title/dek/body/every field) to
+`backups/legacy-shows-backup-2026-09-13.json` before deleting anything —
+irreversible actions get a recovery path even when explicitly authorized.
+
+**Then deleted**: the 6 `Article` rows, in both the local dev database and
+production. `public/js/shows-data.js` (the hardcoded 5-niche-show
+taxonomy) was removed entirely — with the underlying content gone, it was
+fully dead code, not just unused for now. `show.js` lost its legacy
+`Article.videoSeries`-string-match fallback path along with it; the page
+is DB-backed only now (`Show`/`Season`/`Episode`, flagship only).
+`show.html` no longer includes the now-deleted script.
+
+Verified locally before deploying: flagship show page unaffected, a
+removed show's URL (`/show.html?slug=the-ruck`) now cleanly shows "Show
+not found" rather than erroring, `shows.html` unaffected, and
+`GET /api/articles?contentType=VIDEO_POST` confirms only "The Sportscast"
+remains.
