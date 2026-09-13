@@ -341,6 +341,29 @@ model ChangeLog {
   createdAt  DateTime @default(now())
 }
 
+// ===================== CANONICAL DATA LAYER LINKS (2026-09-13) =====================
+// The only new shared concept between this site and the separate Underdawgs
+// Sports Data platform (a different repo/database entirely — see
+// BLUEPRINT.md and the "Current State & Target Architecture" audit
+// artifact). One generic table, same shape as ChangeLog above, rather than
+// a canonicalId column bolted onto every model that might ever need one —
+// Competition/Club/Player/Fixture can all point at a canonical row this
+// way without a schema change each time a new local entity type gets
+// linked. Read-only from this side: Sportscast never writes back to the
+// Data Platform, it just remembers which of its own rows correspond to
+// which canonical one.
+model CanonicalMapping {
+  id                  String   @id @default(cuid())
+  localEntityType     String // COMPETITION | CLUB | ...
+  localId             String
+  canonicalEntityType String // Competition | Team | ... (Data Platform's own model names)
+  canonicalId         String // Data Platform's row id (a UUID, not a cuid — different DB, different id scheme)
+  provider            String  @default("underdawgs-data")
+  createdAt           DateTime @default(now())
+
+  @@unique([localEntityType, localId, provider])
+}
+
 // ===================== CLUBS & PLAYERS (2026-08-19) =====================
 // Deliberately named Club/Player, not Team — "Team" already means the
 // Shop's merch catalog (Team/Kit models above), a completely different
