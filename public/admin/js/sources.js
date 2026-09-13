@@ -15,11 +15,17 @@ const FETCH_METHOD_LABELS = {
 };
 
 const URL_HINTS = {
-  RSS: 'The feed URL (e.g. https://example.com/feed.xml).',
+  RSS: 'The feed address (e.g. https://example.com/feed.xml).',
   HTML_LIST: 'The page listing items (e.g. a press-releases index page).',
-  YOUTUBE_CHANNEL: 'The channel ID (starts with "UC…"), not the channel URL.',
-  MANUAL: "Not used for MANUAL sources — items are added by hand from Monitoring's queue.",
+  YOUTUBE_CHANNEL: 'The channel ID (starts with "UC…"), not the channel\'s regular web address.',
+  MANUAL: "Not needed — you'll add items by hand from Monitoring's queue instead.",
 };
+
+// The known-preset cron expressions the dropdown offers — anything else
+// (an existing source with a hand-written schedule from before this
+// dropdown existed, or someone who genuinely needs an odd cadence) falls
+// through to "Custom…" with the raw expression visible and editable.
+const FREQUENCY_PRESETS = ['', '*/20 * * * *', '0 * * * *', '0 */6 * * *', '0 6 * * *'];
 
 function updateFetchMethodFields() {
   const method = document.getElementById('fetchMethod').value;
@@ -27,11 +33,35 @@ function updateFetchMethodFields() {
   document.getElementById('url-hint').textContent = URL_HINTS[method] || '';
 }
 
+function updateFrequencyFields() {
+  const select = document.getElementById('fetchFrequency');
+  const customInput = document.getElementById('fetchIntervalCron');
+  customInput.style.display = select.value === '__custom__' ? 'block' : 'none';
+}
+
+// Reverse-maps a stored cron expression back onto the plain-language
+// dropdown — a known preset selects itself; anything else (including
+// blank) either selects "Use the normal schedule" or reveals the raw
+// expression under "Custom…", never silently discards it.
+function setFrequencyFromCron(cron) {
+  const select = document.getElementById('fetchFrequency');
+  const customInput = document.getElementById('fetchIntervalCron');
+  if (FREQUENCY_PRESETS.includes(cron || '')) {
+    select.value = cron || '';
+    customInput.value = '';
+  } else {
+    select.value = '__custom__';
+    customInput.value = cron || '';
+  }
+  updateFrequencyFields();
+}
+
 function resetForm() {
   document.getElementById('source-form').reset();
   document.getElementById('source-id').value = '';
   document.getElementById('source-form-error').style.display = 'none';
   updateFetchMethodFields();
+  setFrequencyFromCron(null);
 }
 
 function showForm() {
@@ -85,7 +115,7 @@ function editSource(source) {
   document.getElementById('titleSelector').value = source.titleSelector || '';
   document.getElementById('linkSelector').value = source.linkSelector || '';
   document.getElementById('dateSelector').value = source.dateSelector || '';
-  document.getElementById('fetchIntervalCron').value = source.fetchIntervalCron || '';
+  setFrequencyFromCron(source.fetchIntervalCron);
   document.getElementById('isActive').checked = source.isActive;
   updateFetchMethodFields();
   showForm();
@@ -99,6 +129,11 @@ async function deleteSource(id) {
 }
 
 function collectFormData() {
+  const frequencySelect = document.getElementById('fetchFrequency').value;
+  const cron = frequencySelect === '__custom__'
+    ? document.getElementById('fetchIntervalCron').value.trim() || null
+    : frequencySelect || null;
+
   return {
     name: document.getElementById('name').value.trim(),
     category: document.getElementById('category').value,
@@ -108,7 +143,7 @@ function collectFormData() {
     titleSelector: document.getElementById('titleSelector').value.trim() || null,
     linkSelector: document.getElementById('linkSelector').value.trim() || null,
     dateSelector: document.getElementById('dateSelector').value.trim() || null,
-    fetchIntervalCron: document.getElementById('fetchIntervalCron').value.trim() || null,
+    fetchIntervalCron: cron,
     isActive: document.getElementById('isActive').checked,
   };
 }
@@ -131,6 +166,7 @@ async function initSourcesPage() {
     document.getElementById('source-form').style.display = 'none';
   });
   document.getElementById('fetchMethod').addEventListener('change', updateFetchMethodFields);
+  document.getElementById('fetchFrequency').addEventListener('change', updateFrequencyFields);
 
   document.getElementById('source-form').addEventListener('submit', async (e) => {
     e.preventDefault();

@@ -34,8 +34,9 @@
         <span id="whoami" class="page-sub"></span>
       </div>
       <p class="page-sub" style="margin-bottom:1.5rem;">
-        What the monitoring engine watches. Verify a source's own terms/robots.txt allow this before adding an
-        <strong>HTML_LIST</strong> source — see the note in server/jobs/runMonitoringFetch.js.
+        The pages, feeds, and channels we watch for new leads. Before adding a webpage to watch,
+        double-check it's actually OK to read automatically (its own terms of use, robots.txt) —
+        RSS feeds and YouTube channels are always fine.
       </p>
 
       <div id="access-denied" style="display:none;" class="empty-state">Your role does not have access to source management.</div>
@@ -62,45 +63,58 @@
               </select>
             </div>
             <div class="form-field">
-              <label for="fetchMethod">Fetch Method</label>
+              <label for="fetchMethod">How do we watch it?</label>
               <select id="fetchMethod" required>
-                <option value="RSS">RSS feed</option>
-                <option value="HTML_LIST">HTML list page (scraped)</option>
-                <option value="YOUTUBE_CHANNEL">YouTube channel</option>
-                <option value="MANUAL">Manual (paste items by hand)</option>
+                <option value="RSS">It has an RSS feed</option>
+                <option value="HTML_LIST">It's a webpage listing items (e.g. a press-release index)</option>
+                <option value="YOUTUBE_CHANNEL">It's a YouTube channel</option>
+                <option value="MANUAL">I'll paste items in myself</option>
               </select>
             </div>
           </div>
           <div class="form-field">
-            <label for="url" id="url-label">URL</label>
+            <label for="url" id="url-label">Web address</label>
             <input type="text" id="url" required>
             <span id="url-hint" style="font-size:0.8rem; color:var(--text-secondary);"></span>
           </div>
           <div id="html-list-fields" style="display:none;">
+            <p style="font-size:0.85rem; color:var(--text-secondary); margin:0 0 0.75rem;">
+              This page doesn't have a feed, so we need to be told exactly where the items live on
+              it. If you're not sure what to put here, ask a developer to set this one up with
+              you — it's a one-time thing per page, not something you'll redo.
+            </p>
             <div class="form-row">
               <div class="form-field">
-                <label for="listItemSelector">List item selector</label>
+                <label for="listItemSelector">Where's each item in the list?</label>
                 <input type="text" id="listItemSelector" placeholder="e.g. ul.press-list > li">
               </div>
               <div class="form-field">
-                <label for="titleSelector">Title selector</label>
+                <label for="titleSelector">Where's the headline text?</label>
                 <input type="text" id="titleSelector" placeholder="e.g. .headline">
               </div>
             </div>
             <div class="form-row">
               <div class="form-field">
-                <label for="linkSelector">Link selector</label>
+                <label for="linkSelector">Where's the link to click through?</label>
                 <input type="text" id="linkSelector" placeholder="e.g. a">
               </div>
               <div class="form-field">
-                <label for="dateSelector">Date selector (optional)</label>
+                <label for="dateSelector">Where's the date? (optional)</label>
                 <input type="text" id="dateSelector" placeholder="e.g. time.published">
               </div>
             </div>
           </div>
           <div class="form-field">
-            <label for="fetchIntervalCron">Fetch interval override (optional cron expression)</label>
-            <input type="text" id="fetchIntervalCron" placeholder="leave blank to use the category default">
+            <label for="fetchFrequency">How often should we check?</label>
+            <select id="fetchFrequency">
+              <option value="">Use the normal schedule</option>
+              <option value="*/20 * * * *">Every 20 minutes</option>
+              <option value="0 * * * *">Every hour</option>
+              <option value="0 */6 * * *">Every 6 hours</option>
+              <option value="0 6 * * *">Once a day</option>
+              <option value="__custom__">Custom…</option>
+            </select>
+            <input type="text" id="fetchIntervalCron" placeholder="e.g. */15 * * * * (cron expression)" style="display:none; margin-top:0.5rem;">
           </div>
           <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="isActive" checked> Active</label>
           <p class="form-error" id="source-form-error" style="display:none;"></p>
