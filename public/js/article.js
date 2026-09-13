@@ -27,7 +27,7 @@ async function loadArticle() {
     : '';
 
   const coverHtml = !videoHtml && article.coverImageUrl
-    ? `<img class="article-cover" src="${escapeHtml(article.coverImageUrl)}" alt="${escapeHtml(article.title)}">`
+    ? `<img loading="lazy" class="article-cover" src="${escapeHtml(article.coverImageUrl)}" alt="${escapeHtml(article.title)}">`
     : '';
 
   // Fails soft server-side (see server/lib/canonicalData.js) — a Data

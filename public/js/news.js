@@ -20,7 +20,7 @@ function storyCardHtml(a) {
   return `
     <a href="/article.html?slug=${encodeURIComponent(a.slug)}" style="display:contents;">
       <article class="story">
-        ${a.coverImageUrl ? `<img class="story-thumb" src="${escapeHtml(a.coverImageUrl)}" alt="">` : ''}
+        ${a.coverImageUrl ? `<img loading="lazy" class="story-thumb" src="${escapeHtml(a.coverImageUrl)}" alt="">` : ''}
         <span class="story-cat">${escapeHtml(a.sport.name)}</span>
         <h3 class="story-hl">${escapeHtml(a.title)}</h3>
         <p class="story-desc">${escapeHtml(a.dek)}</p>

@@ -20,7 +20,7 @@ function articleCardHtml(a) {
   return `
     <a href="/article.html?slug=${encodeURIComponent(a.slug)}" style="display:contents;">
       <article class="story">
-        ${a.coverImageUrl ? `<img class="story-thumb" src="${escapeHtml(a.coverImageUrl)}" alt="">` : ''}
+        ${a.coverImageUrl ? `<img loading="lazy" class="story-thumb" src="${escapeHtml(a.coverImageUrl)}" alt="">` : ''}
         <span class="story-cat">${escapeHtml(a.contentType === 'VIDEO_POST' ? (a.videoSeries || 'Podcast') : a.sport.name)}</span>
         <h3 class="story-hl">${escapeHtml(a.title)}</h3>
         <p class="story-desc">${escapeHtml(a.dek)}</p>
@@ -36,7 +36,7 @@ function competitionTeamCardHtml(club) {
   return `
     <a href="/club.html?slug=${encodeURIComponent(club.slug)}" style="display:contents;">
       <div class="card">
-        ${club.crestUrl ? `<img class="team-crest" src="${escapeHtml(club.crestUrl)}" alt="" onerror="this.remove()">` : ''}
+        ${club.crestUrl ? `<img loading="lazy" class="team-crest" src="${escapeHtml(club.crestUrl)}" alt="" onerror="this.remove()">` : ''}
         <h3 class="card-title">${escapeHtml(club.name)}</h3>
       </div>
     </a>`;
@@ -52,7 +52,7 @@ function playerCardHtml(p, linked) {
   const card = `
     <div class="player-card">
       ${p.photoUrl
-        ? `<img class="player-photo" src="${escapeHtml(p.photoUrl)}" alt="${escapeHtml(p.name)}" onerror="this.replaceWith(Object.assign(document.createElement('div'), {className:'player-photo-empty', textContent:'No photo'}))">`
+        ? `<img loading="lazy" class="player-photo" src="${escapeHtml(p.photoUrl)}" alt="${escapeHtml(p.name)}" onerror="this.replaceWith(Object.assign(document.createElement('div'), {className:'player-photo-empty', textContent:'No photo'}))">`
         : `<div class="player-photo-empty">No photo</div>`}
       <div class="player-name">${escapeHtml(p.name)}</div>
       <div class="player-meta">${escapeHtml(p.position || '')}${p.position && p.nationality ? ' · ' : ''}${escapeHtml(p.nationality || '')}</div>

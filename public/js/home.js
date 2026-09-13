@@ -46,7 +46,7 @@ function topStoryCardHtml(a, isLg) {
   return `
     <a href="/article.html?slug=${encodeURIComponent(a.slug)}" style="display:contents;">
       <article class="story${isLg ? ' story--lg' : ''}">
-        ${a.coverImageUrl ? `<img class="story-thumb" src="${escapeHtml(a.coverImageUrl)}" alt="">` : ''}
+        ${a.coverImageUrl ? `<img loading="lazy" class="story-thumb" src="${escapeHtml(a.coverImageUrl)}" alt="">` : ''}
         <span class="story-cat">${escapeHtml(a.sport.name)}</span>
         <h3 class="story-hl">${escapeHtml(a.title)}</h3>
         <p class="story-desc">${escapeHtml(a.dek)}</p>
@@ -95,7 +95,7 @@ async function loadNewsStrip() {
 
   list.innerHTML = articles.map((a) => `
     <a href="/article.html?slug=${encodeURIComponent(a.slug)}" class="archive-item">
-      ${a.coverImageUrl ? `<img class="archive-item-thumb" src="${escapeHtml(a.coverImageUrl)}" alt="">` : ''}
+      ${a.coverImageUrl ? `<img loading="lazy" class="archive-item-thumb" src="${escapeHtml(a.coverImageUrl)}" alt="">` : ''}
       <span class="archive-item-content">
         <span class="archive-item-main">
           <span class="archive-item-cat">${escapeHtml(a.sport.name)}</span>
@@ -165,7 +165,7 @@ function watchCardHtml(ep) {
   return `
     <a href="/article.html?slug=${encodeURIComponent(a.slug)}" style="display:contents;">
       <article class="story">
-        ${a.coverImageUrl ? `<img class="story-thumb" src="${escapeHtml(a.coverImageUrl)}" alt="">` : ''}
+        ${a.coverImageUrl ? `<img loading="lazy" class="story-thumb" src="${escapeHtml(a.coverImageUrl)}" alt="">` : ''}
         <span class="story-cat">${escapeHtml(metaParts.join(' · ') || 'Episode')}</span>
         <h3 class="story-hl">${escapeHtml(a.title)}</h3>
         <p class="story-desc">${escapeHtml(a.dek)}</p>

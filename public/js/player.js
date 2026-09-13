@@ -28,7 +28,7 @@ async function loadPlayer() {
   root.innerHTML = `
     <div class="profile-header">
       <div class="profile-badge">
-        ${player.photoUrl ? `<img src="${escapeHtml(player.photoUrl)}" alt="" onerror="this.parentElement.textContent='${escapeHtml(player.name).charAt(0)}'">` : escapeHtml(player.name).charAt(0)}
+        ${player.photoUrl ? `<img loading="lazy" src="${escapeHtml(player.photoUrl)}" alt="" onerror="this.parentElement.textContent='${escapeHtml(player.name).charAt(0)}'">` : escapeHtml(player.name).charAt(0)}
       </div>
       <div>
         <span class="card-eyebrow">${escapeHtml(player.club.competition.sport.name)}</span>

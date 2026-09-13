@@ -20,7 +20,7 @@ function staffCardHtml(s) {
   return `
     <div class="player-card staff-card">
       ${s.photoUrl
-        ? `<img class="player-photo" src="${escapeHtml(s.photoUrl)}" alt="${escapeHtml(s.name)}" onerror="this.replaceWith(Object.assign(document.createElement('div'), {className:'player-photo-empty', textContent:'No photo'}))">`
+        ? `<img loading="lazy" class="player-photo" src="${escapeHtml(s.photoUrl)}" alt="${escapeHtml(s.name)}" onerror="this.replaceWith(Object.assign(document.createElement('div'), {className:'player-photo-empty', textContent:'No photo'}))">`
         : `<div class="player-photo-empty">No photo</div>`}
       <div class="player-name">${escapeHtml(s.name)}</div>
       <div class="player-meta">${escapeHtml(s.role || '')}${s.role && s.nationality ? ' · ' : ''}${escapeHtml(s.nationality || '')}</div>
@@ -29,7 +29,7 @@ function staffCardHtml(s) {
 
 function sponsorLogoHtml(sp) {
   const img = sp.logoUrl
-    ? `<img src="${escapeHtml(sp.logoUrl)}" alt="${escapeHtml(sp.name)}" onerror="this.replaceWith(document.createTextNode('${escapeHtml(sp.name).replace(/'/g, "\\'")}'))">`
+    ? `<img loading="lazy" src="${escapeHtml(sp.logoUrl)}" alt="${escapeHtml(sp.name)}" onerror="this.replaceWith(document.createTextNode('${escapeHtml(sp.name).replace(/'/g, "\\'")}'))">`
     : escapeHtml(sp.name);
   return sp.website
     ? `<a class="sponsor-logo" href="${escapeHtml(sp.website)}" target="_blank" rel="noopener" title="${escapeHtml(sp.name)}">${img}</a>`
@@ -39,7 +39,7 @@ function sponsorLogoHtml(sp) {
 function simpleHeaderHtml(club) {
   return `
     <div class="article-header" style="max-width:900px; display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap;">
-      ${club.crestUrl ? `<img src="${escapeHtml(club.crestUrl)}" alt="" style="width:72px; height:72px; object-fit:contain;" onerror="this.remove()">` : ''}
+      ${club.crestUrl ? `<img loading="lazy" src="${escapeHtml(club.crestUrl)}" alt="" style="width:72px; height:72px; object-fit:contain;" onerror="this.remove()">` : ''}
       <div>
         <span class="card-eyebrow">${escapeHtml(club.competition.sport.name)} · ${escapeHtml(club.competition.name)}</span>
         <h1 class="page-title" style="font-size:2rem;">${escapeHtml(club.name)}</h1>
@@ -65,7 +65,7 @@ function profileHeaderHtml(club) {
     <div class="container">
       <div class="profile-header">
         <div class="profile-badge">
-          ${club.crestUrl ? `<img src="${escapeHtml(club.crestUrl)}" alt="" onerror="this.parentElement.textContent='${escapeHtml(club.name).charAt(0)}'">` : escapeHtml(club.name).charAt(0)}
+          ${club.crestUrl ? `<img loading="lazy" src="${escapeHtml(club.crestUrl)}" alt="" onerror="this.parentElement.textContent='${escapeHtml(club.name).charAt(0)}'">` : escapeHtml(club.name).charAt(0)}
         </div>
         <div>
           <span class="card-eyebrow">${escapeHtml(club.competition.sport.name)}</span>

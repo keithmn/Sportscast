@@ -2,7 +2,7 @@ function clubCardHtml(club) {
   return `
     <a href="/club.html?slug=${encodeURIComponent(club.slug)}" style="display:contents;">
       <div class="card">
-        ${club.crestUrl ? `<img class="team-crest" src="${escapeHtml(club.crestUrl)}" alt="" onerror="this.remove()">` : ''}
+        ${club.crestUrl ? `<img loading="lazy" class="team-crest" src="${escapeHtml(club.crestUrl)}" alt="" onerror="this.remove()">` : ''}
         <span class="card-eyebrow">${escapeHtml(club.competition.name)}</span>
         <h3 class="card-title">${escapeHtml(club.name)}</h3>
       </div>
