@@ -302,10 +302,23 @@ function initNewsletterForm() {
   });
 }
 
+// PWA foundation — see sw.js's own header comment for exactly what it
+// does and doesn't cache. Loaded from every page (including /admin/*,
+// which also includes this file) — safe, since sw.js's fetch handler
+// explicitly bypasses anything not under /css/, /js/, /brand/, or
+// manifest.json, so admin pages and every API call are unaffected.
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('/sw.js').catch((err) => {
+    console.warn('Service worker registration failed:', err);
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   renderHeader();
   renderNav();
   renderFooter();
   initContactForm();
   initNewsletterForm();
+  registerServiceWorker();
 });

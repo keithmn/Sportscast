@@ -1,0 +1,14 @@
+{
+  "name": "The Sportscast",
+  "short_name": "Sportscast",
+  "description": "Kenyan sports news, scores, and shows.",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#0D0D0D",
+  "icons": [
+    { "src": "/brand/favicon/favicon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/brand/favicon/favicon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

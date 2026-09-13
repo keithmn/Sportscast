@@ -1000,3 +1000,36 @@ reasoning the original 2026-08 comment gave for the localStorage design).
 Verified end-to-end against a scratch SQLite copy: create/list/upsert
 (re-following updates the row, not a duplicate)/delete, plus rejecting an
 invalid anonymousId and an unlisted entityType.
+
+## 31. PWA foundation (2026-09-13)
+
+The Mobile/PWA Strategy chapter of the 2026-09 remediation audit was
+tagged DEFER PWA in full — this is deliberately just the foundation, not
+an offline-first rebuild: sports scores/articles change constantly, and
+this site has no asset-versioning scheme (no hashed filenames), so
+caching anything dynamic would risk showing a visitor stale data with no
+way to bust it. That risk shaped every choice below.
+
+`public/manifest.json` (name/icons — reuses the already-existing real
+`favicon-192.png`/`favicon-512.png`, no new assets generated) and
+`public/sw.js` are new; all 13 public HTML pages get a
+`<link rel="manifest">` + `theme-color` meta tag, and `site.js` registers
+the service worker on `DOMContentLoaded`.
+
+**What the service worker actually does**: stale-while-revalidate ONLY
+for same-origin static assets under `/css/`, `/js/`, `/brand/`, or
+`manifest.json` — every repeat visit gets these instantly from cache while
+a background fetch refreshes them for next time. Every HTML document
+(navigation) and everything under `/api/` is explicitly bypassed
+(`event.respondWith` is never called for them) — always network, never
+cached, so a visitor is never shown a stale page shell or stale sports
+data. Scope is site-root, so `/admin/*` pages (which also load `site.js`)
+are technically SW-controlled too, but the same bypass rules mean nothing
+admin-specific or dynamic is ever affected.
+
+Verified with a real headless-Chrome/CDP session (not just a syntax
+check): registration reaches `activated` state, the manifest link and
+theme-color resolve in the live DOM, repeat navigation populates the
+cache with exactly the expected static paths and nothing under `/api/`,
+and `/admin/index.html` itself is confirmed never cached (HTML always
+network-only, including for admin).
