@@ -3,6 +3,7 @@ const prisma = require('../db');
 const { slugify } = require('../utils/slugify');
 const { requireRole } = require('../middleware/auth');
 const { fetchCanonicalStandings } = require('../lib/canonicalData');
+const { resolveClubsForFixture, resolveClubIdForTeamName } = require('../lib/clubResolution');
 
 const router = express.Router();
 
@@ -44,7 +45,13 @@ router.get('/:slug', async (req, res) => {
     include: {
       sport: true,
       standings: { orderBy: { position: 'asc' } },
-      fixtures: { orderBy: { kickoff: 'asc' } },
+      fixtures: {
+        orderBy: { kickoff: 'asc' },
+        include: {
+          homeClub: { select: { id: true, name: true, slug: true, crestUrl: true } },
+          awayClub: { select: { id: true, name: true, slug: true, crestUrl: true } },
+        },
+      },
     },
   });
   if (!competition) return res.status(404).json({ error: 'Competition not found' });
@@ -151,11 +158,14 @@ router.post('/:id/fixtures', requireRole('ADMIN', 'EDITOR'), async (req, res) =>
   if (!homeTeam || !awayTeam || !kickoff) {
     return res.status(400).json({ error: 'homeTeam, awayTeam, and kickoff are required' });
   }
+  const { homeClubId, awayClubId } = await resolveClubsForFixture(prisma, req.params.id, homeTeam, awayTeam);
   const fixture = await prisma.fixture.create({
     data: {
       competitionId: req.params.id,
       homeTeam,
       awayTeam,
+      homeClubId,
+      awayClubId,
       kickoff: new Date(kickoff),
       status: status || 'SCHEDULED',
     },
@@ -174,6 +184,8 @@ router.post('/:id/fixtures/bulk', requireRole('ADMIN', 'EDITOR'), async (req, re
     return res.status(400).json({ error: 'fixtures must be a non-empty array' });
   }
 
+  const clubs = await prisma.club.findMany({ where: { competitionId: req.params.id }, select: { id: true, name: true } });
+
   const errors = [];
   const toCreate = [];
   fixtures.forEach((f, i) => {
@@ -186,7 +198,15 @@ router.post('/:id/fixtures/bulk', requireRole('ADMIN', 'EDITOR'), async (req, re
       errors.push(`Line ${i + 1}: "${f.kickoff}" isn't a valid date`);
       return;
     }
-    toCreate.push({ competitionId: req.params.id, homeTeam: f.homeTeam, awayTeam: f.awayTeam, kickoff, status: 'SCHEDULED' });
+    toCreate.push({
+      competitionId: req.params.id,
+      homeTeam: f.homeTeam,
+      awayTeam: f.awayTeam,
+      homeClubId: resolveClubIdForTeamName(f.homeTeam, clubs),
+      awayClubId: resolveClubIdForTeamName(f.awayTeam, clubs),
+      kickoff,
+      status: 'SCHEDULED',
+    });
   });
 
   if (toCreate.length) {
@@ -210,12 +230,20 @@ router.put('/fixtures/:fixtureId', requireRole('ADMIN', 'EDITOR'), async (req, r
   const { homeTeam, awayTeam, kickoff, homeScore, awayScore, status } = req.body;
   const newKickoff = kickoff ? new Date(kickoff) : existing.kickoff;
   const isNewlyPostponed = status === 'POSTPONED' && existing.status !== 'POSTPONED';
+  const newHomeTeam = homeTeam ?? existing.homeTeam;
+  const newAwayTeam = awayTeam ?? existing.awayTeam;
+  const teamNamesChanged = newHomeTeam !== existing.homeTeam || newAwayTeam !== existing.awayTeam;
+  const { homeClubId, awayClubId } = teamNamesChanged
+    ? await resolveClubsForFixture(prisma, existing.competitionId, newHomeTeam, newAwayTeam)
+    : { homeClubId: existing.homeClubId, awayClubId: existing.awayClubId };
 
   const fixture = await prisma.fixture.update({
     where: { id: req.params.fixtureId },
     data: {
-      homeTeam: homeTeam ?? existing.homeTeam,
-      awayTeam: awayTeam ?? existing.awayTeam,
+      homeTeam: newHomeTeam,
+      awayTeam: newAwayTeam,
+      homeClubId,
+      awayClubId,
       kickoff: newKickoff,
       originalKickoff: isNewlyPostponed ? (existing.originalKickoff ?? existing.kickoff) : existing.originalKickoff,
       homeScore: homeScore !== undefined ? homeScore : existing.homeScore,

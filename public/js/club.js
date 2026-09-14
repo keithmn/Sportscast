@@ -102,7 +102,7 @@ function profileHeaderHtml(club) {
 // same convention club.js already uses for an empty Sponsors row.
 function clubHubStripHtml(club, competitionDetail, latestArticle) {
   const fixtures = competitionDetail.fixtures
-    .filter((f) => fuzzyTeamMatch(f.homeTeam, club.name) || fuzzyTeamMatch(f.awayTeam, club.name))
+    .filter((f) => matchesClub(f, club))
     .filter((f) => f.status !== 'FINISHED')
     .slice()
     .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));

@@ -234,6 +234,17 @@ model Fixture {
   competition     Competition @relation(fields: [competitionId], references: [id])
   homeTeam        String
   awayTeam        String
+  // Best-effort links to a real Club, populated by
+  // server/lib/clubResolution.js — left null when the competition has no
+  // Club roster at all (true for every football-data.org global league
+  // today) or when the name match is ambiguous. homeTeam/awayTeam strings
+  // stay the source of truth everywhere, including the sync jobs' upsert
+  // key below — this is an additive lookup, never a replacement (see
+  // BLUEPRINT.md §36).
+  homeClubId      String?
+  homeClub        Club?       @relation("FixtureHomeClub", fields: [homeClubId], references: [id])
+  awayClubId      String?
+  awayClub        Club?       @relation("FixtureAwayClub", fields: [awayClubId], references: [id])
   kickoff         DateTime
   originalKickoff DateTime? // set once, the first time a fixture is postponed — so "was X, now Y" can be shown, not just the new date
   homeScore       Int?
@@ -375,10 +386,10 @@ model CanonicalMapping {
 // concept. Same MANUAL/API split as Competition: a KPL club is entered by hand
 // via admin/clubs.html; a Premier League club is filled in by
 // syncSquads.js. Every public page renders both identically — nothing
-// downstream needs to know or care which. Standings/Fixture team names
-// stay plain strings, unlinked to Club — that would be a bigger, riskier
-// schema change for limited practical benefit right now; a club's name
-// just needs to match the fixture spelling by convention.
+// downstream needs to know or care which. StandingRow team names are
+// still plain unlinked strings (same reasoning as Fixture's below, not
+// yet revisited). Fixture.homeTeam/awayTeam gained a best-effort Club FK
+// 2026-09-14 (BLUEPRINT.md §36) — see the Fixture model.
 model Club {
   id            String      @id @default(cuid())
   name          String
@@ -398,6 +409,8 @@ model Club {
   staff         Staff[]
   sponsors      Sponsor[]
   articles      Article[]   @relation("ArticleClubTags")
+  homeFixtures  Fixture[]   @relation("FixtureHomeClub")
+  awayFixtures  Fixture[]   @relation("FixtureAwayClub")
   createdAt     DateTime    @default(now())
 }
 

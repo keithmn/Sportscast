@@ -19,6 +19,13 @@ function fixtureAdminRowHtml(f, listId) {
   const postponedNote = f.originalKickoff
     ? `<div style="font-size:0.72rem; color:var(--text-secondary); grid-column:1/-1;">Originally ${new Date(f.originalKickoff).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</div>`
     : '';
+  // Shows whether the two free-text names above resolved to a real Club —
+  // re-checked on every Save (server/lib/clubResolution.js). Purely
+  // informational: the Club link is a lookup on top of homeTeam/awayTeam,
+  // never a replacement for them.
+  const clubMatchNote = f.homeClub || f.awayClub
+    ? `<div style="font-size:0.72rem; color:var(--gold-text); grid-column:1/-1;">↳ matched: ${f.homeClub ? escapeHtml(f.homeClub.name) : '(unmatched)'} vs ${f.awayClub ? escapeHtml(f.awayClub.name) : '(unmatched)'}</div>`
+    : '';
   return `
     <div class="fixture-admin-row" data-fixture-id="${f.id}">
       <input type="text" value="${escapeHtml(f.homeTeam)}" data-field="homeTeam" placeholder="Home team" list="${listId}">
@@ -33,6 +40,7 @@ function fixtureAdminRowHtml(f, listId) {
         <button type="button" class="btn-outline-sm delete-fixture-btn" style="color:var(--danger); border-color:var(--danger);">✕</button>
       </span>
       ${postponedNote}
+      ${clubMatchNote}
     </div>`;
 }
 

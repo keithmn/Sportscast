@@ -33,7 +33,11 @@ router.get('/', async (req, res) => {
       competition: { sport: { slug: sport } },
       kickoff: { gte: start, lt: end },
     },
-    include: { competition: { select: { id: true, name: true, slug: true, category: true, region: true } } },
+    include: {
+      competition: { select: { id: true, name: true, slug: true, category: true, region: true } },
+      homeClub: { select: { id: true, name: true, slug: true, crestUrl: true } },
+      awayClub: { select: { id: true, name: true, slug: true, crestUrl: true } },
+    },
     orderBy: { kickoff: 'asc' },
   });
 
@@ -60,7 +64,11 @@ router.get('/upcoming', async (req, res) => {
       kickoff: { gte: since },
       competition: { sport: { isActive: true } },
     },
-    include: { competition: { select: { id: true, name: true, slug: true, category: true, region: true, sport: { select: { name: true, slug: true } } } } },
+    include: {
+      competition: { select: { id: true, name: true, slug: true, category: true, region: true, sport: { select: { name: true, slug: true } } } },
+      homeClub: { select: { id: true, name: true, slug: true, crestUrl: true } },
+      awayClub: { select: { id: true, name: true, slug: true, crestUrl: true } },
+    },
     orderBy: { kickoff: 'asc' },
     take: limit,
   });

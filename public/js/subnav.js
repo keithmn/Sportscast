@@ -130,12 +130,13 @@ async function loadTransfersTab(panelEl, scope) {
     : `<p class="empty-state">No transfer news yet${label ? ` for ${escapeHtml(label)}` : ''}.</p>`;
 }
 
-// Best-effort — Club names and Fixture/StandingRow team-name strings are
-// entered independently with no shared autocomplete (BLUEPRINT.md §19/§20;
-// confirmed live, e.g. "Gor Mahia FC" the club vs "Gor Mahia" on fixtures).
-// Strips FC/AFC and does a substring check either direction rather than
-// requiring exact equality — imperfect, but exact-match would wrongly show
-// real, well-known clubs as having zero fixtures.
+// Fallback only, as of 2026-09-14 — Fixture rows now carry a real
+// homeClub/awayClub (server/lib/clubResolution.js, BLUEPRINT.md §36) when
+// the match was unambiguous, and matchesClub() below prefers that. This
+// string fallback still fires for fixtures the resolver left unmatched
+// (e.g. a spelling it couldn't resolve, or a competition with no Club
+// roster) — strips FC/AFC and does a substring check either direction
+// rather than requiring exact equality, imperfect but better than nothing.
 function normalizeTeamName(name) {
   return (name || '').toLowerCase().replace(/\b(fc|afc)\b/g, '').replace(/\s+/g, ' ').trim();
 }
@@ -144,16 +145,22 @@ function fuzzyTeamMatch(fixtureTeamName, clubName) {
   const b = normalizeTeamName(clubName);
   return !!a && !!b && (a.includes(b) || b.includes(a));
 }
+function matchesClub(fixture, club) {
+  if (fixture.homeClubId || fixture.awayClubId) {
+    return fixture.homeClubId === club.id || fixture.awayClubId === club.id;
+  }
+  return fuzzyTeamMatch(fixture.homeTeam, club.name) || fuzzyTeamMatch(fixture.awayTeam, club.name);
+}
 
-function renderEntityFixtures(panelEl, competitionDetail, clubNameForFilter) {
+function renderEntityFixtures(panelEl, competitionDetail, clubForFilter) {
   let fixtures = competitionDetail.fixtures;
-  if (clubNameForFilter) {
-    fixtures = fixtures.filter((f) => fuzzyTeamMatch(f.homeTeam, clubNameForFilter) || fuzzyTeamMatch(f.awayTeam, clubNameForFilter));
+  if (clubForFilter) {
+    fixtures = fixtures.filter((f) => matchesClub(f, clubForFilter));
   }
   const upcoming = fixtures.filter((f) => f.status !== 'FINISHED');
   const results = fixtures.filter((f) => f.status === 'FINISHED').slice().reverse();
   panelEl.innerHTML = `
-    ${clubNameForFilter ? '<p class="empty-state" style="margin-bottom:1.5rem;">Matched by team name — may miss fixtures entered under a different spelling.</p>' : ''}
+    ${clubForFilter ? '<p class="empty-state" style="margin-bottom:1.5rem;">Matched by club — a fixture entered under an unresolved spelling may still be missing.</p>' : ''}
     <span class="section-label">Upcoming Fixtures</span>
     ${upcoming.length ? fixturesListHtml(upcoming) : '<p class="empty-state">No upcoming fixtures.</p>'}
     <span class="section-label" style="display:block; margin-top:2.5rem;">Recent Results</span>
@@ -166,7 +173,7 @@ function renderEntityFixtures(panelEl, competitionDetail, clubNameForFilter) {
 // the fixtures already fetched for that one competition instead (a single
 // competition's fixture list is already small; a date-strip adds nothing).
 async function loadScoresTab(panelEl, scope) {
-  if (scope.club) return renderEntityFixtures(panelEl, scope.club.competitionDetail, scope.club.name);
+  if (scope.club) return renderEntityFixtures(panelEl, scope.club.competitionDetail, scope.club);
   if (scope.competition) return renderEntityFixtures(panelEl, scope.competition.detail, null);
 
   const sportSlug = scope.sportSlug;

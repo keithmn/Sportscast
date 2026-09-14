@@ -17,6 +17,7 @@
 // per competition (see COMPETITIONS config below).
 
 const prisma = require('../db');
+const { resolveClubIdForTeamName } = require('../lib/clubResolution');
 
 const THESPORTSDB_KEY = process.env.THESPORTSDB_API_KEY || '123';
 const BASE = `https://www.thesportsdb.com/api/v1/json/${THESPORTSDB_KEY}`;
@@ -96,11 +97,14 @@ async function syncFixturesForCompetition(competition, kind) {
     fetchJson(`/eventsnextleague.php?id=${competition.externalId}`),
   ]);
   const events = [...(pastData?.events || []), ...(nextData?.events || [])];
+  const clubs = await prisma.club.findMany({ where: { competitionId: competition.id }, select: { id: true, name: true } });
 
   let count = 0;
   for (const event of events) {
     const fields = eventToFixtureFields(event, kind);
     if (!fields) continue;
+    const homeClubId = resolveClubIdForTeamName(fields.homeTeam, clubs);
+    const awayClubId = resolveClubIdForTeamName(fields.awayTeam, clubs);
     await prisma.fixture.upsert({
       where: {
         competitionId_homeTeam_awayTeam_kickoff: {
@@ -110,8 +114,8 @@ async function syncFixturesForCompetition(competition, kind) {
           kickoff: fields.kickoff,
         },
       },
-      create: { competitionId: competition.id, ...fields },
-      update: { homeScore: fields.homeScore, awayScore: fields.awayScore, status: fields.status },
+      create: { competitionId: competition.id, ...fields, homeClubId, awayClubId },
+      update: { homeScore: fields.homeScore, awayScore: fields.awayScore, status: fields.status, homeClubId, awayClubId },
     });
     count += 1;
   }

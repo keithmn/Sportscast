@@ -12,6 +12,7 @@
 // data, exactly like TheSportsDB's 'team'-kind events.
 
 const prisma = require('../db');
+const { resolveClubIdForTeamName } = require('../lib/clubResolution');
 
 const BALLDONTLIE_KEY = process.env.BALLDONTLIE_API_KEY;
 const BASE = 'https://api.balldontlie.io/v1';
@@ -122,10 +123,13 @@ async function syncBallDontLie() {
     end.setDate(end.getDate() + FORWARD_DAYS);
 
     const games = await fetchAllGames(isoDate(start), isoDate(end));
+    const clubs = await prisma.club.findMany({ where: { competitionId: competition.id }, select: { id: true, name: true } });
 
     let count = 0;
     for (const game of games) {
       const fields = gameToFixtureFields(game);
+      const homeClubId = resolveClubIdForTeamName(fields.homeTeam, clubs);
+      const awayClubId = resolveClubIdForTeamName(fields.awayTeam, clubs);
       await prisma.fixture.upsert({
         where: {
           competitionId_homeTeam_awayTeam_kickoff: {
@@ -135,8 +139,8 @@ async function syncBallDontLie() {
             kickoff: fields.kickoff,
           },
         },
-        create: { competitionId: competition.id, ...fields },
-        update: { homeScore: fields.homeScore, awayScore: fields.awayScore, status: fields.status },
+        create: { competitionId: competition.id, ...fields, homeClubId, awayClubId },
+        update: { homeScore: fields.homeScore, awayScore: fields.awayScore, status: fields.status, homeClubId, awayClubId },
       });
       count += 1;
     }

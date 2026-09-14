@@ -16,6 +16,7 @@
 // would lose any POSTPONED/manual annotations a future admin edit adds.
 
 const prisma = require('../db');
+const { resolveClubIdForTeamName } = require('../lib/clubResolution');
 
 const FOOTBALL_DATA_BASE = 'https://api.football-data.org/v4';
 // ~9 calls/minute, under the free tier's 10/minute cap, with headroom for
@@ -88,8 +89,14 @@ async function syncFixtures(competition, apiKey) {
   const data = await fetchFromFootballData(`/competitions/${competition.externalId}/matches`, apiKey);
   const matches = data.matches || [];
 
+  // Fetched once per competition, not per fixture — clubs never span
+  // competitions, so this scopes correctly and avoids N+1 queries.
+  const clubs = await prisma.club.findMany({ where: { competitionId: competition.id }, select: { id: true, name: true } });
+
   for (const m of matches) {
     const kickoff = new Date(m.utcDate);
+    const homeClubId = resolveClubIdForTeamName(m.homeTeam.name, clubs);
+    const awayClubId = resolveClubIdForTeamName(m.awayTeam.name, clubs);
     await prisma.fixture.upsert({
       where: {
         competitionId_homeTeam_awayTeam_kickoff: {
@@ -103,12 +110,16 @@ async function syncFixtures(competition, apiKey) {
         competitionId: competition.id,
         homeTeam: m.homeTeam.name,
         awayTeam: m.awayTeam.name,
+        homeClubId,
+        awayClubId,
         kickoff,
         homeScore: m.score?.fullTime?.home ?? null,
         awayScore: m.score?.fullTime?.away ?? null,
         status: mapStatus(m.status),
       },
       update: {
+        homeClubId,
+        awayClubId,
         homeScore: m.score?.fullTime?.home ?? null,
         awayScore: m.score?.fullTime?.away ?? null,
         status: mapStatus(m.status),
