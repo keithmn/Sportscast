@@ -8,6 +8,18 @@ function slugify(text) {
 }
 
 async function main() {
+  // Wave 1 (security/production safety): this seed creates well-known
+  // demo credentials (see Users below) — never run it against a real
+  // production database by accident.
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_PROD_SEED !== 'true') {
+    console.error(
+      'Refusing to run prisma/seed.js with NODE_ENV=production (it creates ' +
+      'well-known demo credentials — see the Users section below). ' +
+      'Set ALLOW_PROD_SEED=true if this is genuinely intentional.'
+    );
+    process.exit(1);
+  }
+
   console.log('Seeding database...');
 
   // ---------------- Users ----------------
@@ -404,6 +416,45 @@ async function main() {
       ],
     });
   }
+
+  // ---------------- The Sportscast: flagship Show + Episode rows ----------------
+  // A fresh install must get these automatically — previously only
+  // prisma/backfill-show-episodes.js (a manual, undocumented second step)
+  // created them, so /api/shows/the-sportscast 404'd until someone ran it
+  // by hand. That script now stays only as a retrofit for a database that
+  // was seeded before this fix landed; this is the real path going forward.
+  const show = await prisma.show.upsert({
+    where: { slug: 'the-sportscast' },
+    update: {},
+    create: {
+      slug: 'the-sportscast',
+      name: 'The Sportscast',
+      tagline: 'The flagship conversation.',
+      description:
+        '45–60 minute sit-downs with the people shaping Kenyan sport — athletes, administrators, and the figures driving change across the continent. Rare, deep, and the reason the rest of this house is credible.',
+      color: '#fbbc1e',
+      coverImageUrl: '/images/shows/the-sportscast.jpg',
+      sportLabel: 'All Sports',
+    },
+  });
+  const flagshipArticles = await prisma.article.findMany({
+    where: { contentType: 'VIDEO_POST', videoSeries: 'The Sportscast' },
+  });
+  for (const a of flagshipArticles) {
+    const epNumMatch = (a.episodeLabel || '').match(/(\d+)/);
+    const durationMatch = (a.runtimeLabel || '').match(/(\d+)/);
+    await prisma.episode.create({
+      data: {
+        showId: show.id,
+        articleId: a.id,
+        episodeNumber: epNumMatch ? parseInt(epNumMatch[1], 10) : null,
+        youtubeId: a.youtubeId || null,
+        durationSeconds: durationMatch ? parseInt(durationMatch[1], 10) * 60 : null,
+        recordingDate: a.publishedAt || null,
+      },
+    });
+  }
+  console.log(`Show ready: ${show.slug} — ${flagshipArticles.length} Episode rows created`);
 
   console.log('Seed complete.');
   console.log('Demo logins (password: underdoggs2026):');

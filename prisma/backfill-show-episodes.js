@@ -1,10 +1,10 @@
-// One-off backfill: creates the single flagship Show row and links each
-// existing "The Sportscast" VIDEO_POST article to a new Episode row. Safe
-// to re-run — upserts the Show, skips any article that already has an
-// Episode. Run against local dev.db (`node prisma/backfill-show-episodes.js`)
-// and, separately, against production after that deploy goes out — the two
-// are different databases, per this project's established practice (see
-// BLUEPRINT.md's deploy-mechanics note).
+// RETROFIT ONLY as of the Wave 0 baseline-audit fix: prisma/seed.js now
+// creates the flagship Show + Episode rows itself on every fresh seed, so
+// this script is no longer part of the normal setup path. It still exists
+// for the one real remaining use case — a database (e.g. the live
+// production DB) that was seeded before that fix landed and needs these
+// rows backfilled without a full reseed. Safe to re-run — upserts the
+// Show, skips any article that already has an Episode.
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
