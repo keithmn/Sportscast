@@ -5,6 +5,7 @@ const { requireRole } = require('../middleware/auth');
 const { fetchCanonicalStandings, fetchCanonicalCompetition, verifyCanonicalCompetition } = require('../lib/canonicalData');
 const { resolveClubsForFixture, resolveClubIdForTeamName } = require('../lib/clubResolution');
 const { getOrCreateCurrentSeason } = require('../lib/seasonResolution');
+const { sendPushToFollowers } = require('../lib/push');
 
 const router = express.Router();
 
@@ -382,15 +383,40 @@ router.put('/fixtures/:fixtureId', requireRole('ADMIN', 'EDITOR'), async (req, r
     },
   });
 
+  const isNewlyFinished = status === 'FINISHED' && existing.status !== 'FINISHED';
   let summary;
   if (isNewlyPostponed) {
     summary = `Postponed ${fixture.homeTeam} vs ${fixture.awayTeam}: ${fmtDate(existing.kickoff)} → ${fmtDate(newKickoff)}`;
-  } else if (status === 'FINISHED' && existing.status !== 'FINISHED') {
+  } else if (isNewlyFinished) {
     summary = `Result: ${fixture.homeTeam} ${fixture.homeScore ?? 0}-${fixture.awayScore ?? 0} ${fixture.awayTeam}`;
   } else {
     summary = `Updated fixture: ${fixture.homeTeam} vs ${fixture.awayTeam}`;
   }
   await logChange('FIXTURE', fixture.id, 'UPDATE', summary, req.session.user.name);
+
+  // Fire-and-forget, same as logChange above — a push failure (or even just
+  // the extra queries below) must never delay or break this response.
+  // Wave 3's one wired trigger: a real result on a followed club or
+  // competition. Sync-job-sourced results (API-fed leagues) aren't wired
+  // yet — see BLUEPRINT.md's entry for why that's a deliberate, separate
+  // scoping decision, not an oversight.
+  if (isNewlyFinished) {
+    (async () => {
+      const [competition, clubs] = await Promise.all([
+        prisma.competition.findUnique({ where: { id: fixture.competitionId }, select: { slug: true, name: true } }),
+        prisma.club.findMany({ where: { id: { in: [fixture.homeClubId, fixture.awayClubId].filter(Boolean) } }, select: { slug: true } }),
+      ]);
+      const targets = [
+        ...(competition ? [{ entityType: 'competition', entitySlug: competition.slug }] : []),
+        ...clubs.map((c) => ({ entityType: 'club', entitySlug: c.slug })),
+      ];
+      await sendPushToFollowers(targets, {
+        title: `Full-time: ${fixture.homeTeam} ${fixture.homeScore ?? 0}-${fixture.awayScore ?? 0} ${fixture.awayTeam}`,
+        body: competition ? competition.name : 'Result posted',
+        url: `/match.html?id=${fixture.id}`,
+      });
+    })().catch((err) => console.error('[push] Fixture-result notification failed:', err.message));
+  }
 
   res.json({ fixture });
 });

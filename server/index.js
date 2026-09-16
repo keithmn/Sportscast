@@ -33,6 +33,7 @@ const sourceRoutes = require('./routes/sources');
 const monitoringRoutes = require('./routes/monitoring');
 const showRoutes = require('./routes/shows');
 const followRoutes = require('./routes/follows');
+const pushRoutes = require('./routes/push');
 const pollRoutes = require('./routes/polls');
 // Kits/Shop (Team/Kit/Order/OrderItem) retired for legal reasons.
 // server/routes/shop.js and server/routes/orders.js stay on disk, dormant
@@ -132,9 +133,17 @@ app.use(session({
 // mitigated only by bcrypt cost") — this is that fix. Scoped to the login
 // route specifically (not every /api/auth/* route), matching the Data
 // Platform's own identical pattern (apps/api/src/index.ts).
+//
+// E2E_TEST_MODE is set only by playwright.config.js's webServer command
+// (same pattern as its SESSION_SECRET override), never in production —
+// the full Playwright suite logs in as admin from several independent
+// spec files within the same 15-minute window and started tripping this
+// exact limiter once enough of them existed, which isn't the thing this
+// limiter exists to catch (no test asserts on rate-limit behavior itself
+// — see e2e/security.spec.js).
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: process.env.E2E_TEST_MODE === 'true' ? 1000 : 10,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many login attempts — try again later.' },
@@ -155,6 +164,7 @@ app.use('/api/sources', sourceRoutes);
 app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/shows', showRoutes);
 app.use('/api/follows', followRoutes);
+app.use('/api/push', pushRoutes);
 // Mounted at /api, not /api/polls — polls.js's own routes already carry
 // full paths (/articles/:articleId/poll, /polls/:pollId/vote), matching
 // taxonomy.js's convention for the same reason (/api/sports, /api/tags,

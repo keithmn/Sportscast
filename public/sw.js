@@ -53,3 +53,40 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+// Wave 3 — notification foundation (see server/lib/push.js). Payload is
+// always plain JSON — { title, body, url } — sent by this app's own
+// server, never a raw string, so no need to handle any other shape.
+self.addEventListener('push', (event) => {
+  let data = { title: 'The Sportscast', body: '' };
+  try {
+    if (event.data) data = { ...data, ...event.data.json() };
+  } catch {
+    // Malformed payload — still show a generic notification rather than
+    // silently dropping it (a push the OS woke the device for and then
+    // nothing appears is worse than a vague one).
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/brand/favicon/favicon-192.png',
+      badge: '/brand/favicon/favicon-192.png',
+      data: { url: data.url || '/' },
+    })
+  );
+});
+
+// Focuses an already-open tab on that URL if one exists, otherwise opens a
+// new one — standard pattern, avoids piling up duplicate tabs for
+// visitors who tap several notifications without closing the site.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || '/';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      const existing = clients.find((c) => new URL(c.url).pathname === new URL(targetUrl, self.location.origin).pathname);
+      if (existing) return existing.focus();
+      return self.clients.openWindow(targetUrl);
+    })
+  );
+});

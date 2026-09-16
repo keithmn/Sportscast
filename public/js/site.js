@@ -185,6 +185,7 @@ function renderFooter() {
           </form>
           <p class="form-error" id="newsletter-error" style="display:none;"></p>
           <p class="footer-newsletter-success" id="newsletter-success" style="display:none;">You&apos;re subscribed — first issue lands this week.</p>
+          <div id="push-placeholder" style="margin-top:0.85rem;"></div>
         </div>
 
         <div class="footer-contact" id="contact">
@@ -343,4 +344,5 @@ document.addEventListener('DOMContentLoaded', () => {
   initContactForm();
   initNewsletterForm();
   registerServiceWorker();
+  if (typeof initPushUI === 'function') initPushUI();
 });

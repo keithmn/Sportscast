@@ -593,6 +593,27 @@ model Follow {
   @@index([anonymousId])
 }
 
+// ===================== PUSH SUBSCRIPTION (Wave 3, 2026-09-16) =====================
+// The notification foundation: a browser's Web Push subscription, keyed to
+// the same anonymousId Follow already uses — one opt-in per device, no
+// account. `endpoint` is the push service URL the browser hands back
+// (globally unique per subscription); p256dh/auth are the encryption keys
+// web-push needs to send to it. Deliberately NOT scoped to a specific
+// Follow — a device subscribes once ("Enable Notifications"), and what it
+// actually gets sent is filtered against that anonymousId's real Follow
+// rows at send time (see server/lib/push.js), so there's no separate
+// per-topic subscription model to build or keep in sync.
+model PushSubscription {
+  id          String   @id @default(cuid())
+  anonymousId String
+  endpoint    String   @unique
+  p256dh      String
+  auth        String
+  createdAt   DateTime @default(now())
+
+  @@index([anonymousId])
+}
+
 // ===================== POLL (2026-09-13) =====================
 // Lightweight fan engagement, deliberately simple: one poll per article
 // (e.g. "Player of the Match" on a match report, or any other single-
