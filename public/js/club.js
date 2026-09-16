@@ -46,6 +46,29 @@ function canonicalTeamNoteHtml(club) {
   return `<p class="source-note">Canonical record: ${escapeHtml(t.name)}${t.venueName ? ` · ${escapeHtml(t.venueName)}` : ''}</p>`;
 }
 
+// Wave 4 — the canonical roster is a cross-check against (not a
+// replacement for) the locally-entered Squad below: same club, verified
+// against the Data Platform's own current-team-history records. No link
+// per card — a canonical Athlete has no profile page of its own in this
+// app (that lives on the Data Platform's own site, a different product),
+// unlike a local Player card.
+function canonicalRosterHtml(club) {
+  const roster = club.canonicalTeam?.roster;
+  if (!roster || roster.length === 0) return '';
+  return `
+    <div style="margin-top:1.5rem;">
+      <span class="section-label">Canonical Roster</span>
+      <div class="player-grid">
+        ${roster.map((a) => `
+          <div class="player-card">
+            <div class="player-photo-empty">${a.jerseyNumber ?? '—'}</div>
+            <div class="player-name">${escapeHtml(a.fullName)}</div>
+            <div class="player-meta">${escapeHtml(a.primaryPosition || '')}${a.primaryPosition && a.role !== 'PLAYER' ? ' · ' : ''}${a.role !== 'PLAYER' ? escapeHtml(a.role) : ''}</div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
 function simpleHeaderHtml(club) {
   return `
     <div class="article-header" style="max-width:900px; display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap;">
@@ -64,6 +87,7 @@ function simpleHeaderHtml(club) {
         ? `<div class="player-grid">${club.players.map((p) => playerCardHtml(p, false)).join('')}</div>`
         : `<p class="empty-state">${club.source === 'API' ? 'No current squad data available yet for this club.' : 'No players added yet.'}</p>`}
       ${club.source === 'API' ? '<p class="empty-state" style="margin-top:1.5rem;">Squad sourced from Wikidata\'s public records — reliably current where shown, but not guaranteed to list every player on the books.</p>' : ''}
+      ${canonicalRosterHtml(club)}
     </div>`;
 }
 
@@ -98,6 +122,7 @@ function profileHeaderHtml(club) {
       ${club.players.length
         ? `<div class="player-grid">${club.players.map((p) => playerCardHtml(p, true)).join('')}</div>`
         : '<p class="empty-state">No players added yet.</p>'}
+      ${canonicalRosterHtml(club)}
     </div>
     ${club.sponsors.length ? `
       <div style="max-width:900px; margin:0 auto; padding:1rem 0 4rem;">

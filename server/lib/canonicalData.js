@@ -239,6 +239,20 @@ async function fetchCanonicalTeam(localClubId) {
     name: team.name,
     clubName: team.club?.name ?? null,
     venueName: team.venue?.name ?? null,
+    // Wave 4 — the canonical roster, distinct from (and a cross-check
+    // against) the locally-entered Player list club.js already shows.
+    // ACTIVE only (a history row with no endDate) — "current roster,"
+    // not everyone who's ever played for this canonical Team.
+    roster: (team.athleteHistories ?? [])
+      .filter((h) => h.status === 'ACTIVE')
+      .map((h) => ({
+        id: h.athlete.id,
+        fullName: h.athlete.fullName,
+        primaryPosition: h.athlete.primaryPosition,
+        jerseyNumber: h.jerseyNumber,
+        role: h.role,
+      }))
+      .sort((a, b) => (a.jerseyNumber ?? 999) - (b.jerseyNumber ?? 999)),
   };
 }
 
@@ -281,6 +295,41 @@ async function fetchCanonicalAthlete(localPlayerId) {
     fullName: athlete.fullName,
     nationality: athlete.nationality,
     currentTeamName: athlete.currentTeam?.name ?? null,
+    // Wave 4 — the Data Platform's own /athletes/:id already returns all
+    // of this (confirmed live, not guessed); nothing before this read
+    // past the four fields above. Shaped for direct rendering, not a
+    // raw passthrough of the Data Platform's own record.
+    affiliationHistory: (athlete.teamHistories ?? []).map((h) => ({
+      teamName: h.team.name,
+      seasonName: h.season?.name ?? null,
+      role: h.role,
+      jerseyNumber: h.jerseyNumber,
+      startDate: h.startDate,
+      endDate: h.endDate,
+    })),
+    // An athlete belongs to exactly one sport — athleticsResults and
+    // matchEvents are never both meaningfully populated for the same
+    // profile (same rule apps/web's own Athlete Hub page documents).
+    athleticsResults: (athlete.athleticsResults ?? []).map((r) => ({
+      eventName: r.athleticsEvent?.name ?? null,
+      meetName: r.athleticsEvent?.meet?.name ?? null,
+      timeSeconds: r.timeSeconds,
+      distanceMeters: r.distanceMeters,
+      heightMeters: r.heightMeters,
+      rank: r.rank,
+      isPersonalBest: r.isPersonalBest,
+      isSeasonBest: r.isSeasonBest,
+    })),
+    matchHistory: (athlete.matchEvents ?? [])
+      .filter((e) => e.eventType?.code !== 'PERIOD_END')
+      .map((e) => ({
+        eventTypeLabel: e.eventType?.label ?? null,
+        minute: e.minute,
+        competitionName: e.match?.fixture?.competition?.name ?? null,
+        homeTeamName: e.match?.fixture?.homeTeam?.name ?? null,
+        awayTeamName: e.match?.fixture?.awayTeam?.name ?? null,
+        scheduledStart: e.match?.fixture?.scheduledStart ?? null,
+      })),
   };
 }
 
