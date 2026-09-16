@@ -12,6 +12,7 @@ if (typeof globalThis.File === 'undefined') {
 
 const path = require('path');
 const express = require('express');
+const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
@@ -69,6 +70,46 @@ const app = express();
 // secure, so the secure-cookie setting below would silently stop sessions
 // from persisting at all in production.
 app.set('trust proxy', 1);
+
+// Wave 1 (security audit): no security headers existed at all before
+// this — no CSP, no X-Frame-Options, no HSTS. Default helmet's CSP is
+// too strict for this app as-is: every public/admin page here builds its
+// HTML by string-templating in JS (public/js/*.js, public/admin/js/*.js)
+// and relies heavily on inline event-handler attributes (onerror= for
+// image fallbacks especially — grep confirms this across most page
+// scripts) rather than addEventListener, and cover/crest/photo images
+// come from arbitrary admin-entered URLs, not a fixed asset host.
+// Migrating every inline handler to real event listeners so CSP could
+// drop 'unsafe-inline' would be a much larger, separate pass — this
+// configures the CSP to match how the app actually behaves today
+// (confirmed by reading the code, not guessed) rather than either
+// disabling it outright or shipping a policy that breaks image
+// fallbacks and the YouTube embeds across every article/episode page.
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      // Helmet defaults script-src-attr to 'none', which (per CSP Level
+      // 3) overrides scriptSrc above specifically for inline event-
+      // handler attributes (onerror=, onclick=) — confirmed by curling
+      // this server's own response headers before adding this override,
+      // not assumed. Without it every onerror-based image fallback
+      // across public/js and public/admin/js would silently stop firing.
+      scriptSrcAttr: ["'unsafe-inline'"],
+      // Every public page's <head> links Google Fonts directly (confirmed
+      // by grepping every public/*.html and public/admin/*.html for an
+      // external href/src, not assumed — that grep found nothing else
+      // external). style-src has to allow the stylesheet host itself,
+      // separately from font-src allowing the actual woff2 files.
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+      imgSrc: ["'self'", 'https:', 'data:'],
+      frameSrc: ['https://www.youtube.com', 'https://www.youtube-nocookie.com'],
+      connectSrc: ["'self'"],
+    },
+  },
+}));
 
 app.use(express.json());
 app.use(session({

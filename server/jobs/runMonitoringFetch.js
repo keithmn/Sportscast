@@ -18,6 +18,7 @@ if (typeof globalThis.File === 'undefined') {
 const cheerio = require('cheerio');
 const RssParser = require('rss-parser');
 const prisma = require('../db');
+const { assertPublicUrl } = require('../lib/assertPublicUrl');
 
 const USER_AGENT = 'Mozilla/5.0 (compatible; TheSportscastMonitorBot/1.0; +https://sportscast-production-c267.up.railway.app)';
 
@@ -47,6 +48,7 @@ function isDue(source) {
 }
 
 async function fetchRss(source) {
+  await assertPublicUrl(source.url);
   const feed = await rssParser.parseURL(source.url);
   return (feed.items || [])
     .filter((item) => item.link && item.title)
@@ -62,6 +64,7 @@ async function fetchHtmlList(source) {
   if (!source.listItemSelector || !source.titleSelector || !source.linkSelector) {
     throw new Error('HTML_LIST source is missing listItemSelector/titleSelector/linkSelector.');
   }
+  await assertPublicUrl(source.url);
   const res = await fetch(source.url, { headers: { 'User-Agent': USER_AGENT } });
   if (!res.ok) throw new Error(`${source.url} -> ${res.status}`);
   const html = await res.text();

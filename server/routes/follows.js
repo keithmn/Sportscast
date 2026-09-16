@@ -2,11 +2,13 @@
 // system — see the Follow model's schema comment. No auth: anonymousId is
 // a random per-browser token, not a real account, so there's no session
 // to require. Validation here (allow-listed entityType, length caps) is
-// the whole line of defense against abuse, matching this codebase's
-// existing posture (no rate limiting exists anywhere here yet).
+// one line of defense against abuse; publicWriteLimiter (Wave 1 security
+// audit) is the other — this file's own comment used to say no rate
+// limiting existed anywhere here, which was true until this fix.
 
 const express = require('express');
 const prisma = require('../db');
+const { publicWriteLimiter } = require('../middleware/rateLimits');
 
 const router = express.Router();
 
@@ -25,7 +27,7 @@ router.get('/', async (req, res) => {
   res.json({ follows });
 });
 
-router.post('/', async (req, res) => {
+router.post('/', publicWriteLimiter, async (req, res) => {
   const { anonymousId, entityType, entitySlug, name, href } = req.body || {};
   if (!validId(anonymousId)) return res.status(400).json({ error: 'A valid anonymousId is required' });
   if (!ENTITY_TYPES.includes(entityType)) return res.status(400).json({ error: `entityType must be one of: ${ENTITY_TYPES.join(', ')}` });
@@ -41,7 +43,7 @@ router.post('/', async (req, res) => {
   res.status(201).json({ follow });
 });
 
-router.delete('/', async (req, res) => {
+router.delete('/', publicWriteLimiter, async (req, res) => {
   const { anonymousId, entityType, entitySlug } = req.body || {};
   if (!validId(anonymousId) || !ENTITY_TYPES.includes(entityType) || typeof entitySlug !== 'string' || !entitySlug) {
     return res.status(400).json({ error: 'anonymousId, entityType, and entitySlug are required' });

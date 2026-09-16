@@ -1,14 +1,16 @@
 const express = require('express');
 const prisma = require('../db');
 const { requireRole } = require('../middleware/auth');
+const { publicWriteLimiter } = require('../middleware/rateLimits');
 
 const router = express.Router();
 
 const VALID_TYPES = ['CONTACT', 'TIP', 'PARTNERSHIP', 'SHOP_INTEREST', 'NEWSLETTER'];
 
 // ---- Public: submit a contact message, tip, partnership inquiry, shop-waitlist
-// signup, or newsletter signup ----
-router.post('/', async (req, res) => {
+// signup, or newsletter signup ---- (Wave 1 security audit: rate-limited,
+// previously the one public write endpoint here with no limiter at all)
+router.post('/', publicWriteLimiter, async (req, res) => {
   const { type, name, email, message } = req.body;
   if (!VALID_TYPES.includes(type)) return res.status(400).json({ error: 'Invalid submission type' });
   if (!email) return res.status(400).json({ error: 'email is required' });

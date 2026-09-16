@@ -6,6 +6,7 @@
 const express = require('express');
 const prisma = require('../db');
 const { requireRole } = require('../middleware/auth');
+const { publicWriteLimiter } = require('../middleware/rateLimits');
 
 const router = express.Router();
 
@@ -66,7 +67,7 @@ router.delete('/articles/:articleId/poll', requireRole('ADMIN', 'EDITOR'), async
   res.json({ ok: true });
 });
 
-router.post('/polls/:pollId/vote', async (req, res) => {
+router.post('/polls/:pollId/vote', publicWriteLimiter, async (req, res) => {
   const { anonymousId, pollOptionId } = req.body || {};
   if (!validId(anonymousId)) return res.status(400).json({ error: 'A valid anonymousId is required' });
   if (typeof pollOptionId !== 'string' || !pollOptionId) return res.status(400).json({ error: 'pollOptionId is required' });
