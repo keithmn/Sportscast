@@ -22,6 +22,7 @@ const authRoutes = require('./routes/auth');
 const articleRoutes = require('./routes/articles');
 const canonicalSearchRoutes = require('./routes/canonicalSearch');
 const publicSearchRoutes = require('./routes/publicSearch');
+const seoPagesRoutes = require('./routes/seoPages');
 const taxonomyRoutes = require('./routes/taxonomy');
 const competitionRoutes = require('./routes/competitions');
 const fixtureRoutes = require('./routes/fixtures');
@@ -159,6 +160,14 @@ app.use('/api/follows', followRoutes);
 // taxonomy.js's convention for the same reason (/api/sports, /api/tags,
 // /api/authors all coexisting under one router).
 app.use('/api', pollRoutes);
+
+// Wave 4 — must be registered before express.static: these paths exist
+// as real static files too (public/club.html etc.), but for a request
+// that resolves to a real entity, this serves a server-rendered version
+// with real <title>/description/OG tags instead, falling through to the
+// plain static file (via next()) whenever there's no slug or nothing
+// matches it. See server/routes/seoPages.js and lib/renderSeoHtml.js.
+app.use(seoPagesRoutes);
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
