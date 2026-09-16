@@ -49,17 +49,45 @@ async function fetchCanonicalStandings(localCompetitionId) {
   if (!mapping) return null;
 
   const seasonsData = await fetchWithTimeout(`${DATA_PLATFORM_BASE}/seasons?competitionId=${encodeURIComponent(mapping.canonicalId)}`);
-  const currentSeason = seasonsData?.seasons?.[0];
+  // GET /seasons has no status filter, so this picks client-side from the
+  // full list (already ordered startDate desc): prefer the season
+  // actually IN_PROGRESS, else the most recently COMPLETED one (still
+  // meaningful — final standings) — never UPCOMING, which by definition
+  // has no standings yet. Bug found in the Wave 2 audit: this used to
+  // take seasons[0] unconditionally, so a future UPCOMING season with a
+  // later startDate than the real current one would silently win and
+  // return empty standings, falling back to local data even though a
+  // genuinely current canonical season existed.
+  const seasons = seasonsData?.seasons;
+  const currentSeason = Array.isArray(seasons)
+    ? seasons.find((s) => s.status === 'IN_PROGRESS') || seasons.find((s) => s.status === 'COMPLETED')
+    : null;
   if (!currentSeason) return null;
 
   const standingsData = await fetchWithTimeout(
     `${DATA_PLATFORM_BASE}/standings?competitionId=${encodeURIComponent(mapping.canonicalId)}&seasonId=${encodeURIComponent(currentSeason.id)}`
   );
-  const rows = standingsData?.standings;
-  if (!Array.isArray(rows) || !rows.length) return null;
+  const rawRows = standingsData?.standings;
+  if (!Array.isArray(rawRows) || !rawRows.length) return null;
 
-  return rows
-    .filter((r) => r.team) // include: {team: true} should always populate this, but don't trust a row we can't name
+  // A competition can have both a CALCULATED row (from recorded results)
+  // and an OFFICIAL_PUBLISHED / MANUAL one (entered by hand) for the same
+  // team+season — Standing's own schema comment says this is deliberate,
+  // not a data bug. GET /standings returns all of them; without this,
+  // Sportscast would render duplicate rows for the same team. Prefer the
+  // most authoritative source per team: a human-entered OFFICIAL_PUBLISHED
+  // row, then MANUAL, then the auto-CALCULATED one.
+  const VALUE_TYPE_PRIORITY = { OFFICIAL_PUBLISHED: 0, MANUAL: 1, CALCULATED: 2 };
+  const bestPerTeam = new Map();
+  for (const r of rawRows) {
+    if (!r.team) continue; // include: {team: true} should always populate this, but don't trust a row we can't name
+    const existing = bestPerTeam.get(r.teamId);
+    if (!existing || VALUE_TYPE_PRIORITY[r.valueType] < VALUE_TYPE_PRIORITY[existing.valueType]) {
+      bestPerTeam.set(r.teamId, r);
+    }
+  }
+
+  return [...bestPerTeam.values()]
     .sort((a, b) => a.position - b.position)
     .map((r) => ({
       position: r.position,
