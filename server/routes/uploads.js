@@ -14,6 +14,17 @@
 // level metric, not live disk usage). Every image is resized/compressed on
 // ingest via sharp, same discipline BLUEPRINT.md §35 already established
 // by hand for the one real photo in this repo — this makes it automatic.
+//
+// sharp is pinned to 0.33.x, not latest — found the hard way in
+// production: sharp >=0.34 requires Node >=20.9, but this app's Railway
+// container runs Node 18.20.8 (package.json's engines field only pins
+// ">=18"), so requiring a newer sharp here crashed the entire process on
+// boot, not just this route (server/index.js requires this file
+// unconditionally at startup). 0.33.5 supports Node 18.17+ and carries
+// known-but-lower-severity libvips/libheif CVEs than an unpatched public
+// endpoint would — acceptable here since this route is admin/editor-only,
+// not open to arbitrary public uploads. Bumping past 0.33.x needs the
+// Railway Node version raised first, as a separate, deliberate change.
 const express = require('express');
 const multer = require('multer');
 const sharp = require('sharp');
