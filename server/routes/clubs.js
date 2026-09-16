@@ -2,6 +2,7 @@ const express = require('express');
 const prisma = require('../db');
 const { slugify } = require('../utils/slugify');
 const { requireRole } = require('../middleware/auth');
+const { fetchCanonicalTeam, verifyCanonicalTeam, fetchCanonicalAthlete, verifyCanonicalAthlete } = require('../lib/canonicalData');
 
 const router = express.Router();
 
@@ -28,7 +29,18 @@ router.get('/:slug', async (req, res) => {
     },
   });
   if (!club) return res.status(404).json({ error: 'Club not found' });
-  res.json({ club });
+
+  // Fails soft — see lib/canonicalData.js. A Data Platform outage, or a
+  // club/player with no mapping at all, just means these come back null,
+  // never a broken club page. Fetched in parallel (one club's roster can
+  // be dozens of players; sequential would multiply the Data Platform's
+  // own worst-case 3s timeout by every unlinked player).
+  const [canonicalTeam, playersWithCanonicalAthlete] = await Promise.all([
+    fetchCanonicalTeam(club.id),
+    Promise.all(club.players.map(async (p) => ({ ...p, canonicalAthlete: await fetchCanonicalAthlete(p.id) }))),
+  ]);
+
+  res.json({ club: { ...club, canonicalTeam, players: playersWithCanonicalAthlete } });
 });
 
 // ---- Admin: create a club ----
@@ -69,6 +81,45 @@ router.delete('/:id', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   res.json({ ok: true });
 });
 
+// ---- Admin: fetch a club's current canonical Team link, if any ----
+router.get('/:id/canonical-team', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const canonicalTeam = await fetchCanonicalTeam(req.params.id);
+  res.json({ canonicalTeam });
+});
+
+// ---- Admin: link a club to a canonical Data Platform Team ----
+// Never stores a canonicalId that hasn't just been live-verified to
+// exist — same reasoning as articles.js's canonical-event link.
+router.put('/:id/canonical-team', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const { canonicalTeamId } = req.body;
+  if (!canonicalTeamId) return res.status(400).json({ error: 'canonicalTeamId is required' });
+
+  const club = await prisma.club.findUnique({ where: { id: req.params.id } });
+  if (!club) return res.status(404).json({ error: 'Club not found' });
+
+  const team = await verifyCanonicalTeam(canonicalTeamId);
+  if (!team) {
+    return res.status(422).json({ error: 'No Data Platform Team with that id could be verified (check the id, or the Data Platform may be unreachable — try again).' });
+  }
+
+  await prisma.canonicalMapping.upsert({
+    where: {
+      localEntityType_localId_provider: { localEntityType: 'CLUB', localId: club.id, provider: 'underdawgs-data' },
+    },
+    update: { canonicalEntityType: 'Team', canonicalId: canonicalTeamId },
+    create: { localEntityType: 'CLUB', localId: club.id, canonicalEntityType: 'Team', canonicalId: canonicalTeamId },
+  });
+
+  res.json({ canonicalTeam: team });
+});
+
+router.delete('/:id/canonical-team', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  await prisma.canonicalMapping.deleteMany({
+    where: { localEntityType: 'CLUB', localId: req.params.id, provider: 'underdawgs-data' },
+  });
+  res.json({ ok: true });
+});
+
 // ---- Admin: add a player to a club ----
 router.post('/:id/players', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const { name, position, nationality, age, photoUrl } = req.body;
@@ -102,7 +153,9 @@ router.get('/players/:slug', async (req, res) => {
     include: { club: { include: { competition: { include: { sport: true } } } } },
   });
   if (!player) return res.status(404).json({ error: 'Player not found' });
-  res.json({ player });
+
+  const canonicalAthlete = await fetchCanonicalAthlete(player.id);
+  res.json({ player: { ...player, canonicalAthlete } });
 });
 
 // ---- Admin: update a player ----
@@ -126,6 +179,43 @@ router.put('/players/:playerId', requireRole('ADMIN', 'EDITOR'), async (req, res
 // ---- Admin: delete a player ----
 router.delete('/players/:playerId', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   await prisma.player.delete({ where: { id: req.params.playerId } });
+  res.json({ ok: true });
+});
+
+// ---- Admin: fetch a player's current canonical Athlete link, if any ----
+router.get('/players/:playerId/canonical-athlete', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const canonicalAthlete = await fetchCanonicalAthlete(req.params.playerId);
+  res.json({ canonicalAthlete });
+});
+
+// ---- Admin: link a player to a canonical Data Platform Athlete ----
+router.put('/players/:playerId/canonical-athlete', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const { canonicalAthleteId } = req.body;
+  if (!canonicalAthleteId) return res.status(400).json({ error: 'canonicalAthleteId is required' });
+
+  const player = await prisma.player.findUnique({ where: { id: req.params.playerId } });
+  if (!player) return res.status(404).json({ error: 'Player not found' });
+
+  const athlete = await verifyCanonicalAthlete(canonicalAthleteId);
+  if (!athlete) {
+    return res.status(422).json({ error: 'No Data Platform Athlete with that id could be verified (check the id, or the Data Platform may be unreachable — try again).' });
+  }
+
+  await prisma.canonicalMapping.upsert({
+    where: {
+      localEntityType_localId_provider: { localEntityType: 'PLAYER', localId: player.id, provider: 'underdawgs-data' },
+    },
+    update: { canonicalEntityType: 'Athlete', canonicalId: canonicalAthleteId },
+    create: { localEntityType: 'PLAYER', localId: player.id, canonicalEntityType: 'Athlete', canonicalId: canonicalAthleteId },
+  });
+
+  res.json({ canonicalAthlete: athlete });
+});
+
+router.delete('/players/:playerId/canonical-athlete', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  await prisma.canonicalMapping.deleteMany({
+    where: { localEntityType: 'PLAYER', localId: req.params.playerId, provider: 'underdawgs-data' },
+  });
   res.json({ ok: true });
 });
 

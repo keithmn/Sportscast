@@ -19,15 +19,16 @@ drifting out of sync with each other.
   database, only by convention.
 - `server/routes/canonicalSearch.js` — admin-only proxy to the Data
   Platform's `/v1/search`, added 2026-09-16 to back a real search picker
-  (see `public/admin/js/articles.js`'s canonical-event field) instead of
-  pasting a raw UUID.
-- Currently wired: **Competition** (standings fallback), **Article →
-  Event** (the one integration with a real picker UI, not just a script).
-- Written but not yet read: **Club → Team** mapping rows (from a one-off
-  script, `prisma/populate-kenya-cup-canonical-mapping.js`) — no code in
-  this repo fetches them.
-- Not started: Athlete, Fixture, Match — no mapping type, no fetch
-  function, no UI for any of them yet.
+  (`canonicalLinkWidgetHtml` in `public/admin/js/articles.js` and
+  `clubs.js`) instead of pasting a raw UUID. One generic proxy + one
+  reusable widget pattern, used by all three mapping types below.
+- Currently wired, each with a real admin picker (not a script) and
+  public-page display: **Competition** (standings fallback), **Article →
+  Event**, **Club → Team**, **Player → Athlete** — the last two added
+  2026-09-16.
+- Not started: Fixture, Match — no mapping type, no fetch function, no
+  UI. Structurally harder than the others (see the Sports Data repo's
+  copy for why: neither has a name field a search picker could use).
 
 See the Sports Data repo's copy for the full per-entity breakdown, the
 domain-event inventory, and exactly which of Wave 2's acceptance

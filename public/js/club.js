@@ -36,6 +36,16 @@ function sponsorLogoHtml(sp) {
     : `<span class="sponsor-logo" title="${escapeHtml(sp.name)}">${img}</span>`;
 }
 
+// Fails soft server-side (see server/lib/canonicalData.js) — a Data
+// Platform outage or an unlinked club just means this is absent, never a
+// broken page. Same .source-note pattern article.js already uses for its
+// canonical Event.
+function canonicalTeamNoteHtml(club) {
+  const t = club.canonicalTeam;
+  if (!t) return '';
+  return `<p class="source-note">Canonical record: ${escapeHtml(t.name)}${t.venueName ? ` · ${escapeHtml(t.venueName)}` : ''}</p>`;
+}
+
 function simpleHeaderHtml(club) {
   return `
     <div class="article-header" style="max-width:900px; display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap;">
@@ -48,6 +58,7 @@ function simpleHeaderHtml(club) {
       <div style="margin-left:auto;">${followButtonHtml('club', club.slug, club.name, `/club.html?slug=${encodeURIComponent(club.slug)}`)}</div>
     </div>
     <div style="max-width:900px; margin:0 auto; padding:2rem 0 4rem;">
+      ${canonicalTeamNoteHtml(club)}
       <span class="section-label">Squad</span>
       ${club.players.length
         ? `<div class="player-grid">${club.players.map((p) => playerCardHtml(p, false)).join('')}</div>`
@@ -74,6 +85,7 @@ function profileHeaderHtml(club) {
         </div>
         <div style="margin-left:auto;">${followButtonHtml('club', club.slug, club.name, `/club.html?slug=${encodeURIComponent(club.slug)}`)}</div>
       </div>
+      ${canonicalTeamNoteHtml(club)}
     </div>
     <div style="max-width:900px; margin:0 auto; padding:2rem 0 1rem;">
       <span class="section-label">Coach &amp; Staff</span>

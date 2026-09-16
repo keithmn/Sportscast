@@ -165,6 +165,93 @@ async function verifyCanonicalEvent(canonicalEventId) {
   };
 }
 
+// Club -> Data Platform Team link (Wave 2, closing "Team/club page can
+// reference canonical Team"). The mapping type these rows use
+// (localEntityType: 'CLUB', canonicalEntityType: 'Team') already existed —
+// server/routes/clubs.js's own populate-kenya-cup script wrote 12 of them —
+// but nothing ever read them until now. Same fail-soft contract as
+// fetchCanonicalEvent throughout.
+async function fetchCanonicalTeam(localClubId) {
+  const mapping = await prisma.canonicalMapping.findUnique({
+    where: {
+      localEntityType_localId_provider: {
+        localEntityType: 'CLUB',
+        localId: localClubId,
+        provider: 'underdawgs-data',
+      },
+    },
+  });
+  if (!mapping) return null;
+
+  const data = await fetchWithTimeout(`${DATA_PLATFORM_BASE}/teams/${encodeURIComponent(mapping.canonicalId)}`);
+  const team = data?.team;
+  if (!team) return null;
+
+  return {
+    id: team.id,
+    name: team.name,
+    clubName: team.club?.name ?? null,
+    venueName: team.venue?.name ?? null,
+  };
+}
+
+// Live-verifies a Data Platform Team id exists before routes/clubs.js is
+// allowed to store a mapping pointing at it — same reasoning as
+// verifyCanonicalEvent.
+async function verifyCanonicalTeam(canonicalTeamId) {
+  const data = await fetchWithTimeout(`${DATA_PLATFORM_BASE}/teams/${encodeURIComponent(canonicalTeamId)}`);
+  const team = data?.team;
+  if (!team) return null;
+  return {
+    id: team.id,
+    name: team.name,
+    clubName: team.club?.name ?? null,
+    venueName: team.venue?.name ?? null,
+  };
+}
+
+// Player -> Data Platform Athlete link (Wave 2, closing "Player page can
+// reference canonical Athlete") — a new mapping type, nothing wrote or
+// read this before today. Same fail-soft contract throughout.
+async function fetchCanonicalAthlete(localPlayerId) {
+  const mapping = await prisma.canonicalMapping.findUnique({
+    where: {
+      localEntityType_localId_provider: {
+        localEntityType: 'PLAYER',
+        localId: localPlayerId,
+        provider: 'underdawgs-data',
+      },
+    },
+  });
+  if (!mapping) return null;
+
+  const data = await fetchWithTimeout(`${DATA_PLATFORM_BASE}/athletes/${encodeURIComponent(mapping.canonicalId)}`);
+  const athlete = data?.athlete;
+  if (!athlete) return null;
+
+  return {
+    id: athlete.id,
+    fullName: athlete.fullName,
+    nationality: athlete.nationality,
+    currentTeamName: athlete.currentTeam?.name ?? null,
+  };
+}
+
+// Live-verifies a Data Platform Athlete id exists before routes/clubs.js
+// is allowed to store a mapping pointing at it — same reasoning as
+// verifyCanonicalEvent.
+async function verifyCanonicalAthlete(canonicalAthleteId) {
+  const data = await fetchWithTimeout(`${DATA_PLATFORM_BASE}/athletes/${encodeURIComponent(canonicalAthleteId)}`);
+  const athlete = data?.athlete;
+  if (!athlete) return null;
+  return {
+    id: athlete.id,
+    fullName: athlete.fullName,
+    nationality: athlete.nationality,
+    currentTeamName: athlete.currentTeam?.name ?? null,
+  };
+}
+
 // Wave 2 — powers a real admin picker (server/routes/canonicalSearch.js)
 // instead of pasting a raw Data Platform UUID by hand. Same fail-soft
 // contract: a network problem or unexpected shape returns an empty list,
@@ -180,4 +267,13 @@ async function searchCanonical(type, q) {
   return Array.isArray(results) ? results : [];
 }
 
-module.exports = { fetchCanonicalStandings, fetchCanonicalEvent, verifyCanonicalEvent, searchCanonical };
+module.exports = {
+  fetchCanonicalStandings,
+  fetchCanonicalEvent,
+  verifyCanonicalEvent,
+  fetchCanonicalTeam,
+  verifyCanonicalTeam,
+  fetchCanonicalAthlete,
+  verifyCanonicalAthlete,
+  searchCanonical,
+};

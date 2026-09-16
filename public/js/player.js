@@ -40,6 +40,7 @@ async function loadPlayer() {
       </div>
       <div style="margin-left:auto;">${followButtonHtml('player', player.slug, player.name, `/player.html?slug=${encodeURIComponent(player.slug)}`)}</div>
     </div>
+    ${player.canonicalAthlete ? `<div style="max-width:900px; margin:0 auto;"><p class="source-note">Canonical record: ${escapeHtml(player.canonicalAthlete.fullName)}${player.canonicalAthlete.currentTeamName ? ` · ${escapeHtml(player.canonicalAthlete.currentTeamName)}` : ''}</p></div>` : ''}
     <div style="max-width:900px; margin:0 auto; padding:2rem 0 4rem;" id="player-articles">
       <span class="section-label">News &amp; Podcasts</span>
       <div class="empty-state">Loading…</div>
