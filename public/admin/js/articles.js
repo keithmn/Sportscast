@@ -3,6 +3,97 @@ let allAuthors = [];
 let allTags = [];
 let allCompetitions = [];
 let allClubs = [];
+// Set by editArticle() whenever the article being edited has a real
+// Episode — every content-engine handler below (recording upload, clips,
+// social assets, sponsors) targets this rather than re-fetching the whole
+// article list on every click just to find the episode id again.
+let currentEpisodeId = null;
+
+// Wave 5 — hosts are Sportscast's own bylined Authors (see Episode.hosts'
+// schema comment for why guests, below, work differently).
+function populateHostCheckboxes(authors) {
+  const el = document.getElementById('hosts-checkboxes');
+  el.innerHTML = authors.map((a) => `
+    <label class="checkbox-row" style="min-width:auto;">
+      <input type="checkbox" value="${a.id}" class="host-checkbox"> ${escapeHtml(a.name)}
+    </label>`).join('');
+}
+
+function getSelectedHostAuthorIds() {
+  return Array.from(document.querySelectorAll('.host-checkbox:checked')).map((cb) => cb.value);
+}
+
+function setSelectedHostAuthorIds(ids) {
+  document.querySelectorAll('.host-checkbox').forEach((cb) => {
+    cb.checked = ids.includes(cb.value);
+  });
+}
+
+// Guests are free-text-first (see EpisodeGuest's schema comment) — a
+// repeatable row per guest, each with an optional best-effort Player
+// search, same "type to search, click to link" UX as the canonical-event
+// and fixture pickers elsewhere on this form, just simplified since a
+// guest search only ever needs a name match, not a category/status label.
+let guestPlayerSearchTimer = null;
+
+function guestRowHtml(guest = {}) {
+  return `
+    <div class="form-row guest-row" style="align-items:flex-end; position:relative;" data-player-id="${guest.playerId || ''}">
+      <div class="form-field"><label>Name</label><input type="text" class="guest-name" value="${escapeHtml(guest.name || '')}" placeholder="Guest name"></div>
+      <div class="form-field"><label>Role (optional)</label><input type="text" class="guest-role" value="${escapeHtml(guest.role || '')}" placeholder="e.g. Federation Official"></div>
+      <div class="form-field" style="position:relative;">
+        <label>Link to Player (optional)</label>
+        <input type="text" class="guest-player-search" placeholder="${guest.playerName ? escapeHtml(guest.playerName) : 'Search players…'}" autocomplete="off">
+        <div class="guest-player-results" style="display:none; position:absolute; z-index:10; width:100%; background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius); max-height:200px; overflow-y:auto;"></div>
+      </div>
+      <button type="button" class="btn-outline-sm remove-guest-btn">Remove</button>
+    </div>`;
+}
+
+function addGuestRow(guest) {
+  const list = document.getElementById('guests-list');
+  list.insertAdjacentHTML('beforeend', guestRowHtml(guest));
+  const row = list.lastElementChild;
+  row.querySelector('.remove-guest-btn').addEventListener('click', () => row.remove());
+  row.querySelector('.guest-player-search').addEventListener('input', (e) => {
+    const q = e.target.value;
+    clearTimeout(guestPlayerSearchTimer);
+    guestPlayerSearchTimer = setTimeout(async () => {
+      const resultsEl = row.querySelector('.guest-player-results');
+      if (q.trim().length < 2) { resultsEl.style.display = 'none'; resultsEl.innerHTML = ''; return; }
+      const { players } = await api(`/api/players?q=${encodeURIComponent(q.trim())}`).catch(() => ({ players: [] }));
+      if (!players.length) {
+        resultsEl.innerHTML = '<div style="padding:0.5rem 0.7rem; color:var(--text-secondary); font-size:var(--text-small);">No matching players.</div>';
+        resultsEl.style.display = 'block';
+        return;
+      }
+      resultsEl.innerHTML = players.map((p) => `
+        <button type="button" class="guest-player-result" data-id="${p.id}" data-name="${escapeHtml(p.name)}"
+          style="display:block; width:100%; text-align:left; padding:0.5rem 0.7rem; border:none; border-bottom:1px solid var(--border); background:none; cursor:pointer; font-family:inherit;">
+          ${escapeHtml(p.name)} <span style="color:var(--text-secondary); font-size:var(--text-small);">— ${escapeHtml(p.club?.name || '')}</span>
+        </button>`).join('');
+      resultsEl.querySelectorAll('.guest-player-result').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          row.dataset.playerId = btn.dataset.id;
+          row.querySelector('.guest-player-search').value = '';
+          row.querySelector('.guest-player-search').placeholder = btn.dataset.name;
+          resultsEl.style.display = 'none';
+        });
+      });
+      resultsEl.style.display = 'block';
+    }, 300);
+  });
+}
+
+function getGuests() {
+  return Array.from(document.querySelectorAll('.guest-row'))
+    .map((row) => ({
+      name: row.querySelector('.guest-name').value.trim(),
+      role: row.querySelector('.guest-role').value.trim() || null,
+      playerId: row.dataset.playerId || null,
+    }))
+    .filter((g) => g.name);
+}
 
 // Competition picker is scoped to whichever sport is currently selected —
 // a competition tag only makes sense within its own sport, and the list
@@ -145,6 +236,19 @@ function resetForm() {
 
   document.getElementById('poll-section').style.display = 'none';
   document.getElementById('poll-error').style.display = 'none';
+
+  document.getElementById('hosts-checkboxes').querySelectorAll('.host-checkbox').forEach((cb) => { cb.checked = false; });
+  document.getElementById('guests-list').innerHTML = '';
+  // Only shown once a real Episode exists (article saved, contentType
+  // VIDEO_POST, videoSeries matching a real Show) — see editArticle().
+  document.getElementById('content-engine-section').style.display = 'none';
+  currentEpisodeId = null;
+  document.getElementById('recording-status').textContent = '';
+  document.getElementById('recording-error').style.display = 'none';
+  document.getElementById('clips-list').innerHTML = '';
+  document.getElementById('social-assets-list').innerHTML = '';
+  document.getElementById('episode-sponsors-list').innerHTML = '';
+  if (recordingStatusPollTimer) clearInterval(recordingStatusPollTimer);
 }
 
 // datetime-local has no timezone of its own — same convention already used
@@ -420,6 +524,172 @@ async function loadArticles() {
   });
 }
 
+// ---- Content Engine (Wave 5): recording upload/status, clips, social
+// assets, sponsors. All gated on a real Episode already existing — see
+// editArticle()'s `if (article.episode)` block. ----
+let recordingStatusPollTimer = null;
+
+function updateRecordingStatusUI(status, error) {
+  const statusEl = document.getElementById('recording-status');
+  const deleteBtn = document.getElementById('delete-recording-btn');
+  const errorEl = document.getElementById('recording-error');
+  errorEl.style.display = 'none';
+  if (status === 'PROCESSING') {
+    statusEl.textContent = 'Transcribing… this can take a few minutes for a full episode.';
+    deleteBtn.style.display = 'none';
+  } else if (status === 'DONE') {
+    statusEl.textContent = 'Transcription complete.';
+    deleteBtn.style.display = 'inline-block';
+  } else if (status === 'FAILED') {
+    statusEl.textContent = '';
+    errorEl.textContent = error || 'Transcription failed.';
+    errorEl.style.display = 'block';
+    deleteBtn.style.display = 'inline-block'; // the raw file is still there even though transcription failed — clips can still be added/rendered manually
+  } else {
+    statusEl.textContent = '';
+    deleteBtn.style.display = 'none';
+  }
+}
+
+function startRecordingStatusPoll(episodeId) {
+  if (recordingStatusPollTimer) clearInterval(recordingStatusPollTimer);
+  recordingStatusPollTimer = setInterval(async () => {
+    const status = await api(`/api/episodes/${episodeId}/status`).catch(() => null);
+    if (!status) return;
+    updateRecordingStatusUI(status.transcriptionStatus, status.transcriptionError);
+    if (status.transcript) document.getElementById('transcript').value = status.transcript;
+    renderClips(status.clips || [], episodeId);
+    if (status.transcriptionStatus === 'DONE' || status.transcriptionStatus === 'FAILED') {
+      clearInterval(recordingStatusPollTimer);
+    }
+  }, 5000);
+}
+
+function clipStatusLabel(clip) {
+  if (clip.status === 'SUGGESTED') return `AI-suggested — ${escapeHtml(clip.reason || '')}`;
+  if (clip.status === 'REJECTED') return 'Rejected';
+  if (clip.status === 'RENDERED') return 'Rendered';
+  return 'Approved — not yet rendered';
+}
+
+function renderClips(clips, episodeId) {
+  const el = document.getElementById('clips-list');
+  if (!clips.length) {
+    el.innerHTML = '<p class="empty-state" style="padding:0.5rem 0;">No clips yet.</p>';
+    return;
+  }
+  el.innerHTML = clips.map((c) => `
+    <div class="fixture-row" data-clip-id="${c.id}">
+      <div>
+        <span class="fixture-teams" style="font-size:0.88rem; font-weight:600;">${escapeHtml(c.title)}</span>
+        <span class="fixture-meta">${c.startSeconds}s–${c.endSeconds}s · ${clipStatusLabel(c)}</span>
+      </div>
+      <div>
+        ${c.status === 'SUGGESTED' ? `<button type="button" class="btn-outline-sm approve-clip-btn">Approve</button> <button type="button" class="btn-outline-sm reject-clip-btn">Reject</button>` : ''}
+        ${c.status === 'APPROVED' ? `<button type="button" class="btn-outline-sm render-clip-btn">Render</button>` : ''}
+        ${c.status === 'RENDERED' ? `<a href="${escapeHtml(c.videoUrl)}" target="_blank" class="btn-outline-sm" style="text-decoration:none;">View</a>` : ''}
+        <button type="button" class="btn-outline-sm delete-clip-btn" style="color:var(--danger); border-color:var(--danger);">✕</button>
+      </div>
+    </div>`).join('');
+
+  el.querySelectorAll('.approve-clip-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const clipId = btn.closest('[data-clip-id]').dataset.clipId;
+      await api(`/api/episodes/clips/${clipId}`, { method: 'PUT', body: JSON.stringify({ status: 'APPROVED' }) });
+      reloadEpisodeSection(episodeId);
+    });
+  });
+  el.querySelectorAll('.reject-clip-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const clipId = btn.closest('[data-clip-id]').dataset.clipId;
+      await api(`/api/episodes/clips/${clipId}`, { method: 'PUT', body: JSON.stringify({ status: 'REJECTED' }) });
+      reloadEpisodeSection(episodeId);
+    });
+  });
+  el.querySelectorAll('.render-clip-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.textContent = 'Rendering…';
+      try {
+        const clipId = btn.closest('[data-clip-id]').dataset.clipId;
+        await api(`/api/episodes/clips/${clipId}/render`, { method: 'POST' });
+        reloadEpisodeSection(episodeId);
+      } catch (err) {
+        alert(err.message);
+        btn.disabled = false;
+        btn.textContent = 'Render';
+      }
+    });
+  });
+  el.querySelectorAll('.delete-clip-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const clipId = btn.closest('[data-clip-id]').dataset.clipId;
+      await api(`/api/episodes/clips/${clipId}`, { method: 'DELETE' });
+      reloadEpisodeSection(episodeId);
+    });
+  });
+}
+
+function renderSocialAssets(assets, episodeId) {
+  const el = document.getElementById('social-assets-list');
+  if (!assets.length) {
+    el.innerHTML = '<p class="empty-state" style="padding:0.5rem 0;">No social assets yet.</p>';
+    return;
+  }
+  el.innerHTML = assets.map((a) => `
+    <div class="fixture-row" data-asset-id="${a.id}">
+      <div>
+        <span class="pill">${escapeHtml(a.type.replace('_', ' '))}</span>
+        <span class="fixture-teams" style="font-size:0.85rem;">${escapeHtml(a.content)}</span>
+        ${a.source === 'AI_GENERATED' ? '<span class="fixture-meta">AI-generated, verified against the real transcript</span>' : ''}
+      </div>
+      <button type="button" class="btn-outline-sm delete-asset-btn" style="color:var(--danger); border-color:var(--danger);">✕</button>
+    </div>`).join('');
+  el.querySelectorAll('.delete-asset-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const assetId = btn.closest('[data-asset-id]').dataset.assetId;
+      await api(`/api/episodes/social-assets/${assetId}`, { method: 'DELETE' });
+      reloadEpisodeSection(episodeId);
+    });
+  });
+}
+
+function renderEpisodeSponsors(sponsors, episodeId) {
+  const el = document.getElementById('episode-sponsors-list');
+  if (!sponsors.length) {
+    el.innerHTML = '<p class="empty-state" style="padding:0.5rem 0;">No sponsors yet.</p>';
+    return;
+  }
+  el.innerHTML = sponsors.map((s) => `
+    <div class="fixture-row" data-sponsor-id="${s.id}">
+      <span class="fixture-teams" style="font-size:0.88rem;">${escapeHtml(s.name)}</span>
+      <button type="button" class="btn-outline-sm delete-episode-sponsor-btn" style="color:var(--danger); border-color:var(--danger);">✕</button>
+    </div>`).join('');
+  el.querySelectorAll('.delete-episode-sponsor-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const sponsorId = btn.closest('[data-sponsor-id]').dataset.sponsorId;
+      await api(`/api/episodes/sponsors/${sponsorId}`, { method: 'DELETE' });
+      reloadEpisodeSection(episodeId);
+    });
+  });
+}
+
+// Re-fetches this one episode's content-engine state (clips/social
+// assets/sponsors) via the admin article list, without closing/reopening
+// the whole edit form. Reuses GET /api/articles/admin/all rather than a
+// dedicated by-id route — this list is already small (newsroom-scale, not
+// public-traffic-scale) and every other refresh path in this file already
+// re-fetches it wholesale (see loadArticles), so this stays consistent
+// rather than adding a one-off endpoint just to shave one query.
+async function reloadEpisodeSection(episodeId) {
+  const { articles } = await api('/api/articles/admin/all');
+  const article = articles.find((a) => a.episode?.id === episodeId);
+  if (!article?.episode) return;
+  renderClips(article.episode.clips || [], episodeId);
+  renderSocialAssets(article.episode.socialAssets || [], episodeId);
+  renderEpisodeSponsors(article.episode.sponsors || [], episodeId);
+}
+
 function editArticle(article) {
   resetForm();
   document.getElementById('article-id').value = article.id;
@@ -442,8 +712,8 @@ function editArticle(article) {
   document.getElementById('episodeLabel').value = article.episodeLabel || '';
   document.getElementById('runtimeLabel').value = article.runtimeLabel || '';
   document.getElementById('episodeNumber').value = article.episode?.episodeNumber ?? '';
-  document.getElementById('host').value = article.episode?.host || '';
-  document.getElementById('guest').value = article.episode?.guest || '';
+  setSelectedHostAuthorIds((article.episode?.hosts || []).map((h) => h.id));
+  (article.episode?.guests || []).forEach((g) => addGuestRow({ name: g.name, role: g.role, playerId: g.playerId, playerName: g.player?.name }));
   document.getElementById('recordingDate').value = article.episode?.recordingDate ? article.episode.recordingDate.slice(0, 10) : '';
   document.getElementById('transcript').value = article.episode?.transcript || '';
   document.getElementById('chapters').value = article.episode?.chapters || '';
@@ -458,6 +728,16 @@ function editArticle(article) {
   });
 
   document.getElementById('video-fields').style.display = article.contentType === 'VIDEO_POST' ? 'block' : 'none';
+
+  if (article.episode) {
+    currentEpisodeId = article.episode.id;
+    document.getElementById('content-engine-section').style.display = 'block';
+    renderClips(article.episode.clips || [], article.episode.id);
+    renderSocialAssets(article.episode.socialAssets || [], article.episode.id);
+    renderEpisodeSponsors(article.episode.sponsors || [], article.episode.id);
+    updateRecordingStatusUI(article.episode.transcriptionStatus, article.episode.transcriptionError);
+    if (article.episode.transcriptionStatus === 'PROCESSING') startRecordingStatusPoll(article.episode.id);
+  }
 
   document.getElementById('canonical-event-section').style.display = 'block';
   renderCanonicalEvent(null); // clear stale state from any previously-edited article while this one loads
@@ -496,8 +776,8 @@ function collectFormData() {
     episodeLabel: document.getElementById('episodeLabel').value.trim() || null,
     runtimeLabel: document.getElementById('runtimeLabel').value.trim() || null,
     episodeNumber: document.getElementById('episodeNumber').value ? parseInt(document.getElementById('episodeNumber').value, 10) : null,
-    host: document.getElementById('host').value.trim() || null,
-    guest: document.getElementById('guest').value.trim() || null,
+    hostAuthorIds: getSelectedHostAuthorIds(),
+    guests: getGuests(),
     recordingDate: document.getElementById('recordingDate').value || null,
     transcript: document.getElementById('transcript').value.trim() || null,
     chapters: document.getElementById('chapters').value.trim() || null,
@@ -528,6 +808,7 @@ async function initArticlesPage() {
   populateSelect(document.getElementById('sportId'), allSports);
   populateSelect(document.getElementById('authorId'), allAuthors);
   populateTagCheckboxes(allTags);
+  populateHostCheckboxes(allAuthors);
   populateCompetitionOptions(document.getElementById('sportId').value);
 
   document.getElementById('new-article-btn').addEventListener('click', () => {
@@ -566,6 +847,76 @@ async function initArticlesPage() {
   document.getElementById('coverImageUrl').addEventListener('input', (e) => {
     showCoverImagePreview(e.target.value.trim());
   });
+
+  document.getElementById('add-guest-btn').addEventListener('click', () => addGuestRow());
+
+  document.getElementById('recordingUpload').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file || !currentEpisodeId) return;
+    const statusEl = document.getElementById('recording-status');
+    const errorEl = document.getElementById('recording-error');
+    errorEl.style.display = 'none';
+    statusEl.textContent = 'Uploading…';
+    const formData = new FormData();
+    formData.append('recording', file);
+    try {
+      await api(`/api/episodes/${currentEpisodeId}/recording`, { method: 'POST', body: formData, headers: {} });
+      updateRecordingStatusUI('PROCESSING', null);
+      startRecordingStatusPoll(currentEpisodeId);
+    } catch (err) {
+      errorEl.textContent = err.message;
+      errorEl.style.display = 'block';
+      statusEl.textContent = '';
+    } finally {
+      e.target.value = '';
+    }
+  });
+  document.getElementById('delete-recording-btn').addEventListener('click', async () => {
+    if (!currentEpisodeId || !confirm('Delete the raw recording? You will need to re-upload it to render any more clips.')) return;
+    await api(`/api/episodes/${currentEpisodeId}/recording`, { method: 'DELETE' });
+    document.getElementById('delete-recording-btn').style.display = 'none';
+  });
+  document.getElementById('add-clip-btn').addEventListener('click', async () => {
+    if (!currentEpisodeId) return;
+    const title = document.getElementById('newClipTitle').value.trim();
+    const startSeconds = parseInt(document.getElementById('newClipStart').value, 10);
+    const endSeconds = parseInt(document.getElementById('newClipEnd').value, 10);
+    if (!title || Number.isNaN(startSeconds) || Number.isNaN(endSeconds)) return;
+    await api(`/api/episodes/${currentEpisodeId}/clips`, { method: 'POST', body: JSON.stringify({ title, startSeconds, endSeconds }) });
+    document.getElementById('newClipTitle').value = '';
+    document.getElementById('newClipStart').value = '';
+    document.getElementById('newClipEnd').value = '';
+    reloadEpisodeSection(currentEpisodeId);
+  });
+  document.getElementById('generate-quotes-btn').addEventListener('click', async (e) => {
+    if (!currentEpisodeId) return;
+    const btn = e.target;
+    const errorEl = document.getElementById('social-asset-error');
+    errorEl.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = 'Generating…';
+    try {
+      await api(`/api/episodes/${currentEpisodeId}/social-assets/generate`, { method: 'POST' });
+      reloadEpisodeSection(currentEpisodeId);
+    } catch (err) {
+      errorEl.textContent = err.message;
+      errorEl.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Generate Quote Cards from Transcript';
+    }
+  });
+  document.getElementById('add-sponsor-btn').addEventListener('click', async () => {
+    if (!currentEpisodeId) return;
+    const name = document.getElementById('newSponsorName').value.trim();
+    const logoUrl = document.getElementById('newSponsorLogoUrl').value.trim() || null;
+    if (!name) return;
+    await api(`/api/episodes/${currentEpisodeId}/sponsors`, { method: 'POST', body: JSON.stringify({ name, logoUrl }) });
+    document.getElementById('newSponsorName').value = '';
+    document.getElementById('newSponsorLogoUrl').value = '';
+    reloadEpisodeSection(currentEpisodeId);
+  });
+
   document.getElementById('fixture-search-input').addEventListener('input', (e) => {
     const q = e.target.value;
     clearTimeout(fixtureSearchTimer);

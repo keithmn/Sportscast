@@ -1,0 +1,19 @@
+# Wave 5 — Content Transformation Engine needs a real `ffmpeg` binary on
+# PATH (server/lib/ffmpeg.js) for cutting clips and burning in captions.
+# This app has no build step of its own and no other place to declare a
+# system-level dependency, so this file exists purely to add it —
+# `nixPkgs` here is additive to Nixpacks' own auto-detected Node setup
+# (package.json's `engines.node` still controls the Node version; this
+# doesn't override that), not a replacement for it.
+#
+# Caption burn-in specifically needs ffmpeg built with libass — confirmed
+# in development that this genuinely varies by distribution (Homebrew's
+# plain `ffmpeg` formula on macOS doesn't include it; `ffmpeg-full` does).
+# nixpkgs' plain `ffmpeg` attribute is expected to include libass (unlike
+# Homebrew's split), but server/lib/ffmpeg.js's cutClip doesn't assume
+# this either way — a caption-burn failure falls back to an uncaptioned
+# render rather than failing the whole clip, so this is a "should work,
+# verified to degrade safely if it doesn't" situation, not a hard
+# dependency this deploy will break on.
+[phases.setup]
+nixPkgs = ["ffmpeg"]

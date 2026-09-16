@@ -11,6 +11,14 @@ const router = express.Router();
 // record (currently just "The Sportscast"). Every other videoSeries value
 // (the 5 dormant niche shows) is left exactly as it was — legacy fields
 // on Article only, no Episode row, nothing to migrate.
+//
+// hostAuthorIds/guests replaced the old free-text host/guest scalars
+// (Wave 5) — hosts is a real many-to-many so Prisma's `set` handles
+// wholesale replacement natively; guests is a separate child table
+// (EpisodeGuest can carry a role and an optional Player link, which a
+// plain string never could), so it's replaced the same way StandingRow's
+// admin save already does: delete this episode's existing guest rows,
+// recreate from what was submitted.
 async function syncEpisodeForArticle(article, episodeFields) {
   if (article.contentType !== 'VIDEO_POST' || !article.videoSeries) return;
   const show = await prisma.show.findFirst({ where: { name: article.videoSeries } });
@@ -21,20 +29,33 @@ async function syncEpisodeForArticle(article, episodeFields) {
   const data = {
     showId: show.id,
     episodeNumber: episodeFields.episodeNumber ?? (epNumMatch ? parseInt(epNumMatch[1], 10) : null),
-    host: episodeFields.host ?? null,
-    guest: episodeFields.guest ?? null,
     youtubeId: article.youtubeId || null,
     durationSeconds: durationMatch ? parseInt(durationMatch[1], 10) * 60 : null,
     recordingDate: episodeFields.recordingDate ? new Date(episodeFields.recordingDate) : null,
     transcript: episodeFields.transcript ?? null,
     chapters: episodeFields.chapters ?? null,
   };
+  const hostAuthorIds = episodeFields.hostAuthorIds ?? [];
+  const guests = episodeFields.guests ?? [];
 
-  await prisma.episode.upsert({
+  const episode = await prisma.episode.upsert({
     where: { articleId: article.id },
-    update: data,
-    create: { ...data, articleId: article.id },
+    update: { ...data, hosts: { set: hostAuthorIds.map((id) => ({ id })) } },
+    create: { ...data, articleId: article.id, hosts: { connect: hostAuthorIds.map((id) => ({ id })) } },
   });
+
+  await prisma.episodeGuest.deleteMany({ where: { episodeId: episode.id } });
+  const validGuests = guests.filter((g) => g.name && g.name.trim());
+  if (validGuests.length) {
+    await prisma.episodeGuest.createMany({
+      data: validGuests.map((g) => ({
+        episodeId: episode.id,
+        name: g.name.trim(),
+        role: g.role || null,
+        playerId: g.playerId || null,
+      })),
+    });
+  }
 }
 
 const articleInclude = {
@@ -44,7 +65,15 @@ const articleInclude = {
   competitions: true,
   clubs: true,
   players: true,
-  episode: true,
+  episode: {
+    include: {
+      hosts: true,
+      guests: { include: { player: { select: { id: true, name: true, slug: true } } } },
+      clips: { orderBy: { startSeconds: 'asc' } },
+      socialAssets: true,
+      sponsors: true,
+    },
+  },
   fixture: {
     select: {
       id: true,
@@ -184,7 +213,7 @@ router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
     title, dek, body, coverImageUrl, sportId, authorId, tagIds,
     status, scheduledAt, fixtureId, featured, contentType, isBrief, youtubeId, videoSeries,
     episodeLabel, runtimeLabel, competitionIds, clubIds, playerIds,
-    episodeNumber, host, guest, recordingDate, transcript, chapters,
+    episodeNumber, hostAuthorIds, guests, recordingDate, transcript, chapters,
   } = req.body;
 
   if (!title || !dek || !body || !sportId || !authorId) {
@@ -234,7 +263,7 @@ router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
     });
   }
 
-  await syncEpisodeForArticle(article, { episodeNumber, host, guest, recordingDate, transcript, chapters });
+  await syncEpisodeForArticle(article, { episodeNumber, hostAuthorIds, guests, recordingDate, transcript, chapters });
   const freshArticle = await prisma.article.findUnique({ where: { id: article.id }, include: articleInclude });
 
   res.status(201).json({ article: freshArticle });
@@ -249,14 +278,17 @@ router.put('/:id', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
     title, dek, body, coverImageUrl, sportId, authorId, tagIds,
     status, scheduledAt, fixtureId, featured, contentType, isBrief, youtubeId, videoSeries,
     episodeLabel, runtimeLabel, competitionIds, clubIds, playerIds,
-    episodeNumber, host, guest, recordingDate, transcript, chapters,
+    episodeNumber, hostAuthorIds, guests, recordingDate, transcript, chapters,
   } = req.body;
 
   const resolvedStatus = status ?? existing.status;
   const schedulingError = validateScheduling(resolvedStatus, scheduledAt !== undefined ? scheduledAt : existing.scheduledAt);
   if (schedulingError) return res.status(400).json({ error: schedulingError });
 
-  const existingEpisode = await prisma.episode.findUnique({ where: { articleId: existing.id } });
+  const existingEpisode = await prisma.episode.findUnique({
+    where: { articleId: existing.id },
+    include: { hosts: true, guests: true },
+  });
 
   const wasPublished = existing.status === 'PUBLISHED';
   const willBePublished = resolvedStatus === 'PUBLISHED';
@@ -298,8 +330,8 @@ router.put('/:id', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
 
   await syncEpisodeForArticle(article, {
     episodeNumber: episodeNumber !== undefined ? episodeNumber : existingEpisode?.episodeNumber,
-    host: host !== undefined ? host : existingEpisode?.host,
-    guest: guest !== undefined ? guest : existingEpisode?.guest,
+    hostAuthorIds: hostAuthorIds !== undefined ? hostAuthorIds : existingEpisode?.hosts.map((h) => h.id),
+    guests: guests !== undefined ? guests : existingEpisode?.guests.map((g) => ({ name: g.name, role: g.role, playerId: g.playerId })),
     recordingDate: recordingDate !== undefined ? recordingDate : existingEpisode?.recordingDate,
     transcript: transcript !== undefined ? transcript : existingEpisode?.transcript,
     chapters: chapters !== undefined ? chapters : existingEpisode?.chapters,

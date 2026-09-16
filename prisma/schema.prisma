@@ -22,12 +22,13 @@ model User {
 // ===================== CMS / ARTICLES (Phase 1) =====================
 
 model Author {
-  id       String    @id @default(cuid())
-  name     String
-  slug     String    @unique
-  bio      String?
-  photoUrl String?
-  articles Article[]
+  id             String    @id @default(cuid())
+  name           String
+  slug           String    @unique
+  bio            String?
+  photoUrl       String?
+  articles       Article[]
+  episodesHosted Episode[] @relation("EpisodeHosts")
 }
 
 // Article-tagging taxonomy only. Underdoggs Data (a separate service) keeps
@@ -161,26 +162,121 @@ model Season {
 // an episode could theoretically be scheduled/planned before its article
 // is written, though today every Episode is created alongside its Article.
 model Episode {
-  id              String    @id @default(cuid())
-  showId          String
-  show            Show      @relation(fields: [showId], references: [id])
-  seasonId        String?
-  season          Season?   @relation(fields: [seasonId], references: [id])
-  articleId       String?   @unique
-  article         Article?  @relation(fields: [articleId], references: [id])
-  episodeNumber   Int?
-  host            String?
-  guest           String?
-  youtubeId       String?
-  durationSeconds Int?
-  recordingDate   DateTime?
-  transcript      String?
+  id                  String           @id @default(cuid())
+  showId              String
+  show                Show             @relation(fields: [showId], references: [id])
+  seasonId            String?
+  season              Season?          @relation(fields: [seasonId], references: [id])
+  articleId           String?          @unique
+  article             Article?         @relation(fields: [articleId], references: [id])
+  episodeNumber       Int?
+  // Wave 5 — was a single free-text String each (host/guest). Hosts are
+  // always Sportscast's own bylined staff, so a real many-to-many to
+  // Author fits cleanly. Guests are often NOT in this app's data model at
+  // all (federation officials, coaches) — EpisodeGuest keeps a required
+  // name (source of truth, same "string first, link is additive"
+  // precedent as Fixture.homeClubId) with an optional Player link for
+  // when the guest is a known athlete. No real data existed on the old
+  // scalar fields to migrate (confirmed: all 4 existing episodes had
+  // host/guest null), so this is a clean cut, not a backfill.
+  hosts               Author[]         @relation("EpisodeHosts")
+  guests              EpisodeGuest[]
+  youtubeId           String?
+  durationSeconds     Int?
+  recordingDate       DateTime?
+  transcript          String?
   // Simple text blob (e.g. "00:00 Intro\n03:20 The interview begins") —
   // not a separate table. A chapter list is small and always read as a
   // whole; splitting it out would be structure this doesn't need yet.
-  chapters        String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  chapters            String?
+  clips               Clip[]
+  socialAssets        SocialAsset[]
+  sponsors            EpisodeSponsor[]
+  // Content Transformation Engine state (server/lib/contentEngine.js). The
+  // raw uploaded recording itself is never persisted long-term (a 45-60min
+  // show file is hundreds of MB+; this app's persistent volume doesn't
+  // have room to keep those around) — only this status trail survives it.
+  transcriptionStatus String? // NONE | PROCESSING | DONE | FAILED — null/NONE until a raw recording is ever uploaded
+  transcriptionError  String? // set only on FAILED, shown to the editor
+  // Whisper's segment-level timestamps as a JSON-stringified array
+  // ([{start,end,text}]) — plain text, not Prisma's Json type, matching
+  // this schema's existing preference for simple text blobs (chapters,
+  // ChangeLog.summary) over structured columns. Needed at clip-render
+  // time (to build a real SRT slice, see server/lib/contentEngine.js's
+  // buildSrtForRange) potentially long after transcription finished, so
+  // this has to survive independently of the raw recording file itself.
+  transcriptSegments  String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+}
+
+// Wave 5 — Content Engine. A guest's name is always required and is the
+// source of truth (many guests, e.g. a federation official, will never
+// have a Player row); playerId is an optional best-effort link for when
+// the guest is a known athlete already in this app's data.
+model EpisodeGuest {
+  id        String   @id @default(cuid())
+  episodeId String
+  episode   Episode  @relation(fields: [episodeId], references: [id])
+  name      String
+  role      String? // e.g. "Federation Official", "Head Coach" — context when there's no Player link to supply it
+  playerId  String?
+  player    Player?  @relation(fields: [playerId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+// Wave 5 — an episode's presenting/segment sponsor. Deliberately a
+// separate model from the existing Club-scoped Sponsor (prisma/schema.prisma's
+// Club section) rather than a shared/polymorphic one — a shirt sponsor and
+// a podcast-episode sponsor are different real-world relationships that
+// happen to share a shape (name/logo/link), not the same entity.
+model EpisodeSponsor {
+  id        String   @id @default(cuid())
+  episodeId String
+  episode   Episode  @relation(fields: [episodeId], references: [id])
+  name      String
+  logoUrl   String?
+  website   String?
+  createdAt DateTime @default(now())
+}
+
+// Wave 5 — the Content Transformation Engine's non-video outputs (quote
+// cards, social copy, newsletter blurbs). `content` is always the actual
+// text/copy itself; AI_GENERATED ones are produced from the episode's real
+// transcript (never invented — see Clip's own comment on the same rule).
+model SocialAsset {
+  id        String   @id @default(cuid())
+  episodeId String
+  episode   Episode  @relation(fields: [episodeId], references: [id])
+  type      String // QUOTE_CARD | SOCIAL_COPY | NEWSLETTER_BLOCK
+  content   String
+  source    String   @default("MANUAL") // MANUAL | AI_GENERATED
+  createdAt DateTime @default(now())
+}
+
+// Wave 5 — Content Transformation Engine. An AI_SUGGESTED clip starts at
+// SUGGESTED and needs a human APPROVED before it's ever rendered — "AI
+// should ASSIST, human review remains authoritative" is enforced here as a
+// real state, not just a policy. A MANUAL clip (an editor cut this
+// directly) skips straight to APPROVED — a human made it, there's nothing
+// to review. RENDERED means ffmpeg has actually produced videoUrl; until
+// then a clip is just a proposed/approved time range. captionsSrt is
+// always a literal slice of the episode's own transcript — this app never
+// lets AI paraphrase or invent what was actually said (see server/lib/
+// contentEngine.js).
+model Clip {
+  id           String   @id @default(cuid())
+  episodeId    String
+  episode      Episode  @relation(fields: [episodeId], references: [id])
+  title        String
+  startSeconds Int
+  endSeconds   Int
+  captionsSrt  String?
+  videoUrl     String?
+  source       String   @default("MANUAL") // MANUAL | AI_SUGGESTED
+  status       String   @default("APPROVED") // SUGGESTED | APPROVED | REJECTED | RENDERED
+  reason       String? // the AI's stated reason for suggesting this moment — AI_SUGGESTED only, shown to the human reviewer, never treated as fact
+  createdAt    DateTime @default(now())
 }
 
 // ===================== SCORES & FIXTURES (football-first) =====================
@@ -494,20 +590,21 @@ model Sponsor {
 }
 
 model Player {
-  id          String    @id @default(cuid())
-  clubId      String
-  club        Club      @relation(fields: [clubId], references: [id])
-  name        String
+  id                      String         @id @default(cuid())
+  clubId                  String
+  club                    Club           @relation(fields: [clubId], references: [id])
+  name                    String
   // Never regenerated after creation, even if name changes later — same
   // convention Club/Competition slugs already follow.
-  slug        String    @unique
-  position    String?
-  nationality String?
-  age         Int?
-  photoUrl    String?
-  externalId  String? // Wikidata QID ("Q7550600") — null for MANUAL entries
-  articles    Article[] @relation("ArticlePlayerTags")
-  createdAt   DateTime  @default(now())
+  slug                    String         @unique
+  position                String?
+  nationality             String?
+  age                     Int?
+  photoUrl                String?
+  externalId              String? // Wikidata QID ("Q7550600") — null for MANUAL entries
+  articles                Article[]      @relation("ArticlePlayerTags")
+  episodeGuestAppearances EpisodeGuest[]
+  createdAt               DateTime       @default(now())
 }
 
 // ===================== MONITORING ENGINE (2026-09-06) =====================

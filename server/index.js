@@ -24,6 +24,7 @@ const articleRoutes = require('./routes/articles');
 const canonicalSearchRoutes = require('./routes/canonicalSearch');
 const publicSearchRoutes = require('./routes/publicSearch');
 const { buildUploadsRouter } = require('./routes/uploads');
+const { buildEpisodesRouter } = require('./routes/episodes');
 const seoPagesRoutes = require('./routes/seoPages');
 const taxonomyRoutes = require('./routes/taxonomy');
 const competitionRoutes = require('./routes/competitions');
@@ -54,6 +55,7 @@ const { syncBallDontLie } = require('./jobs/syncBallDontLie');
 const { runMonitoringFetch } = require('./jobs/runMonitoringFetch');
 const { runMonitoringEnrich } = require('./jobs/runMonitoringEnrich');
 const { publishScheduled } = require('./jobs/publishScheduled');
+const { cleanupRawRecordings } = require('./jobs/cleanupRawRecordings');
 
 if (!process.env.SESSION_SECRET) {
   throw new Error('SESSION_SECRET must be set — refusing to start with a guessable session-signing key.');
@@ -75,6 +77,13 @@ const sessionsDir = path.join(dbDir, 'sessions');
 // why local-volume storage, not S3/R2, was the right call here).
 const uploadsDir = path.join(dbDir, 'uploads');
 fs.mkdirSync(uploadsDir, { recursive: true });
+
+// Raw show recordings, uploaded for the Content Transformation Engine
+// (Wave 5) — kept only long enough to transcribe and render approved
+// clips from; see server/jobs/cleanupRawRecordings.js for why these can't
+// just accumulate here indefinitely.
+const rawRecordingsDir = path.join(dbDir, 'raw-recordings');
+fs.mkdirSync(rawRecordingsDir, { recursive: true });
 
 const app = express();
 
@@ -164,6 +173,7 @@ app.use('/api/articles', articleRoutes);
 app.use('/api/canonical-search', canonicalSearchRoutes);
 app.use('/api/search', publicSearchRoutes);
 app.use('/api/uploads', buildUploadsRouter(uploadsDir));
+app.use('/api/episodes', buildEpisodesRouter(rawRecordingsDir, uploadsDir));
 app.use('/api', taxonomyRoutes); // /api/sports, /api/tags, /api/authors
 app.use('/api/competitions', competitionRoutes);
 app.use('/api/fixtures', fixtureRoutes);
@@ -267,4 +277,15 @@ cron.schedule(MONITORING_ENRICH_CRON, () => {
 const PUBLISH_SCHEDULED_CRON = process.env.PUBLISH_SCHEDULED_CRON || '*/2 * * * *';
 cron.schedule(PUBLISH_SCHEDULED_CRON, () => {
   publishScheduled().catch((err) => console.error('[publishScheduled] Unhandled error:', err));
+});
+
+// Wave 5 — raw show recordings safety net (see cleanupRawRecordings.js's
+// own header comment). Hourly is plenty given the 48h retention window.
+const CLEANUP_RAW_RECORDINGS_CRON = process.env.CLEANUP_RAW_RECORDINGS_CRON || '15 * * * *';
+cron.schedule(CLEANUP_RAW_RECORDINGS_CRON, () => {
+  try {
+    cleanupRawRecordings(rawRecordingsDir);
+  } catch (err) {
+    console.error('[cleanupRawRecordings] Unhandled error:', err);
+  }
 });
