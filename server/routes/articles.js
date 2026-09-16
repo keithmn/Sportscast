@@ -3,6 +3,7 @@ const prisma = require('../db');
 const { slugify } = require('../utils/slugify');
 const { requireRole } = require('../middleware/auth');
 const { fetchCanonicalEvent, verifyCanonicalEvent } = require('../lib/canonicalData');
+const { notifyArticlePublished } = require('../lib/events');
 
 const router = express.Router();
 
@@ -266,6 +267,8 @@ router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   await syncEpisodeForArticle(article, { episodeNumber, hostAuthorIds, guests, recordingDate, transcript, chapters });
   const freshArticle = await prisma.article.findUnique({ where: { id: article.id }, include: articleInclude });
 
+  if (article.status === 'PUBLISHED') notifyArticlePublished(article.id);
+
   res.status(201).json({ article: freshArticle });
 });
 
@@ -337,6 +340,8 @@ router.put('/:id', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
     chapters: chapters !== undefined ? chapters : existingEpisode?.chapters,
   });
   const freshArticle = await prisma.article.findUnique({ where: { id: article.id }, include: articleInclude });
+
+  if (!wasPublished && willBePublished) notifyArticlePublished(article.id);
 
   res.json({ article: freshArticle });
 });

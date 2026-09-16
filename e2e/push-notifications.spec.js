@@ -80,3 +80,58 @@ test.describe('Push notifications', () => {
     expect(updated.status).toBe('FINISHED');
   });
 });
+
+// Wave 7 — generalizes the single fixture-result pathway above into a
+// reusable "publish → notify followers" mechanism (server/lib/events.js).
+// Same real-failure-path philosophy as the fixture-result test: a
+// genuinely undeliverable subscription must never affect the publish
+// response, and this exercises notifyArticlePublished for real (a real
+// DB read of the article's tags), not mocked away.
+test.describe('Article publish notifications', () => {
+  test('publishing an article tagged to a followed competition never fails to save even when the only subscriber is unreachable', async ({ page }) => {
+    await page.goto('/admin/index.html');
+    await page.fill('#email', 'admin@underdoggs.co.ke');
+    await page.fill('#password', 'underdoggs2026');
+    await page.click('button:has-text("Sign In")');
+    await page.waitForURL('**/admin/dashboard.html');
+
+    const { competitions } = await page.request.get('/api/competitions').then((r) => r.json());
+    const kpl = competitions.find((c) => c.name === 'Kenyan Premier League');
+    expect(kpl).toBeTruthy();
+    const { sports } = await page.request.get('/api/sports').then((r) => r.json());
+    const { authors } = await page.request.get('/api/authors').then((r) => r.json());
+    expect(sports.length).toBeGreaterThan(0);
+    expect(authors.length).toBeGreaterThan(0);
+
+    const anonymousId = `e2etest-article-${Date.now()}`;
+    await page.request.post('/api/follows', {
+      data: { anonymousId, entityType: 'competition', entitySlug: kpl.slug, name: kpl.name, href: `/competition.html?slug=${kpl.slug}` },
+    });
+    await page.request.post('/api/push/subscribe', {
+      data: {
+        anonymousId,
+        subscription: {
+          endpoint: 'https://fcm.googleapis.com/fcm/send/e2e-test-article-endpoint-not-real',
+          keys: { p256dh: 'BNJxw7sd9OQKrLLsO0tzjhBjjkgemGXBqQwPWzREYhZS8kFXHTKCwlz9WmMXpAJXOOZLBUqvNoRhmrGmgUOtqBM', auth: 'FPssNDTKnInHVndSTdbKFw' },
+        },
+      },
+    });
+
+    const createRes = await page.request.post('/api/articles', {
+      data: {
+        title: `E2E Push Article ${Date.now()}`,
+        dek: 'Exercises the publish-notification path end to end.',
+        body: 'Body text.',
+        sportId: sports[0].id,
+        authorId: authors[0].id,
+        status: 'PUBLISHED',
+        competitionIds: [kpl.id],
+      },
+    });
+    expect(createRes.ok()).toBe(true);
+    const { article } = await createRes.json();
+    expect(article.status).toBe('PUBLISHED');
+
+    await page.request.delete(`/api/articles/${article.id}`);
+  });
+});

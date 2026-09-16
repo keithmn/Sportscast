@@ -66,3 +66,46 @@ Explicitly does **not** re-validate redirect hops (would require
 disabling `fetch`'s automatic redirect-following) — stated as a known
 residual gap in `server/lib/assertPublicUrl.js` rather than claimed as
 full SSRF immunity.
+
+## Wave 7 — API / app readiness
+
+**Fan accounts ship without a password-reset flow, by explicit choice,
+not an oversight.** This stack has no email-sending service configured
+anywhere (confirmed via grep before building anything) — a "forgot
+password" link with nowhere real to send the reset email would be worse
+than not offering one at all: it would create the expectation of a
+working flow and then silently fail it. `FanAccount` ships as email +
+password only; adding reset is real future work gated on an actual email
+provider being wired up, not a code change alone.
+
+**Registering doesn't move or copy any Follow/PushSubscription data —
+it claims the device's existing `anonymousId` onto the new account
+instead.** Both models are already keyed on `anonymousId`, not a user
+id; giving `FanAccount` its own `anonymousId` column that can equal the
+device's existing one means every follow/subscription made before
+registering keeps working identically afterward, with zero rows
+touched. Genuine cross-device sync (the SAME account inheriting a
+SECOND device's separate anonymousId) is deliberately not built here —
+it would need `public/js/follows.js` itself to stop trusting
+`localStorage` as the source of truth once signed in, a real client-side
+redesign, not a natural extension of this pass.
+
+**The new notification/event mechanism (`server/lib/events.js`) doesn't
+introduce a new stored event log.** The Data Platform sibling repo has
+one (`DomainEvent`) because nothing there reads it yet and it's meant to
+outlive any one consumer. Here, the only real consumer is
+`sendPushToFollowers` (already generic, already exists), and Follow's
+own `entityType` set (sport/club/competition/player) already defines
+what's actually followable — adding a second, parallel event-log table
+that nothing else reads would be a speculative abstraction the directive
+itself warns against ("complexity must earn its place"), not a genuine
+need.
+
+**Sort-direction (`order=asc|desc`) was added on the Data Platform's
+list routes; a full `?sort=<field>` selector was not.** Every route
+already sorts by the one field that's actually meaningful for it (name,
+createdAt, rank); no consumer has asked for a different field, and
+accepting an arbitrary field name would mean validating it per-route
+against a real Prisma field allowlist — real surface for a need that
+doesn't exist yet. `order` alone (flip the existing default) closes the
+actual gap: "give me the other direction," not "let me pick anything."

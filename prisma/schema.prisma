@@ -681,16 +681,46 @@ model MonitoredItem {
   @@unique([sourceId, externalUrl])
 }
 
+// ===================== FAN ACCOUNT (Wave 7, 2026-09-16) =====================
+// A real, registered (non-staff) fan account — email + password, separate
+// from User (ADMIN|EDITOR staff only, see above). Deliberately minimal:
+// no email verification and no password-reset flow yet, since this stack
+// has no email-sending service configured anywhere (confirmed via grep) —
+// building a "forgot password" link that goes nowhere would be worse than
+// not having one; this is a stated, known gap, not silently missing.
+//
+// anonymousId links a fan account to the SAME device-token identity
+// Follow/PushSubscription already key off (see Follow's own comment
+// below) — registering doesn't move or copy any data. The device's
+// existing Follow/PushSubscription rows simply keep working exactly as
+// they did anonymously; the account just adds a durable login on top of
+// the same anonymousId, satisfying the directive's "anonymous-to-account
+// migration" step without a data migration actually being necessary.
+// Genuine cross-device sync (logging into the same account from a SECOND
+// device and inheriting its follows) is a real future step, not built
+// here — this lays the groundwork (the account holds its own canonical
+// anonymousId, returned from GET /api/fan-auth/me) without the client-
+// side follows.js rewrite that full cross-device sync would need.
+model FanAccount {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  anonymousId  String?  @unique
+  createdAt    DateTime @default(now())
+}
+
 // ===================== FOLLOW (2026-09-13) =====================
 // Durable mirror of public/js/follows.js's localStorage-based Follow
-// system — no real visitor accounts exist yet, so there is no user to own
-// this. anonymousId is a random token public/js/follows.js generates once
-// per browser and keeps in localStorage alongside the follows themselves;
-// it identifies a device, never a person, and carries no PII. This closes
-// the "doesn't survive a storage wipe" gap in the original localStorage-
-// only version without inventing accounts that don't exist — the
-// interaction stays exactly the same (instant, no login), this is purely
-// a durability layer underneath it.
+// system. anonymousId is a random token public/js/follows.js generates
+// once per browser and keeps in localStorage alongside the follows
+// themselves; it identifies a device, never a person, and carries no PII
+// on its own. A registered FanAccount (above) can optionally claim one
+// anonymousId as its own, but Follow rows themselves stay keyed on
+// anonymousId regardless — this closes the "doesn't survive a storage
+// wipe" gap in the original localStorage-only version without requiring
+// an account — the interaction stays exactly the same (instant, no
+// login), this is purely a durability layer underneath it.
 model Follow {
   id          String   @id @default(cuid())
   anonymousId String

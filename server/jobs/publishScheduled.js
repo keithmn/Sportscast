@@ -4,6 +4,7 @@
 // (cron interval, see server/index.js) should still say it went live at
 // 09:00, not 09:03.
 const prisma = require('../db');
+const { notifyArticlePublished } = require('../lib/events');
 
 async function publishScheduled() {
   const due = await prisma.article.findMany({
@@ -17,6 +18,7 @@ async function publishScheduled() {
       data: { status: 'PUBLISHED', publishedAt: article.scheduledAt },
     });
     console.log(`[publishScheduled] Published: ${article.title}`);
+    notifyArticlePublished(article.id);
   }
 }
 

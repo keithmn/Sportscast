@@ -20,12 +20,14 @@ const FileStore = require('session-file-store')(session);
 const cron = require('node-cron');
 
 const authRoutes = require('./routes/auth');
+const fanAuthRoutes = require('./routes/fanAuth');
 const articleRoutes = require('./routes/articles');
 const canonicalSearchRoutes = require('./routes/canonicalSearch');
 const publicSearchRoutes = require('./routes/publicSearch');
 const { buildUploadsRouter } = require('./routes/uploads');
 const { buildEpisodesRouter } = require('./routes/episodes');
 const seoPagesRoutes = require('./routes/seoPages');
+const sitemapRoutes = require('./routes/sitemap');
 const taxonomyRoutes = require('./routes/taxonomy');
 const competitionRoutes = require('./routes/competitions');
 const fixtureRoutes = require('./routes/fixtures');
@@ -167,8 +169,14 @@ const loginLimiter = rateLimit({
   message: { error: 'Too many login attempts — try again later.' },
 });
 app.use('/api/auth/login', loginLimiter);
+// Same limiter, reused rather than duplicated — both register and login
+// are the realistic abuse targets (credential-stuffing a fan account,
+// or spamming account creation); a browsed-to GET /me needs no limit.
+app.use('/api/fan-auth/login', loginLimiter);
+app.use('/api/fan-auth/register', loginLimiter);
 
 app.use('/api/auth', authRoutes);
+app.use('/api/fan-auth', fanAuthRoutes);
 app.use('/api/articles', articleRoutes);
 app.use('/api/canonical-search', canonicalSearchRoutes);
 app.use('/api/search', publicSearchRoutes);
@@ -198,6 +206,13 @@ app.use('/api', pollRoutes);
 // plain static file (via next()) whenever there's no slug or nothing
 // matches it. See server/routes/seoPages.js and lib/renderSeoHtml.js.
 app.use(seoPagesRoutes);
+
+// Wave 7 — sitemap.xml/robots.txt didn't exist at all before this.
+// Registered here (before express.static) purely for consistency with
+// seoPagesRoutes above; there's no actual public/sitemap.xml or
+// public/robots.txt static file to shadow, so ordering isn't load-
+// bearing the way it is for seoPagesRoutes.
+app.use(sitemapRoutes);
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use('/uploads', express.static(uploadsDir));
