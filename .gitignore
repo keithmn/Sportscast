@@ -5,6 +5,7 @@ prisma/*.db-journal
 /test-results/
 /playwright-report/
 prisma/sessions/
+prisma/uploads/
 generated/
 .DS_Store
 .claude/

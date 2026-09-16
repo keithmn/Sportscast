@@ -1,5 +1,6 @@
 const express = require('express');
 const prisma = require('../db');
+const { requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -73,6 +74,42 @@ router.get('/upcoming', async (req, res) => {
     take: limit,
   });
 
+  res.json({ fixtures });
+});
+
+// ---- Admin: today's fixtures across every sport/competition (Wave 4 —
+// dashboard.js's "Fixtures" bucket). The public GET / above needs a
+// sport param and is scoped to one; this is the cross-sport count the
+// dashboard's "what needs attention today" view actually needs. ----
+router.get('/today', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const { start, end } = eatDayWindow(new Date().toISOString().slice(0, 10));
+  const fixtures = await prisma.fixture.findMany({
+    where: { kickoff: { gte: start, lt: end } },
+    include: { competition: { select: { name: true, slug: true } } },
+    orderBy: { kickoff: 'asc' },
+  });
+  res.json({ fixtures });
+});
+
+// ---- Admin: search local fixtures by team name, for the "attach fixture
+// to a match report" picker on the article form (Wave 4 — there are 4,700+
+// fixtures, far too many for a plain <select>). Registered before /:id for
+// the same reason /upcoming is. ----
+router.get('/search', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (q.length < 2) return res.json({ fixtures: [] });
+
+  const fixtures = await prisma.fixture.findMany({
+    where: {
+      OR: [
+        { homeTeam: { contains: q } },
+        { awayTeam: { contains: q } },
+      ],
+    },
+    include: { competition: { select: { name: true } } },
+    orderBy: { kickoff: 'desc' },
+    take: 15,
+  });
   res.json({ fixtures });
 });
 

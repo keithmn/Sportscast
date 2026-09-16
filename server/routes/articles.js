@@ -45,14 +45,37 @@ const articleInclude = {
   clubs: true,
   players: true,
   episode: true,
+  fixture: {
+    select: {
+      id: true,
+      homeTeam: true,
+      awayTeam: true,
+      kickoff: true,
+      competition: { select: { name: true, slug: true } },
+    },
+  },
 };
+
+// SCHEDULED requires a real future-parseable scheduledAt — everything else
+// (DRAFT/PUBLISHED) doesn't touch it. Returns an error string, or null if valid.
+function validateScheduling(status, scheduledAt) {
+  if (status !== 'SCHEDULED') return null;
+  if (!scheduledAt || Number.isNaN(new Date(scheduledAt).getTime())) {
+    return 'A valid scheduledAt date/time is required to schedule an article.';
+  }
+  return null;
+}
 
 // ---- Public: list published articles ----
 router.get('/', async (req, res) => {
-  const { sport, competition, club, player, tag, featured, videoSeries, contentType, isBrief, limit } = req.query;
+  const { sport, competition, club, player, fixture, tag, featured, videoSeries, contentType, isBrief, limit } = req.query;
 
   const where = { status: 'PUBLISHED' };
   if (sport) where.sport = { slug: sport };
+  // A direct match-report lookup (public/js/match.js's own "Match Report"
+  // section) — distinct from the club/competition heuristic below, which
+  // stays a fallback for matches with no article directly attached.
+  if (fixture) where.fixtureId = fixture;
   // Scoped to a competition/team's own page (public/js/subnav.js) — a club
   // tag doesn't imply also matching by competition, it's a narrower,
   // independent scope (see the schema comment on Article.clubs). An
@@ -159,7 +182,7 @@ router.delete('/:id/canonical-event', requireRole('ADMIN', 'EDITOR'), async (req
 router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const {
     title, dek, body, coverImageUrl, sportId, authorId, tagIds,
-    status, featured, contentType, isBrief, youtubeId, videoSeries,
+    status, scheduledAt, fixtureId, featured, contentType, isBrief, youtubeId, videoSeries,
     episodeLabel, runtimeLabel, competitionIds, clubIds, playerIds,
     episodeNumber, host, guest, recordingDate, transcript, chapters,
   } = req.body;
@@ -168,11 +191,13 @@ router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
     return res.status(400).json({ error: 'title, dek, body, sportId, and authorId are required' });
   }
 
+  const publishedStatus = ['SCHEDULED', 'PUBLISHED'].includes(status) ? status : 'DRAFT';
+  const schedulingError = validateScheduling(publishedStatus, scheduledAt);
+  if (schedulingError) return res.status(400).json({ error: schedulingError });
+
   let slug = slugify(title);
   const existing = await prisma.article.findUnique({ where: { slug } });
   if (existing) slug = `${slug}-${Date.now().toString(36)}`;
-
-  const publishedStatus = status === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT';
 
   const article = await prisma.article.create({
     data: {
@@ -185,6 +210,8 @@ router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
       authorId,
       tags: tagIds && tagIds.length ? { connect: tagIds.map((id) => ({ id })) } : undefined,
       status: publishedStatus,
+      scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
+      fixtureId: fixtureId || null,
       featured: !!featured,
       contentType: contentType === 'VIDEO_POST' ? 'VIDEO_POST' : 'ARTICLE',
       isBrief: !!isBrief,
@@ -220,15 +247,19 @@ router.put('/:id', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
 
   const {
     title, dek, body, coverImageUrl, sportId, authorId, tagIds,
-    status, featured, contentType, isBrief, youtubeId, videoSeries,
+    status, scheduledAt, fixtureId, featured, contentType, isBrief, youtubeId, videoSeries,
     episodeLabel, runtimeLabel, competitionIds, clubIds, playerIds,
     episodeNumber, host, guest, recordingDate, transcript, chapters,
   } = req.body;
 
+  const resolvedStatus = status ?? existing.status;
+  const schedulingError = validateScheduling(resolvedStatus, scheduledAt !== undefined ? scheduledAt : existing.scheduledAt);
+  if (schedulingError) return res.status(400).json({ error: schedulingError });
+
   const existingEpisode = await prisma.episode.findUnique({ where: { articleId: existing.id } });
 
   const wasPublished = existing.status === 'PUBLISHED';
-  const willBePublished = status === 'PUBLISHED';
+  const willBePublished = resolvedStatus === 'PUBLISHED';
 
   const article = await prisma.article.update({
     where: { id: req.params.id },
@@ -240,7 +271,9 @@ router.put('/:id', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
       sportId: sportId ?? existing.sportId,
       authorId: authorId ?? existing.authorId,
       tags: tagIds ? { set: tagIds.map((id) => ({ id })) } : undefined,
-      status: status ?? existing.status,
+      status: resolvedStatus,
+      scheduledAt: scheduledAt !== undefined ? (scheduledAt ? new Date(scheduledAt) : null) : existing.scheduledAt,
+      fixtureId: fixtureId !== undefined ? (fixtureId || null) : existing.fixtureId,
       featured: featured !== undefined ? !!featured : existing.featured,
       contentType: contentType ?? existing.contentType,
       isBrief: isBrief !== undefined ? !!isBrief : existing.isBrief,

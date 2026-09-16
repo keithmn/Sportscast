@@ -31,9 +31,18 @@ function provenanceLineHtml(competition) {
   return `<p class="source-note">Source: entered by The Sportscast newsroom</p>`;
 }
 
-async function loadRelatedArticles(fixture) {
-  // No direct Article<->Fixture link exists (Article tags a Club or
-  // Competition, never a specific Fixture) — this is the same honest
+// Wave 4 — Article.fixtureId (a real, direct link, distinct from the club/
+// competition heuristic below). Excluded from "Related Coverage" via the
+// Set of ids passed in, since a direct match report shouldn't also appear
+// a second time in the generic heuristic list underneath it.
+async function loadMatchReports(fixture) {
+  const { articles } = await api(`/api/articles?fixture=${encodeURIComponent(fixture.id)}`).catch(() => ({ articles: [] }));
+  return articles;
+}
+
+async function loadRelatedArticles(fixture, excludeIds) {
+  // No direct Article<->Fixture link exists for these (Article tags a Club
+  // or Competition, never a specific Fixture) — this is the same honest
   // heuristic club.js's own hub strip already uses: whatever's tagged to
   // either side's Club, or the competition itself, most recent first.
   // Deduped by id since a story could be tagged to both a club and the
@@ -46,7 +55,7 @@ async function loadRelatedArticles(fixture) {
   const results = await Promise.all(queries.map((p) => p.catch(() => ({ articles: [] }))));
   const byId = new Map();
   for (const { articles } of results) {
-    for (const a of articles) byId.set(a.id, a);
+    for (const a of articles) if (!excludeIds.has(a.id)) byId.set(a.id, a);
   }
   return [...byId.values()].sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)).slice(0, 4);
 }
@@ -95,12 +104,22 @@ async function loadMatch() {
     ${postponedNote}
     ${provenanceLineHtml(fixture.competition)}
 
+    <div style="margin-top:2rem;" id="match-report-root"></div>
+
     <div style="margin-top:2rem;" id="related-articles-root">
       <span class="section-label">Related Coverage</span>
       <div class="empty-state">Loading…</div>
     </div>`;
 
-  const related = await loadRelatedArticles(fixture);
+  const matchReports = await loadMatchReports(fixture);
+  const matchReportEl = document.getElementById('match-report-root');
+  if (matchReports.length) {
+    matchReportEl.innerHTML = `
+      <span class="section-label">Match Report</span>
+      <div class="card-grid">${matchReports.map(articleCardHtml).join('')}</div>`;
+  }
+
+  const related = await loadRelatedArticles(fixture, new Set(matchReports.map((a) => a.id)));
   const relatedEl = document.getElementById('related-articles-root');
   relatedEl.innerHTML = `
     <span class="section-label">Related Coverage</span>

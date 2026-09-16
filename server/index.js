@@ -11,6 +11,7 @@ if (typeof globalThis.File === 'undefined') {
 }
 
 const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -22,6 +23,7 @@ const authRoutes = require('./routes/auth');
 const articleRoutes = require('./routes/articles');
 const canonicalSearchRoutes = require('./routes/canonicalSearch');
 const publicSearchRoutes = require('./routes/publicSearch');
+const { buildUploadsRouter } = require('./routes/uploads');
 const seoPagesRoutes = require('./routes/seoPages');
 const taxonomyRoutes = require('./routes/taxonomy');
 const competitionRoutes = require('./routes/competitions');
@@ -51,6 +53,7 @@ const { syncTheSportsDB } = require('./jobs/syncTheSportsDB');
 const { syncBallDontLie } = require('./jobs/syncBallDontLie');
 const { runMonitoringFetch } = require('./jobs/runMonitoringFetch');
 const { runMonitoringEnrich } = require('./jobs/runMonitoringEnrich');
+const { publishScheduled } = require('./jobs/publishScheduled');
 
 if (!process.env.SESSION_SECRET) {
   throw new Error('SESSION_SECRET must be set — refusing to start with a guessable session-signing key.');
@@ -66,6 +69,12 @@ const dbDir = path.isAbsolute(rawDbPath)
   ? path.dirname(rawDbPath)
   : path.join(__dirname, '..', 'prisma', path.dirname(rawDbPath));
 const sessionsDir = path.join(dbDir, 'sessions');
+
+// Uploaded article cover images — same persistent-volume reasoning as
+// sessions above (see server/routes/uploads.js's own header comment for
+// why local-volume storage, not S3/R2, was the right call here).
+const uploadsDir = path.join(dbDir, 'uploads');
+fs.mkdirSync(uploadsDir, { recursive: true });
 
 const app = express();
 
@@ -154,6 +163,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/articles', articleRoutes);
 app.use('/api/canonical-search', canonicalSearchRoutes);
 app.use('/api/search', publicSearchRoutes);
+app.use('/api/uploads', buildUploadsRouter(uploadsDir));
 app.use('/api', taxonomyRoutes); // /api/sports, /api/tags, /api/authors
 app.use('/api/competitions', competitionRoutes);
 app.use('/api/fixtures', fixtureRoutes);
@@ -180,6 +190,7 @@ app.use('/api', pollRoutes);
 app.use(seoPagesRoutes);
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use('/uploads', express.static(uploadsDir));
 
 app.use((err, req, res, next) => {
   console.error(err);
@@ -248,4 +259,12 @@ cron.schedule(MONITORING_FETCH_CRON, () => {
 const MONITORING_ENRICH_CRON = process.env.MONITORING_ENRICH_CRON || '*/10 * * * *';
 cron.schedule(MONITORING_ENRICH_CRON, () => {
   runMonitoringEnrich().catch((err) => console.error('[runMonitoringEnrich] Unhandled error:', err));
+});
+
+// Wave 4 — scheduled article publishing. Every 2 minutes is plenty for a
+// newsroom (nobody needs second-level precision on a publish time) and
+// keeps this well clear of any real rate limit, since it's purely local.
+const PUBLISH_SCHEDULED_CRON = process.env.PUBLISH_SCHEDULED_CRON || '*/2 * * * *';
+cron.schedule(PUBLISH_SCHEDULED_CRON, () => {
+  publishScheduled().catch((err) => console.error('[publishScheduled] Unhandled error:', err));
 });

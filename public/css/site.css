@@ -342,6 +342,7 @@ table.data-table td.num { text-align: center; }
 .status-badge { font-size: var(--text-micro); text-transform: uppercase; letter-spacing: 0.06em; padding: 0.2rem 0.6rem; border: 1px solid var(--border); }
 .status-badge.published { color: var(--success); border-color: var(--success); }
 .status-badge.draft { color: var(--text-secondary); }
+.status-badge.scheduled { color: var(--gold-text); border-color: var(--gold-text); }
 
 .login-shell { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; }
 .login-card { background: var(--bg-surface); border: 1px solid var(--border); padding: 2.5rem; width: 100%; max-width: 380px; }

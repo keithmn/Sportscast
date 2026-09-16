@@ -67,7 +67,12 @@ model Article {
   authorId      String
   author        Author         @relation(fields: [authorId], references: [id])
   tags          Tag[]
-  status        String         @default("DRAFT") // DRAFT | PUBLISHED
+  status        String         @default("DRAFT") // DRAFT | SCHEDULED | PUBLISHED
+  // Only meaningful when status is SCHEDULED — the future moment
+  // server/jobs/publishScheduled.js flips this to PUBLISHED. Left set (not
+  // cleared) after publishing, purely as a record of what was originally
+  // scheduled; publishedAt is the field that actually reflects reality.
+  scheduledAt   DateTime?
   featured      Boolean        @default(false)
   contentType   String         @default("ARTICLE") // ARTICLE | VIDEO_POST
   // A brief is a short, fast-turnaround factual update (a signing, a fixture
@@ -85,6 +90,14 @@ model Article {
   competitions  Competition[]  @relation("ArticleCompetitionTags")
   clubs         Club[]         @relation("ArticleClubTags")
   players       Player[]       @relation("ArticlePlayerTags")
+  // A direct match-report link — one specific Fixture, not a tag. Distinct
+  // from the competitions/clubs tags above: those are broad ("this story
+  // covers KPL"), this is precise ("this story is the report on this exact
+  // game"). Nullable — most articles aren't match reports. Match Hub
+  // (public/js/match.js) shows this pinned above its existing tag-based
+  // "Related Coverage" heuristic, not instead of it.
+  fixtureId     String?
+  fixture       Fixture?       @relation(fields: [fixtureId], references: [id])
   publishedAt   DateTime?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -287,6 +300,7 @@ model Fixture {
   awayScore       Int?
   status          String             @default("SCHEDULED") // SCHEDULED | LIVE | FINISHED | POSTPONED
   updatedAt       DateTime           @updatedAt
+  articles        Article[]
 
   // Lets the sync job upsert instead of wholesale delete+recreate (unlike
   // standings, blowing fixtures away every run would lose POSTPONED/manual

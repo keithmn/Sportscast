@@ -84,6 +84,7 @@
               <label for="status">Status</label>
               <select id="status">
                 <option value="DRAFT">Draft</option>
+                <option value="SCHEDULED">Scheduled</option>
                 <option value="PUBLISHED">Published</option>
               </select>
             </div>
@@ -94,6 +95,11 @@
                 <option value="VIDEO_POST">Video Post</option>
               </select>
             </div>
+          </div>
+          <div class="form-field" id="scheduled-at-field" style="display:none;">
+            <label for="scheduledAt">Publish at</label>
+            <input type="datetime-local" id="scheduledAt">
+            <p class="form-error" id="scheduled-at-error" style="display:none;"></p>
           </div>
           <div class="checkbox-row">
             <input type="checkbox" id="featured">
@@ -106,6 +112,12 @@
           <div class="form-field">
             <label for="coverImageUrl">Cover image URL (optional)</label>
             <input type="url" id="coverImageUrl">
+            <div style="margin-top:0.5rem; display:flex; align-items:center; gap:0.75rem;">
+              <label for="coverImageUpload" class="btn-outline-sm" style="cursor:pointer;">Upload Image…</label>
+              <input type="file" id="coverImageUpload" accept="image/jpeg,image/png,image/webp" style="display:none;">
+              <span id="cover-image-upload-status" style="font-size:var(--text-small); color:var(--text-secondary);"></span>
+            </div>
+            <img id="cover-image-preview" src="" alt="" style="display:none; margin-top:0.5rem; max-width:240px; max-height:140px; object-fit:cover; border:1px solid var(--border);">
           </div>
           <div id="video-fields" style="display:none;">
             <div class="form-row">
@@ -158,6 +170,16 @@
               <textarea id="chapters" rows="4" placeholder="00:00 Intro&#10;03:20 The interview begins"></textarea>
             </div>
           </div>
+          <div id="fixture-section" class="form-field" style="border-top:1px solid var(--border); padding-top:1rem; margin-top:0.5rem;">
+            <label>Match Report (optional — links this story to one specific fixture)</label>
+            <div id="fixture-current" style="margin-bottom:0.5rem;"></div>
+            <div style="position:relative;">
+              <input type="text" id="fixture-search-input" placeholder="Search by team name…" style="width:100%;" autocomplete="off">
+              <div id="fixture-results" style="display:none; position:absolute; z-index:10; width:100%; background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius); max-height:240px; overflow-y:auto;"></div>
+            </div>
+            <input type="hidden" id="fixtureId">
+          </div>
+
           <div id="canonical-event-section" class="form-field" style="display:none; border-top:1px solid var(--border); padding-top:1rem; margin-top:0.5rem;">
             <label>Canonical Event (optional — links this article to a real event on the Underdawgs Sports Data platform)</label>
             <div id="canonical-event-current" style="margin-bottom:0.5rem;"></div>

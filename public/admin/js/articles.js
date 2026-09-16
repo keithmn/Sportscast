@@ -132,8 +132,105 @@ function resetForm() {
   hideCanonicalEventResults();
   document.getElementById('canonical-event-error').style.display = 'none';
 
+  document.getElementById('scheduled-at-field').style.display = 'none';
+  document.getElementById('scheduledAt').value = '';
+  document.getElementById('scheduled-at-error').style.display = 'none';
+
+  document.getElementById('fixtureId').value = '';
+  document.getElementById('fixture-search-input').value = '';
+  hideFixtureResults();
+  renderFixtureLink(null);
+  showCoverImagePreview(null);
+  document.getElementById('cover-image-upload-status').textContent = '';
+
   document.getElementById('poll-section').style.display = 'none';
   document.getElementById('poll-error').style.display = 'none';
+}
+
+// datetime-local has no timezone of its own — same convention already used
+// for Fixture.kickoff entry (server/routes/competitions.js's admin form):
+// the raw string is sent as-is and parsed server-side with `new Date(...)`,
+// interpreted in whatever timezone the server runs in. Not solved here,
+// deliberately consistent with the existing, pre-existing kickoff behavior
+// rather than inventing a new timezone convention for just this one field.
+function isoToLocalInputValue(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function showCoverImagePreview(url) {
+  const img = document.getElementById('cover-image-preview');
+  if (!url) {
+    img.style.display = 'none';
+    img.src = '';
+    return;
+  }
+  img.src = url;
+  img.style.display = 'block';
+}
+
+function renderFixtureLink(fixture) {
+  const el = document.getElementById('fixture-current');
+  document.getElementById('fixtureId').value = fixture ? fixture.id : '';
+  if (!fixture) {
+    el.innerHTML = `<span style="color:var(--text-secondary); font-size:var(--text-small);">Not linked to a match.</span>`;
+    return;
+  }
+  el.innerHTML = `
+    <strong>${escapeHtml(fixture.homeTeam)} vs ${escapeHtml(fixture.awayTeam)}</strong>
+    <span style="color:var(--text-secondary); font-size:var(--text-small);"> — ${escapeHtml(fixture.competition.name)}, ${formatDate(fixture.kickoff)}</span>
+    <button type="button" class="btn-outline-sm" id="unlink-fixture-btn" style="margin-left:0.5rem;">Unlink</button>`;
+  document.getElementById('unlink-fixture-btn').addEventListener('click', () => renderFixtureLink(null));
+}
+
+let fixtureSearchTimer = null;
+let fixtureSearchToken = 0;
+
+function hideFixtureResults() {
+  const resultsEl = document.getElementById('fixture-results');
+  resultsEl.style.display = 'none';
+  resultsEl.innerHTML = '';
+}
+
+function renderFixtureResults(fixtures) {
+  const resultsEl = document.getElementById('fixture-results');
+  if (!fixtures.length) {
+    resultsEl.innerHTML = `<div style="padding:0.6rem 0.8rem; color:var(--text-secondary); font-size:var(--text-small);">No matching fixtures found.</div>`;
+    resultsEl.style.display = 'block';
+    return;
+  }
+  resultsEl.innerHTML = fixtures
+    .map(
+      (f) => `
+      <button type="button" class="fixture-result" data-id="${f.id}"
+        style="display:block; width:100%; text-align:left; padding:0.6rem 0.8rem; border:none; border-bottom:1px solid var(--border); background:none; cursor:pointer; font-family:inherit;">
+        <strong>${escapeHtml(f.homeTeam)} vs ${escapeHtml(f.awayTeam)}</strong>
+        <span style="color:var(--text-secondary); font-size:var(--text-small);"> — ${escapeHtml(f.competition.name)}, ${formatDate(f.kickoff)}</span>
+      </button>`
+    )
+    .join('');
+  resultsEl.querySelectorAll('.fixture-result').forEach((btn) => {
+    const fixture = fixtures.find((f) => f.id === btn.dataset.id);
+    btn.addEventListener('click', () => {
+      renderFixtureLink(fixture);
+      document.getElementById('fixture-search-input').value = '';
+      hideFixtureResults();
+    });
+  });
+  resultsEl.style.display = 'block';
+}
+
+async function searchFixtures(q) {
+  const token = ++fixtureSearchToken;
+  if (q.trim().length < 2) {
+    hideFixtureResults();
+    return;
+  }
+  const { fixtures } = await api(`/api/fixtures/search?q=${encodeURIComponent(q.trim())}`);
+  if (token !== fixtureSearchToken) return; // a newer keystroke's search already landed — drop this stale one
+  renderFixtureResults(fixtures);
 }
 
 function renderCanonicalEvent(event) {
@@ -292,7 +389,11 @@ function showForm() {
 }
 
 function statusBadge(article) {
-  return `<span class="status-badge ${article.status === 'PUBLISHED' ? 'published' : 'draft'}">${article.status}</span>`;
+  const cls = article.status === 'PUBLISHED' ? 'published' : article.status === 'SCHEDULED' ? 'scheduled' : 'draft';
+  const label = article.status === 'SCHEDULED' && article.scheduledAt
+    ? `Scheduled — ${formatDate(article.scheduledAt)}`
+    : article.status;
+  return `<span class="status-badge ${cls}">${escapeHtml(label)}</span>`;
 }
 
 async function loadArticles() {
@@ -328,10 +429,14 @@ function editArticle(article) {
   document.getElementById('sportId').value = article.sport.id;
   document.getElementById('authorId').value = article.author.id;
   document.getElementById('status').value = article.status;
+  document.getElementById('scheduled-at-field').style.display = article.status === 'SCHEDULED' ? 'block' : 'none';
+  document.getElementById('scheduledAt').value = isoToLocalInputValue(article.scheduledAt);
+  renderFixtureLink(article.fixture);
   document.getElementById('contentType').value = article.contentType;
   document.getElementById('featured').checked = article.featured;
   document.getElementById('isBrief').checked = article.isBrief;
   document.getElementById('coverImageUrl').value = article.coverImageUrl || '';
+  showCoverImagePreview(article.coverImageUrl);
   document.getElementById('youtubeId').value = article.youtubeId || '';
   document.getElementById('videoSeries').value = article.videoSeries || '';
   document.getElementById('episodeLabel').value = article.episodeLabel || '';
@@ -380,6 +485,8 @@ function collectFormData() {
     authorId: document.getElementById('authorId').value,
     tagIds: getSelectedTagIds(),
     status: document.getElementById('status').value,
+    scheduledAt: document.getElementById('scheduledAt').value || null,
+    fixtureId: document.getElementById('fixtureId').value || null,
     contentType: document.getElementById('contentType').value,
     featured: document.getElementById('featured').checked,
     isBrief: document.getElementById('isBrief').checked,
@@ -433,6 +540,42 @@ async function initArticlesPage() {
   document.getElementById('contentType').addEventListener('change', (e) => {
     document.getElementById('video-fields').style.display = e.target.value === 'VIDEO_POST' ? 'block' : 'none';
   });
+  document.getElementById('status').addEventListener('change', (e) => {
+    document.getElementById('scheduled-at-field').style.display = e.target.value === 'SCHEDULED' ? 'block' : 'none';
+  });
+  document.getElementById('coverImageUpload').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const statusEl = document.getElementById('cover-image-upload-status');
+    statusEl.textContent = 'Uploading…';
+    statusEl.style.color = 'var(--text-secondary)';
+    const formData = new FormData();
+    formData.append('image', file);
+    try {
+      const { url } = await api('/api/uploads/image', { method: 'POST', body: formData, headers: {} });
+      document.getElementById('coverImageUrl').value = url;
+      showCoverImagePreview(url);
+      statusEl.textContent = 'Uploaded.';
+    } catch (err) {
+      statusEl.textContent = err.message;
+      statusEl.style.color = 'var(--danger)';
+    } finally {
+      e.target.value = '';
+    }
+  });
+  document.getElementById('coverImageUrl').addEventListener('input', (e) => {
+    showCoverImagePreview(e.target.value.trim());
+  });
+  document.getElementById('fixture-search-input').addEventListener('input', (e) => {
+    const q = e.target.value;
+    clearTimeout(fixtureSearchTimer);
+    fixtureSearchTimer = setTimeout(() => searchFixtures(q), 300);
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#fixture-search-input') && !e.target.closest('#fixture-results')) {
+      hideFixtureResults();
+    }
+  });
   document.getElementById('sportId').addEventListener('change', (e) => {
     populateCompetitionOptions(e.target.value);
   });
@@ -468,8 +611,15 @@ async function initArticlesPage() {
     e.preventDefault();
     const errorEl = document.getElementById('article-form-error');
     errorEl.style.display = 'none';
+    const scheduledAtErrorEl = document.getElementById('scheduled-at-error');
+    scheduledAtErrorEl.style.display = 'none';
     const id = document.getElementById('article-id').value;
     const data = collectFormData();
+    if (data.status === 'SCHEDULED' && !data.scheduledAt) {
+      scheduledAtErrorEl.textContent = 'Pick a date/time to schedule this for.';
+      scheduledAtErrorEl.style.display = 'block';
+      return;
+    }
     try {
       if (id) {
         await api(`/api/articles/${id}`, { method: 'PUT', body: JSON.stringify(data) });
