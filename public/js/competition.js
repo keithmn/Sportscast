@@ -22,6 +22,9 @@ async function loadCompetitionPage() {
         </div>
         <div style="margin-left:auto;">${followButtonHtml('competition', competition.slug, competition.name, `/competition.html?slug=${encodeURIComponent(competition.slug)}`)}</div>
       </div>
+      ${competition.canonicalCompetition
+        ? `<div class="container"><p class="source-note">Canonical record: ${escapeHtml(competition.canonicalCompetition.name)}${competition.standingsSource === 'underdawgs-data' ? ' · standings sourced from the Data Platform' : ''}</p></div>`
+        : ''}
     </header>
     <div class="container" id="competition-tab-root" style="padding-top:2rem;"></div>`;
 

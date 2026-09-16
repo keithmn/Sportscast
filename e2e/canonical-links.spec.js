@@ -36,4 +36,24 @@ test.describe('Canonical links — Club/Player pickers', () => {
 
     await page.request.delete(`/api/clubs/${club.id}`);
   });
+
+  test('competition->Competition picker degrades cleanly when nothing matches', async ({ page }) => {
+    await page.goto('/admin/index.html');
+    await page.fill('#email', 'admin@underdoggs.co.ke');
+    await page.fill('#password', 'underdoggs2026');
+    await page.click('button:has-text("Sign In")');
+    await page.waitForURL('**/admin/dashboard.html');
+
+    const { sports } = await page.request.get('/api/sports').then((r) => r.json());
+    const compRes = await page.request.post('/api/competitions', {
+      data: { name: `E2E Canonical Competition ${Date.now()}`, sportId: sports[0].id, source: 'MANUAL', category: 'LEAGUE' },
+    });
+    const { competition } = await compRes.json();
+
+    await page.goto('/admin/competitions.html');
+    const widget = page.locator(`.canonical-link-widget[data-kind="competition"][data-local-id="${competition.id}"]`);
+    await expect(widget).toBeVisible();
+    await widget.locator('.canonical-search-input').fill('zzz-no-such-competition-zzz');
+    await expect(widget.locator('.canonical-results')).toContainText('No matches found.', { timeout: 5000 });
+  });
 });

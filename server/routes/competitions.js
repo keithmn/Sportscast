@@ -2,7 +2,7 @@ const express = require('express');
 const prisma = require('../db');
 const { slugify } = require('../utils/slugify');
 const { requireRole } = require('../middleware/auth');
-const { fetchCanonicalStandings } = require('../lib/canonicalData');
+const { fetchCanonicalStandings, fetchCanonicalCompetition, verifyCanonicalCompetition } = require('../lib/canonicalData');
 const { resolveClubsForFixture, resolveClubIdForTeamName } = require('../lib/clubResolution');
 
 const router = express.Router();
@@ -60,14 +60,21 @@ router.get('/:slug', async (req, res) => {
   // this competition has one — currently just Kenya Cup. Fails soft: any
   // problem reaching it (timeout, no mapping, empty response) means
   // competition.standings stays exactly what it already was above, so a
-  // canonical-source outage can never break this page.
-  const canonicalStandings = await fetchCanonicalStandings(competition.id);
+  // canonical-source outage can never break this page. Fetched alongside
+  // (not after) fetchCanonicalCompetition — two separate Data Platform
+  // calls, each with its own 3s timeout; sequential would let a slow
+  // canonical source add up to 6s to this page instead of 3.
+  const [canonicalStandings, canonicalCompetition] = await Promise.all([
+    fetchCanonicalStandings(competition.id),
+    fetchCanonicalCompetition(competition.id),
+  ]);
   if (canonicalStandings) {
     competition.standings = canonicalStandings;
     competition.standingsSource = 'underdawgs-data';
   } else {
     competition.standingsSource = 'local';
   }
+  competition.canonicalCompetition = canonicalCompetition;
 
   res.json({ competition });
 });
@@ -85,6 +92,47 @@ router.get('/:id/team-names', requireRole('ADMIN', 'EDITOR'), async (req, res) =
   fixtures.forEach((f) => { names.add(f.homeTeam); names.add(f.awayTeam); });
   standings.forEach((s) => names.add(s.teamName));
   res.json({ teamNames: Array.from(names).sort() });
+});
+
+// ---- Admin: fetch a competition's current canonical Competition link, if any ----
+router.get('/:id/canonical-competition', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const canonicalCompetition = await fetchCanonicalCompetition(req.params.id);
+  res.json({ canonicalCompetition });
+});
+
+// ---- Admin: link a competition to a canonical Data Platform Competition ----
+// This is what fetchCanonicalStandings' fallback (used by the public
+// GET /:slug above) actually keys off of — creating this mapping through
+// the admin UI is what makes a competition's real standings start
+// appearing here, the same way the one-off script did for Kenya Cup.
+router.put('/:id/canonical-competition', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const { canonicalCompetitionId } = req.body;
+  if (!canonicalCompetitionId) return res.status(400).json({ error: 'canonicalCompetitionId is required' });
+
+  const competition = await prisma.competition.findUnique({ where: { id: req.params.id } });
+  if (!competition) return res.status(404).json({ error: 'Competition not found' });
+
+  const canonicalCompetition = await verifyCanonicalCompetition(canonicalCompetitionId);
+  if (!canonicalCompetition) {
+    return res.status(422).json({ error: 'No Data Platform Competition with that id could be verified (check the id, or the Data Platform may be unreachable — try again).' });
+  }
+
+  await prisma.canonicalMapping.upsert({
+    where: {
+      localEntityType_localId_provider: { localEntityType: 'COMPETITION', localId: competition.id, provider: 'underdawgs-data' },
+    },
+    update: { canonicalEntityType: 'Competition', canonicalId: canonicalCompetitionId },
+    create: { localEntityType: 'COMPETITION', localId: competition.id, canonicalEntityType: 'Competition', canonicalId: canonicalCompetitionId },
+  });
+
+  res.json({ canonicalCompetition });
+});
+
+router.delete('/:id/canonical-competition', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  await prisma.canonicalMapping.deleteMany({
+    where: { localEntityType: 'COMPETITION', localId: req.params.id, provider: 'underdawgs-data' },
+  });
+  res.json({ ok: true });
 });
 
 // ---- Admin: create a competition ----

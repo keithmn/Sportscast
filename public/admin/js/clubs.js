@@ -1,31 +1,10 @@
 let allCompetitions = [];
 
-// Wave 2 — a shared search-picker widget for both Club->Team and
-// Player->Athlete canonical links, reusing the generic
-// /api/canonical-search?type= proxy (server/routes/canonicalSearch.js)
-// already built for articles.js's Event picker. One markup/behavior
-// pair for both since they're identical apart from which field names the
-// Data Platform record uses for its display line.
-function canonicalLinkWidgetHtml(kind, localId, current) {
-  const label = kind === 'team' ? 'Canonical Team' : 'Canonical Athlete';
-  const placeholder = kind === 'team' ? 'Search Data Platform teams…' : 'Search Data Platform athletes…';
-  const currentLine = current
-    ? kind === 'team'
-      ? `${escapeHtml(current.name)}${current.clubName ? ` — ${escapeHtml(current.clubName)}` : ''}`
-      : `${escapeHtml(current.fullName)}${current.currentTeamName ? ` — ${escapeHtml(current.currentTeamName)}` : ''}`
-    : null;
-  return `
-    <div class="canonical-link-widget" data-kind="${kind}" data-local-id="${localId}" style="margin-top:0.5rem; font-size:var(--text-small);">
-      <span style="color:var(--text-secondary);">${label}:</span>
-      ${currentLine
-        ? `<span class="pill">${currentLine}</span> <button type="button" class="btn-outline-sm canonical-unlink-btn" style="margin-left:0.35rem; padding:0.15rem 0.5rem;">Unlink</button>`
-        : `<span style="color:var(--text-secondary);">not linked</span>`}
-      <div style="position:relative; margin-top:0.25rem; max-width:340px;">
-        <input type="text" class="canonical-search-input" placeholder="${placeholder}" style="width:100%; font-size:var(--text-small);" autocomplete="off">
-        <div class="canonical-results" style="display:none; position:absolute; z-index:10; width:100%; background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius); max-height:180px; overflow-y:auto;"></div>
-      </div>
-    </div>`;
-}
+// canonicalLinkWidgetHtml/wireCanonicalLinkWidgets/
+// initCanonicalLinkOutsideClickHandler now live in
+// /js/canonicalLinkWidget.js (shared with competitions.js, which became
+// the third user of this pattern) — see that file for how the widget
+// itself works.
 
 function playerRowHtml(p) {
   return `
@@ -177,63 +156,12 @@ async function loadClubs() {
     });
   });
 
-  // Wave 2 canonical-link widgets (club->Team, player->Athlete) — one
-  // wiring pass covers both, keyed by data-kind/data-local-id on the
-  // shared widget wrapper. Endpoint prefixes differ (a club's own id vs.
-  // /players/:id), everything else about the search/link/unlink flow is
-  // identical.
-  function widgetEndpoint(kind, localId) {
-    return kind === 'team' ? `/api/clubs/${localId}/canonical-team` : `/api/clubs/players/${localId}/canonical-athlete`;
-  }
-  root.querySelectorAll('.canonical-link-widget').forEach((widget) => {
-    const kind = widget.dataset.kind;
-    const localId = widget.dataset.localId;
-    const input = widget.querySelector('.canonical-search-input');
-    const resultsEl = widget.querySelector('.canonical-results');
-    let searchToken = 0;
-
-    input.addEventListener('input', (e) => {
-      clearTimeout(input._debounceTimer);
-      const q = e.target.value;
-      input._debounceTimer = setTimeout(async () => {
-        const token = ++searchToken;
-        if (q.trim().length < 2) {
-          resultsEl.style.display = 'none';
-          resultsEl.innerHTML = '';
-          return;
-        }
-        const { results } = await api(`/api/canonical-search?type=${kind}&q=${encodeURIComponent(q.trim())}`);
-        if (token !== searchToken) return;
-        const matches = results[`${kind}s`] || [];
-        if (!matches.length) {
-          resultsEl.innerHTML = `<div style="padding:0.5rem 0.7rem; color:var(--text-secondary);">No matches found.</div>`;
-        } else {
-          resultsEl.innerHTML = matches
-            .map((m) => `
-              <button type="button" class="canonical-result-btn" data-id="${m.id}"
-                style="display:block; width:100%; text-align:left; padding:0.5rem 0.7rem; border:none; border-bottom:1px solid var(--border); background:none; cursor:pointer; font-family:inherit; font-size:var(--text-small);">
-                ${escapeHtml(kind === 'team' ? m.name : m.name)}${m.sportName ? ` <span style="color:var(--text-secondary);">— ${escapeHtml(m.sportName)}</span>` : ''}
-              </button>`)
-            .join('');
-          resultsEl.querySelectorAll('.canonical-result-btn').forEach((resultBtn) => {
-            resultBtn.addEventListener('click', async () => {
-              const idField = kind === 'team' ? 'canonicalTeamId' : 'canonicalAthleteId';
-              await api(widgetEndpoint(kind, localId), { method: 'PUT', body: JSON.stringify({ [idField]: resultBtn.dataset.id }) });
-              loadClubs();
-            });
-          });
-        }
-        resultsEl.style.display = 'block';
-      }, 300);
-    });
-  });
-
-  root.querySelectorAll('.canonical-unlink-btn').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const widget = btn.closest('.canonical-link-widget');
-      await api(widgetEndpoint(widget.dataset.kind, widget.dataset.localId), { method: 'DELETE' });
-      loadClubs();
-    });
+  // Wave 2 canonical-link widgets (club->Team, player->Athlete) — see
+  // /js/canonicalLinkWidget.js. Endpoint prefixes differ (a club's own id
+  // vs. /players/:id), everything else is shared.
+  wireCanonicalLinkWidgets(root, {
+    endpointFor: (kind, localId) => (kind === 'team' ? `/api/clubs/${localId}/canonical-team` : `/api/clubs/players/${localId}/canonical-athlete`),
+    onChange: loadClubs,
   });
 
   root.querySelectorAll('.delete-club-btn').forEach((btn) => {
@@ -323,18 +251,7 @@ async function initClubsPage() {
   }
   document.getElementById('clubs-app').style.display = 'block';
 
-  // Attached once here, not per-widget in loadClubs() (which reruns on
-  // every add/save/link/unlink) — a per-widget listener would keep
-  // stacking a new permanent document-level listener on every reload
-  // without ever removing the previous ones.
-  document.addEventListener('click', (e) => {
-    document.querySelectorAll('.canonical-link-widget').forEach((widget) => {
-      if (!widget.contains(e.target)) {
-        const resultsEl = widget.querySelector('.canonical-results');
-        if (resultsEl) resultsEl.style.display = 'none';
-      }
-    });
-  });
+  initCanonicalLinkOutsideClickHandler();
 
   const { competitions } = await api('/api/competitions');
   allCompetitions = competitions;

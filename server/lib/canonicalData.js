@@ -31,6 +31,53 @@ async function fetchWithTimeout(url) {
   }
 }
 
+// Competition -> Data Platform Competition link (Wave 2 — closing the
+// admin-UI half of "Competition page can reference canonical
+// Competition/Season"; the mapping type and fetchCanonicalStandings
+// already existed and are untouched by this addition). This is a
+// different concern from fetchCanonicalStandings below: that resolves
+// the mapping to fetch *standings rows*; this fetches the Competition
+// record itself, for an admin picker to show what a competition is
+// currently linked to (or isn't).
+async function fetchCanonicalCompetition(localCompetitionId) {
+  const mapping = await prisma.canonicalMapping.findUnique({
+    where: {
+      localEntityType_localId_provider: {
+        localEntityType: 'COMPETITION',
+        localId: localCompetitionId,
+        provider: 'underdawgs-data',
+      },
+    },
+  });
+  if (!mapping) return null;
+
+  const data = await fetchWithTimeout(`${DATA_PLATFORM_BASE}/competitions/${encodeURIComponent(mapping.canonicalId)}`);
+  const competition = data?.competition;
+  if (!competition) return null;
+
+  return {
+    id: competition.id,
+    name: competition.name,
+    sportName: competition.sport?.name ?? null,
+    region: competition.region,
+  };
+}
+
+// Live-verifies a Data Platform Competition id exists before
+// routes/competitions.js is allowed to store a mapping pointing at it —
+// same reasoning as verifyCanonicalEvent.
+async function verifyCanonicalCompetition(canonicalCompetitionId) {
+  const data = await fetchWithTimeout(`${DATA_PLATFORM_BASE}/competitions/${encodeURIComponent(canonicalCompetitionId)}`);
+  const competition = data?.competition;
+  if (!competition) return null;
+  return {
+    id: competition.id,
+    name: competition.name,
+    sportName: competition.sport?.name ?? null,
+    region: competition.region,
+  };
+}
+
 // Returns this competition's standings in Sportscast's own StandingRow
 // shape (position/teamName/played/won/drawn/lost/goalsFor/goalsAgainst/
 // points) if — and only if — a CanonicalMapping exists for it AND the
@@ -275,5 +322,7 @@ module.exports = {
   verifyCanonicalTeam,
   fetchCanonicalAthlete,
   verifyCanonicalAthlete,
+  fetchCanonicalCompetition,
+  verifyCanonicalCompetition,
   searchCanonical,
 };

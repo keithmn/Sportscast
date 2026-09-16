@@ -59,6 +59,8 @@ function competitionBlockHtml(competition, teamNames) {
         <span style="font-size:0.85rem;">Sync club/player rosters for this competition (Wikidata, once daily — needs standings entered first)</span>
       </label>
 
+      ${canonicalLinkWidgetHtml('competition', competition.id, competition.canonicalCompetition)}
+
       <div style="margin-top:1.5rem;">
         <span class="section-label" style="font-size:0.68rem;">Standings</span>
         <div id="standings-rows-${competition.id}">
@@ -166,6 +168,11 @@ async function loadCompetitions() {
     return { competition, teamNames };
   }));
   root.innerHTML = fullCompetitions.map(({ competition, teamNames }) => competitionBlockHtml(competition, teamNames)).join('');
+
+  wireCanonicalLinkWidgets(root, {
+    endpointFor: (kind, localId) => `/api/competitions/${localId}/canonical-competition`,
+    onChange: loadCompetitions,
+  });
 
   root.querySelectorAll('.sync-squads-toggle').forEach((checkbox) => {
     checkbox.addEventListener('change', async () => {
@@ -278,6 +285,8 @@ async function initCompetitionsPage() {
     return;
   }
   document.getElementById('competitions-app').style.display = 'block';
+
+  initCanonicalLinkOutsideClickHandler();
 
   const { sports } = await api('/api/sports');
   allSports = sports;
