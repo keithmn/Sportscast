@@ -61,12 +61,15 @@ function fixtureRowHtml(f) {
   // syncTheSportsDB.js's 'event' kind — so awayTeam is blank on purpose,
   // not a data error, and just shows the event name alone.
   const teamsLabel = f.awayTeam ? `${escapeHtml(f.homeTeam)} vs ${escapeHtml(f.awayTeam)}` : escapeHtml(f.homeTeam);
+  // Wave 4 — every fixture row site-wide now links to its own Match Hub
+  // page (this function is shared across club.js/home.js/scores.js/
+  // sport.js, so this one change reaches all of them).
   return `
-    <div class="fixture-row" style="flex-wrap:wrap;">
+    <a href="/match.html?id=${encodeURIComponent(f.id)}" class="fixture-row" style="flex-wrap:wrap; text-decoration:none; color:inherit;">
       <span class="fixture-teams">${teamsLabel}</span>
       <span>${scoreOrTime}<span class="fixture-status ${escapeHtml(f.status)}">${escapeHtml(f.status)}</span></span>
       ${postponedNote}
-    </div>`;
+    </a>`;
 }
 
 function fixturesListHtml(fixtures) {

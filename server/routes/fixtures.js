@@ -76,4 +76,20 @@ router.get('/upcoming', async (req, res) => {
   res.json({ fixtures });
 });
 
+// ---- Public: a single fixture (Wave 4 — Match Hub). Registered last, per
+// the /upcoming route's own comment above, so a literal path never gets
+// swallowed as an :id. ----
+router.get('/:id', async (req, res) => {
+  const fixture = await prisma.fixture.findUnique({
+    where: { id: req.params.id },
+    include: {
+      competition: { include: { sport: true } },
+      homeClub: { select: { id: true, name: true, slug: true, crestUrl: true } },
+      awayClub: { select: { id: true, name: true, slug: true, crestUrl: true } },
+    },
+  });
+  if (!fixture) return res.status(404).json({ error: 'Fixture not found' });
+  res.json({ fixture });
+});
+
 module.exports = router;
