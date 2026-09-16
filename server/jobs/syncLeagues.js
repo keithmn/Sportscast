@@ -17,6 +17,7 @@
 
 const prisma = require('../db');
 const { resolveClubIdForTeamName } = require('../lib/clubResolution');
+const { getOrCreateCurrentSeason } = require('../lib/seasonResolution');
 
 const FOOTBALL_DATA_BASE = 'https://api.football-data.org/v4';
 // ~9 calls/minute, under the free tier's 10/minute cap, with headroom for
@@ -66,8 +67,10 @@ async function syncStandings(competition, apiKey) {
   const table = (data.standings || []).find((s) => s.type === 'TOTAL')?.table || [];
   if (!table.length) return; // e.g. a competition with no single table
 
+  const season = await getOrCreateCurrentSeason(prisma, competition.id);
   const rows = table.map((row) => ({
     competitionId: competition.id,
+    seasonId: season.id,
     position: row.position,
     teamName: row.team.name,
     played: row.playedGames,
@@ -79,8 +82,10 @@ async function syncStandings(competition, apiKey) {
     points: row.points,
   }));
 
+  // Scoped to the current season only, so a past (archived) season's
+  // standings survive this competition's next sync run untouched.
   await prisma.$transaction([
-    prisma.standingRow.deleteMany({ where: { competitionId: competition.id } }),
+    prisma.standingRow.deleteMany({ where: { competitionId: competition.id, seasonId: season.id } }),
     prisma.standingRow.createMany({ data: rows }),
   ]);
 }
@@ -91,7 +96,10 @@ async function syncFixtures(competition, apiKey) {
 
   // Fetched once per competition, not per fixture — clubs never span
   // competitions, so this scopes correctly and avoids N+1 queries.
-  const clubs = await prisma.club.findMany({ where: { competitionId: competition.id }, select: { id: true, name: true } });
+  const [clubs, season] = await Promise.all([
+    prisma.club.findMany({ where: { competitionId: competition.id }, select: { id: true, name: true } }),
+    getOrCreateCurrentSeason(prisma, competition.id),
+  ]);
 
   for (const m of matches) {
     const kickoff = new Date(m.utcDate);
@@ -108,6 +116,7 @@ async function syncFixtures(competition, apiKey) {
       },
       create: {
         competitionId: competition.id,
+        seasonId: season.id,
         homeTeam: m.homeTeam.name,
         awayTeam: m.awayTeam.name,
         homeClubId,

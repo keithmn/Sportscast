@@ -147,8 +147,13 @@ function competitionCardHtml(c) {
     </a>`;
 }
 
-async function fetchCompetitionDetail(slug) {
-  const { competition } = await api(`/api/competitions/${encodeURIComponent(slug)}`);
+// seasonId is optional — omitted, the server defaults to the competition's
+// current season. Only competition.html's own season selector ever passes
+// one; every other caller (club.js, sport.js, home page tables) keeps
+// getting "whatever's current" exactly as before.
+async function fetchCompetitionDetail(slug, seasonId) {
+  const qsSeason = seasonId ? `?season=${encodeURIComponent(seasonId)}` : '';
+  const { competition } = await api(`/api/competitions/${encodeURIComponent(slug)}${qsSeason}`);
   return competition;
 }
 

@@ -18,6 +18,7 @@
 
 const prisma = require('../db');
 const { resolveClubIdForTeamName } = require('../lib/clubResolution');
+const { getOrCreateCurrentSeason } = require('../lib/seasonResolution');
 
 const THESPORTSDB_KEY = process.env.THESPORTSDB_API_KEY || '123';
 const BASE = `https://www.thesportsdb.com/api/v1/json/${THESPORTSDB_KEY}`;
@@ -97,7 +98,10 @@ async function syncFixturesForCompetition(competition, kind) {
     fetchJson(`/eventsnextleague.php?id=${competition.externalId}`),
   ]);
   const events = [...(pastData?.events || []), ...(nextData?.events || [])];
-  const clubs = await prisma.club.findMany({ where: { competitionId: competition.id }, select: { id: true, name: true } });
+  const [clubs, season] = await Promise.all([
+    prisma.club.findMany({ where: { competitionId: competition.id }, select: { id: true, name: true } }),
+    getOrCreateCurrentSeason(prisma, competition.id),
+  ]);
 
   let count = 0;
   for (const event of events) {
@@ -114,7 +118,7 @@ async function syncFixturesForCompetition(competition, kind) {
           kickoff: fields.kickoff,
         },
       },
-      create: { competitionId: competition.id, ...fields, homeClubId, awayClubId },
+      create: { competitionId: competition.id, seasonId: season.id, ...fields, homeClubId, awayClubId },
       update: { homeScore: fields.homeScore, awayScore: fields.awayScore, status: fields.status, homeClubId, awayClubId },
     });
     count += 1;

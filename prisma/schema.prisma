@@ -56,24 +56,24 @@ model Tag {
 }
 
 model Article {
-  id            String        @id @default(cuid())
+  id            String         @id @default(cuid())
   title         String
-  slug          String        @unique
+  slug          String         @unique
   dek           String
   body          String
   coverImageUrl String?
   sportId       String
-  sport         Sport         @relation(fields: [sportId], references: [id])
+  sport         Sport          @relation(fields: [sportId], references: [id])
   authorId      String
-  author        Author        @relation(fields: [authorId], references: [id])
+  author        Author         @relation(fields: [authorId], references: [id])
   tags          Tag[]
-  status        String        @default("DRAFT") // DRAFT | PUBLISHED
-  featured      Boolean       @default(false)
-  contentType   String        @default("ARTICLE") // ARTICLE | VIDEO_POST
+  status        String         @default("DRAFT") // DRAFT | PUBLISHED
+  featured      Boolean        @default(false)
+  contentType   String         @default("ARTICLE") // ARTICLE | VIDEO_POST
   // A brief is a short, fast-turnaround factual update (a signing, a fixture
   // reschedule) — it still lives in the same Archive as full features, just
   // surfaced separately via the News view so it doesn't get lost among them.
-  isBrief       Boolean       @default(false)
+  isBrief       Boolean        @default(false)
   youtubeId     String?
   videoSeries   String?
   episodeLabel  String? // "Episode 001"
@@ -82,12 +82,12 @@ model Article {
   // players at once (e.g. a relegation dispute naming six clubs). Each is
   // independent of the others: a club-tagged article doesn't need a
   // competition tag too, since the club already implies one.
-  competitions  Competition[] @relation("ArticleCompetitionTags")
-  clubs         Club[]        @relation("ArticleClubTags")
-  players       Player[]      @relation("ArticlePlayerTags")
+  competitions  Competition[]  @relation("ArticleCompetitionTags")
+  clubs         Club[]         @relation("ArticleClubTags")
+  players       Player[]       @relation("ArticlePlayerTags")
   publishedAt   DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   // Set only when this article was created via the monitoring engine's
   // "promote" action (server/routes/monitoring.js) — optional, most
   // articles are still written from scratch with no monitored origin.
@@ -178,18 +178,18 @@ model Episode {
 // newsroom entry (the only option for sports with no public feed, like rugby
 // and athletics) — the same admin form and public page serve either source.
 model Competition {
-  id               String        @id @default(cuid())
+  id               String              @id @default(cuid())
   name             String // "Kenyan Premier League"
-  slug             String        @unique
+  slug             String              @unique
   sportId          String
-  sport            Sport         @relation(fields: [sportId], references: [id])
-  source           String        @default("MANUAL") // MANUAL | API | SCRAPED — how standings/fixtures are populated.
+  sport            Sport               @relation(fields: [sportId], references: [id])
+  source           String              @default("MANUAL") // MANUAL | API | SCRAPED — how standings/fixtures are populated.
   // API = a real vendor API with a data contract (football-data.org).
   // SCRAPED = parsed from a federation's own public page, no real API
   // exists (e.g. kenyacup.co.ke) — more fragile, breaks if their HTML
   // changes; see server/jobs/syncKenyaCup.js.
-  region           String        @default("KENYA") // KENYA | GLOBAL — drives Scores & Fixtures' default-open view
-  category         String        @default("LEAGUE") // LEAGUE | CUP | CONTINENTAL | INTERNATIONAL — set explicitly
+  region           String              @default("KENYA") // KENYA | GLOBAL — drives Scores & Fixtures' default-open view
+  category         String              @default("LEAGUE") // LEAGUE | CUP | CONTINENTAL | INTERNATIONAL — set explicitly
   // for anything that isn't a league; the default exists for migration
   // safety, not as a real fallback editors should rely on. Orthogonal to
   // `region`: region drives Kenya-expanded-vs-Global-pill display and
@@ -202,36 +202,72 @@ model Competition {
   // Opt-in per competition — syncSquads.js derives the team list from this
   // competition's own StandingRow data (already authoritative for API
   // competitions), so no separate external id is needed here at all.
-  syncSquads       Boolean       @default(false)
+  syncSquads       Boolean             @default(false)
   standings        StandingRow[]
   fixtures         Fixture[]
+  seasons          CompetitionSeason[]
   teams            Team[]
   clubs            Club[]
-  articles         Article[]     @relation("ArticleCompetitionTags")
+  articles         Article[]           @relation("ArticleCompetitionTags")
 
   @@unique([externalProvider, externalId])
 }
 
 model StandingRow {
-  id            String      @id @default(cuid())
+  id            String             @id @default(cuid())
   competitionId String
-  competition   Competition @relation(fields: [competitionId], references: [id])
+  competition   Competition        @relation(fields: [competitionId], references: [id])
+  // Nullable rather than required: a NOT NULL backfill migration on SQLite
+  // is real risk for real risk-free reward here, so this follows the same
+  // optional-relation precedent Fixture's homeClubId/awayClubId already
+  // set. Null only ever exists transiently — every write path resolves a
+  // real season via server/lib/seasonResolution.js before writing, and
+  // prisma/backfill-competition-seasons.js assigns one to every row that
+  // predates this model.
+  seasonId      String?
+  season        CompetitionSeason? @relation(fields: [seasonId], references: [id])
   position      Int
   teamName      String
-  played        Int         @default(0)
-  won           Int         @default(0)
-  drawn         Int         @default(0)
-  lost          Int         @default(0)
-  goalsFor      Int         @default(0)
-  goalsAgainst  Int         @default(0)
-  points        Int         @default(0)
-  updatedAt     DateTime    @updatedAt
+  played        Int                @default(0)
+  won           Int                @default(0)
+  drawn         Int                @default(0)
+  lost          Int                @default(0)
+  goalsFor      Int                @default(0)
+  goalsAgainst  Int                @default(0)
+  points        Int                @default(0)
+  updatedAt     DateTime           @updatedAt
+}
+
+// A competition's own notion of "season" — KPL 2025/26, NBA 2026, etc.
+// Free-text label (not a structured year range) since competitions here
+// span wildly different real-world season formats (calendar-year NBA,
+// split-year KPL, single-event PDC Darts). isCurrent marks the one season
+// every write path (admin forms + all 4 sync jobs) resolves to by default
+// — see getOrCreateCurrentSeason in server/lib/seasonResolution.js.
+// Exactly one season should be isCurrent per competition at a time; that's
+// enforced in code (the "start a new season" admin action flips the old
+// one false in the same transaction that creates the new one), not by a
+// DB constraint SQLite can't express cleanly for a nullable boolean flag.
+model CompetitionSeason {
+  id            String        @id @default(cuid())
+  competitionId String
+  competition   Competition   @relation(fields: [competitionId], references: [id])
+  label         String
+  isCurrent     Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+  standings     StandingRow[]
+  fixtures      Fixture[]
+
+  @@unique([competitionId, label])
 }
 
 model Fixture {
-  id              String      @id @default(cuid())
+  id              String             @id @default(cuid())
   competitionId   String
-  competition     Competition @relation(fields: [competitionId], references: [id])
+  competition     Competition        @relation(fields: [competitionId], references: [id])
+  // See StandingRow.seasonId above for why this is nullable.
+  seasonId        String?
+  season          CompetitionSeason? @relation(fields: [seasonId], references: [id])
   homeTeam        String
   awayTeam        String
   // Best-effort links to a real Club, populated by
@@ -242,15 +278,15 @@ model Fixture {
   // key below — this is an additive lookup, never a replacement (see
   // BLUEPRINT.md §36).
   homeClubId      String?
-  homeClub        Club?       @relation("FixtureHomeClub", fields: [homeClubId], references: [id])
+  homeClub        Club?              @relation("FixtureHomeClub", fields: [homeClubId], references: [id])
   awayClubId      String?
-  awayClub        Club?       @relation("FixtureAwayClub", fields: [awayClubId], references: [id])
+  awayClub        Club?              @relation("FixtureAwayClub", fields: [awayClubId], references: [id])
   kickoff         DateTime
   originalKickoff DateTime? // set once, the first time a fixture is postponed — so "was X, now Y" can be shown, not just the new date
   homeScore       Int?
   awayScore       Int?
-  status          String      @default("SCHEDULED") // SCHEDULED | LIVE | FINISHED | POSTPONED
-  updatedAt       DateTime    @updatedAt
+  status          String             @default("SCHEDULED") // SCHEDULED | LIVE | FINISHED | POSTPONED
+  updatedAt       DateTime           @updatedAt
 
   // Lets the sync job upsert instead of wholesale delete+recreate (unlike
   // standings, blowing fixtures away every run would lose POSTPONED/manual
@@ -374,7 +410,7 @@ model CanonicalMapping {
   localId             String
   canonicalEntityType String // Competition | Team | ... (Data Platform's own model names)
   canonicalId         String // Data Platform's row id (a UUID, not a cuid — different DB, different id scheme)
-  provider            String  @default("underdawgs-data")
+  provider            String   @default("underdawgs-data")
   createdAt           DateTime @default(now())
 
   @@unique([localEntityType, localId, provider])
@@ -504,29 +540,29 @@ model Source {
 
 // One row per fetched/scraped candidate item, staged for editorial review.
 model MonitoredItem {
-  id               String    @id @default(cuid())
-  sourceId         String
-  source           Source    @relation(fields: [sourceId], references: [id])
-  externalUrl      String
-  title            String
-  snippet          String?
-  publishedAt      DateTime?
-  fetchedAt        DateTime  @default(now())
-  status           String    @default("NEW") // NEW | REVIEWED | PROMOTED | DISMISSED
+  id                String    @id @default(cuid())
+  sourceId          String
+  source            Source    @relation(fields: [sourceId], references: [id])
+  externalUrl       String
+  title             String
+  snippet           String?
+  publishedAt       DateTime?
+  fetchedAt         DateTime  @default(now())
+  status            String    @default("NEW") // NEW | REVIEWED | PROMOTED | DISMISSED
   // AI enrichment (server/jobs/runMonitoringEnrich.js, Claude via
   // @anthropic-ai/sdk) — null until that job processes the row.
-  aiSummary        String?
-  aiRelevanceScore Int? // 0-100, sport-relevance specifically, calibrated per source category
+  aiSummary         String?
+  aiRelevanceScore  Int? // 0-100, sport-relevance specifically, calibrated per source category
   // Free-text, comma-separated AI guesses — deliberately NOT the curated
   // Tag/Sport/Competition/Club/Player relations Article uses. An editor
   // picks the real taxonomy by hand at promote time; this field is only
   // ever a provisional hint shown in the review UI.
-  aiCategoryTags   String?
-  promotedArticleId String?  @unique
-  promotedArticle  Article?  @relation(fields: [promotedArticleId], references: [id])
-  reviewedByUserId String?
-  reviewedByUser   User?     @relation(fields: [reviewedByUserId], references: [id])
-  createdAt        DateTime  @default(now())
+  aiCategoryTags    String?
+  promotedArticleId String?   @unique
+  promotedArticle   Article?  @relation(fields: [promotedArticleId], references: [id])
+  reviewedByUserId  String?
+  reviewedByUser    User?     @relation(fields: [reviewedByUserId], references: [id])
+  createdAt         DateTime  @default(now())
 
   // Lets a re-fetch of the same source upsert instead of duplicating rows,
   // without ever touching a row an editor has already reviewed/promoted —

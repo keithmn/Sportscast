@@ -13,6 +13,7 @@
 
 const prisma = require('../db');
 const { resolveClubIdForTeamName } = require('../lib/clubResolution');
+const { getOrCreateCurrentSeason } = require('../lib/seasonResolution');
 
 const BALLDONTLIE_KEY = process.env.BALLDONTLIE_API_KEY;
 const BASE = 'https://api.balldontlie.io/v1';
@@ -123,7 +124,10 @@ async function syncBallDontLie() {
     end.setDate(end.getDate() + FORWARD_DAYS);
 
     const games = await fetchAllGames(isoDate(start), isoDate(end));
-    const clubs = await prisma.club.findMany({ where: { competitionId: competition.id }, select: { id: true, name: true } });
+    const [clubs, season] = await Promise.all([
+      prisma.club.findMany({ where: { competitionId: competition.id }, select: { id: true, name: true } }),
+      getOrCreateCurrentSeason(prisma, competition.id),
+    ]);
 
     let count = 0;
     for (const game of games) {
@@ -139,7 +143,7 @@ async function syncBallDontLie() {
             kickoff: fields.kickoff,
           },
         },
-        create: { competitionId: competition.id, ...fields, homeClubId, awayClubId },
+        create: { competitionId: competition.id, seasonId: season.id, ...fields, homeClubId, awayClubId },
         update: { homeScore: fields.homeScore, awayScore: fields.awayScore, status: fields.status, homeClubId, awayClubId },
       });
       count += 1;

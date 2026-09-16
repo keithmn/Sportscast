@@ -30,6 +30,7 @@ if (typeof globalThis.File === 'undefined') {
 
 const cheerio = require('cheerio');
 const prisma = require('../db');
+const { getOrCreateCurrentSeason } = require('../lib/seasonResolution');
 
 const STANDINGS_URL = 'https://www.kenyacup.co.ke/standings/';
 const USER_AGENT = 'Mozilla/5.0 (compatible; TheSportscastBot/1.0; +https://sportscast-production-c267.up.railway.app)';
@@ -98,8 +99,10 @@ async function syncKenyaCup() {
       throw new Error(`Parse looks unreliable — ${rows.length} rows parsed, ${matched} matched known clubs (expected >= 8 of each). Site structure may have changed.`);
     }
 
+    const season = await getOrCreateCurrentSeason(prisma, competition.id);
     const standingRows = rows.map((r, i) => ({
       competitionId: competition.id,
+      seasonId: season.id,
       position: i + 1,
       teamName: r.teamName,
       played: r.played,
@@ -111,8 +114,10 @@ async function syncKenyaCup() {
       points: r.totalPoints,
     }));
 
+    // Scoped to the current season only — see syncLeagues.js's syncStandings
+    // for why (a past archived season's rows must survive this run).
     await prisma.$transaction([
-      prisma.standingRow.deleteMany({ where: { competitionId: competition.id } }),
+      prisma.standingRow.deleteMany({ where: { competitionId: competition.id, seasonId: season.id } }),
       prisma.standingRow.createMany({ data: standingRows }),
     ]);
 

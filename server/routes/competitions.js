@@ -4,6 +4,7 @@ const { slugify } = require('../utils/slugify');
 const { requireRole } = require('../middleware/auth');
 const { fetchCanonicalStandings, fetchCanonicalCompetition, verifyCanonicalCompetition } = require('../lib/canonicalData');
 const { resolveClubsForFixture, resolveClubIdForTeamName } = require('../lib/clubResolution');
+const { getOrCreateCurrentSeason } = require('../lib/seasonResolution');
 
 const router = express.Router();
 
@@ -39,22 +40,51 @@ router.get('/changelog', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
 });
 
 // ---- Public: single competition with standings + fixtures ----
+// ?season=<id> scopes standings/fixtures to a specific past season; with no
+// param (the common case), this defaults to whichever CompetitionSeason is
+// currently marked isCurrent. A competition that predates the season model
+// and has never had a fixture/standings write since (so getOrCreateCurrentSeason
+// was never called for it) may have zero CompetitionSeason rows at all —
+// that's not an error, it just means nothing to scope by, so every existing
+// row (all seasonId: null) is returned unscoped, identical to pre-season-model
+// behavior.
 router.get('/:slug', async (req, res) => {
   const competition = await prisma.competition.findUnique({
     where: { slug: req.params.slug },
-    include: {
-      sport: true,
-      standings: { orderBy: { position: 'asc' } },
-      fixtures: {
-        orderBy: { kickoff: 'asc' },
-        include: {
-          homeClub: { select: { id: true, name: true, slug: true, crestUrl: true } },
-          awayClub: { select: { id: true, name: true, slug: true, crestUrl: true } },
-        },
-      },
-    },
+    include: { sport: true },
   });
   if (!competition) return res.status(404).json({ error: 'Competition not found' });
+
+  const seasons = await prisma.competitionSeason.findMany({
+    where: { competitionId: competition.id },
+    orderBy: { createdAt: 'desc' },
+  });
+  const currentSeason = seasons.find((s) => s.isCurrent) || null;
+  const requestedSeasonId = req.query.season && seasons.some((s) => s.id === req.query.season)
+    ? req.query.season
+    : null;
+  const scopeSeasonId = requestedSeasonId || currentSeason?.id || null;
+  const seasonWhere = scopeSeasonId ? { seasonId: scopeSeasonId } : undefined;
+
+  const [standings, fixtures] = await Promise.all([
+    prisma.standingRow.findMany({
+      where: { competitionId: competition.id, ...seasonWhere },
+      orderBy: { position: 'asc' },
+    }),
+    prisma.fixture.findMany({
+      where: { competitionId: competition.id, ...seasonWhere },
+      orderBy: { kickoff: 'asc' },
+      include: {
+        homeClub: { select: { id: true, name: true, slug: true, crestUrl: true } },
+        awayClub: { select: { id: true, name: true, slug: true, crestUrl: true } },
+      },
+    }),
+  ]);
+  competition.standings = standings;
+  competition.fixtures = fixtures;
+  competition.seasons = seasons;
+  competition.currentSeasonId = currentSeason?.id || null;
+  competition.viewingSeasonId = scopeSeasonId;
 
   // Prefer the canonical Underdawgs Sports Data platform's standings when
   // this competition has one — currently just Kenya Cup. Fails soft: any
@@ -135,6 +165,43 @@ router.delete('/:id/canonical-competition', requireRole('ADMIN', 'EDITOR'), asyn
   res.json({ ok: true });
 });
 
+// ---- Admin: list a competition's seasons, most recent first ----
+router.get('/:id/seasons', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const seasons = await prisma.competitionSeason.findMany({
+    where: { competitionId: req.params.id },
+    orderBy: { createdAt: 'desc' },
+  });
+  res.json({ seasons });
+});
+
+// ---- Admin: archive the current season and start a new one ----
+// One-way, forward-only action: every fixture/standings write path resolves
+// "the current season" via getOrCreateCurrentSeason, so the new season
+// starts empty (no fixtures, no standings) the moment this returns — there's
+// nothing else to wire up for that to take effect. The just-archived
+// season's data is untouched and stays reachable via the public ?season=
+// selector.
+router.post('/:id/seasons', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const { label } = req.body;
+  if (!label || !label.trim()) return res.status(400).json({ error: 'label is required' });
+  const trimmedLabel = label.trim();
+
+  const competition = await prisma.competition.findUnique({ where: { id: req.params.id } });
+  if (!competition) return res.status(404).json({ error: 'Competition not found' });
+
+  const existing = await prisma.competitionSeason.findUnique({
+    where: { competitionId_label: { competitionId: req.params.id, label: trimmedLabel } },
+  });
+  if (existing) return res.status(409).json({ error: `A season labeled "${trimmedLabel}" already exists for this competition.` });
+
+  const [, season] = await prisma.$transaction([
+    prisma.competitionSeason.updateMany({ where: { competitionId: req.params.id, isCurrent: true }, data: { isCurrent: false } }),
+    prisma.competitionSeason.create({ data: { competitionId: req.params.id, label: trimmedLabel, isCurrent: true } }),
+  ]);
+  await logChange('COMPETITION', competition.id, 'UPDATE', `Started new season "${season.label}" for "${competition.name}"`, req.session.user.name);
+  res.status(201).json({ season });
+});
+
 // ---- Admin: create a competition ----
 const VALID_CATEGORIES = ['LEAGUE', 'CUP', 'CONTINENTAL', 'INTERNATIONAL'];
 
@@ -170,15 +237,22 @@ router.put('/:id/sync-squads', requireRole('ADMIN', 'EDITOR'), async (req, res) 
 // Simplest correct approach for a small, manually-curated table: the admin
 // re-submits the full table on every save rather than editing rows one at a
 // time, so there's no drift between row order and table position.
+//
+// Scoped to the current season only — deleteMany below only ever touches
+// rows already tagged with this season's id, so a past (archived) season's
+// standings are never at risk of being wiped by a save to the current one.
 router.put('/:id/standings', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const { rows } = req.body;
   if (!Array.isArray(rows)) return res.status(400).json({ error: 'rows must be an array' });
 
+  const season = await getOrCreateCurrentSeason(prisma, req.params.id);
+
   await prisma.$transaction([
-    prisma.standingRow.deleteMany({ where: { competitionId: req.params.id } }),
+    prisma.standingRow.deleteMany({ where: { competitionId: req.params.id, seasonId: season.id } }),
     prisma.standingRow.createMany({
       data: rows.map((r, i) => ({
         competitionId: req.params.id,
+        seasonId: season.id,
         position: r.position ?? i + 1,
         teamName: r.teamName,
         played: r.played || 0,
@@ -194,7 +268,7 @@ router.put('/:id/standings', requireRole('ADMIN', 'EDITOR'), async (req, res) =>
   await logChange('STANDINGS', req.params.id, 'UPDATE', `Replaced standings table (${rows.length} teams)`, req.session.user.name);
 
   const standings = await prisma.standingRow.findMany({
-    where: { competitionId: req.params.id },
+    where: { competitionId: req.params.id, seasonId: season.id },
     orderBy: { position: 'asc' },
   });
   res.json({ standings });
@@ -206,10 +280,14 @@ router.post('/:id/fixtures', requireRole('ADMIN', 'EDITOR'), async (req, res) =>
   if (!homeTeam || !awayTeam || !kickoff) {
     return res.status(400).json({ error: 'homeTeam, awayTeam, and kickoff are required' });
   }
-  const { homeClubId, awayClubId } = await resolveClubsForFixture(prisma, req.params.id, homeTeam, awayTeam);
+  const [{ homeClubId, awayClubId }, season] = await Promise.all([
+    resolveClubsForFixture(prisma, req.params.id, homeTeam, awayTeam),
+    getOrCreateCurrentSeason(prisma, req.params.id),
+  ]);
   const fixture = await prisma.fixture.create({
     data: {
       competitionId: req.params.id,
+      seasonId: season.id,
       homeTeam,
       awayTeam,
       homeClubId,
@@ -232,7 +310,10 @@ router.post('/:id/fixtures/bulk', requireRole('ADMIN', 'EDITOR'), async (req, re
     return res.status(400).json({ error: 'fixtures must be a non-empty array' });
   }
 
-  const clubs = await prisma.club.findMany({ where: { competitionId: req.params.id }, select: { id: true, name: true } });
+  const [clubs, season] = await Promise.all([
+    prisma.club.findMany({ where: { competitionId: req.params.id }, select: { id: true, name: true } }),
+    getOrCreateCurrentSeason(prisma, req.params.id),
+  ]);
 
   const errors = [];
   const toCreate = [];
@@ -248,6 +329,7 @@ router.post('/:id/fixtures/bulk', requireRole('ADMIN', 'EDITOR'), async (req, re
     }
     toCreate.push({
       competitionId: req.params.id,
+      seasonId: season.id,
       homeTeam: f.homeTeam,
       awayTeam: f.awayTeam,
       homeClubId: resolveClubIdForTeamName(f.homeTeam, clubs),

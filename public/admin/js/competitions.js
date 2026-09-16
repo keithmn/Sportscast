@@ -44,7 +44,28 @@ function fixtureAdminRowHtml(f, listId) {
     </div>`;
 }
 
-function competitionBlockHtml(competition, teamNames) {
+// Read-only history + the one forward action (archive current, start new).
+// Standings/fixture entry below this always targets whichever season the
+// server resolves as current (see getOrCreateCurrentSeason) — there's no
+// "pick a season to edit" control, deliberately: editing history isn't a
+// workflow this needs, only recording it and moving forward.
+function seasonSectionHtml(competition, seasons) {
+  const current = seasons.find((s) => s.isCurrent);
+  const past = seasons.filter((s) => !s.isCurrent);
+  return `
+    <div style="margin-top:1.25rem; padding:0.75rem 1rem; border:1px solid var(--border); border-radius:6px;">
+      <span class="section-label" style="font-size:0.68rem;">Season</span>
+      <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; margin-top:0.35rem;">
+        <span style="font-weight:600;">${current ? escapeHtml(current.label) : '(none yet — set on first fixture or standings entry)'}</span>
+        <input type="text" class="new-season-label" data-competition-id="${competition.id}" placeholder="New season label, e.g. 2026/27" style="max-width:220px;">
+        <button type="button" class="btn-outline-sm start-season-btn" data-competition-id="${competition.id}">Start New Season</button>
+        <span class="form-error start-season-error" data-competition-id="${competition.id}" style="display:none;"></span>
+      </div>
+      ${past.length ? `<p class="source-note" style="margin-top:0.5rem;">Past seasons (view-only, standings/fixtures preserved): ${past.map((s) => escapeHtml(s.label)).join(', ')}</p>` : ''}
+    </div>`;
+}
+
+function competitionBlockHtml(competition, teamNames, seasons) {
   const listId = `teamnames-${competition.id}`;
   return `
     <div class="card" style="margin-bottom:2.5rem; cursor:default;">
@@ -53,6 +74,8 @@ function competitionBlockHtml(competition, teamNames) {
       <datalist id="${listId}">
         ${teamNames.map((n) => `<option value="${escapeHtml(n)}">`).join('')}
       </datalist>
+
+      ${seasonSectionHtml(competition, seasons)}
 
       <label class="checkbox-row" style="margin-top:0.75rem;">
         <input type="checkbox" class="sync-squads-toggle" data-competition-id="${competition.id}" ${competition.syncSquads ? 'checked' : ''}>
@@ -161,13 +184,14 @@ async function loadCompetitions() {
   }
 
   const fullCompetitions = await Promise.all(competitions.map(async (c) => {
-    const [{ competition }, { teamNames }] = await Promise.all([
+    const [{ competition }, { teamNames }, { seasons }] = await Promise.all([
       api(`/api/competitions/${c.slug}`),
       api(`/api/competitions/${c.id}/team-names`),
+      api(`/api/competitions/${c.id}/seasons`),
     ]);
-    return { competition, teamNames };
+    return { competition, teamNames, seasons };
   }));
-  root.innerHTML = fullCompetitions.map(({ competition, teamNames }) => competitionBlockHtml(competition, teamNames)).join('');
+  root.innerHTML = fullCompetitions.map(({ competition, teamNames, seasons }) => competitionBlockHtml(competition, teamNames, seasons)).join('');
 
   wireCanonicalLinkWidgets(root, {
     endpointFor: (kind, localId) => `/api/competitions/${localId}/canonical-competition`,
@@ -181,6 +205,26 @@ async function loadCompetitions() {
         body: JSON.stringify({ syncSquads: checkbox.checked }),
       });
       loadChangeLog();
+    });
+  });
+
+  root.querySelectorAll('.start-season-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const competitionId = btn.dataset.competitionId;
+      const input = root.querySelector(`.new-season-label[data-competition-id="${competitionId}"]`);
+      const errorEl = root.querySelector(`.start-season-error[data-competition-id="${competitionId}"]`);
+      errorEl.style.display = 'none';
+      const label = input.value.trim();
+      if (!label) return;
+      if (!confirm(`Start "${label}" as the new current season? Standings/fixture entry will switch to it immediately; the previous season's data stays intact and viewable.`)) return;
+      try {
+        await api(`/api/competitions/${competitionId}/seasons`, { method: 'POST', body: JSON.stringify({ label }) });
+        loadCompetitions();
+        loadChangeLog();
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+      }
     });
   });
 
