@@ -21,6 +21,7 @@ const cron = require('node-cron');
 const authRoutes = require('./routes/auth');
 const articleRoutes = require('./routes/articles');
 const canonicalSearchRoutes = require('./routes/canonicalSearch');
+const publicSearchRoutes = require('./routes/publicSearch');
 const taxonomyRoutes = require('./routes/taxonomy');
 const competitionRoutes = require('./routes/competitions');
 const fixtureRoutes = require('./routes/fixtures');
@@ -142,6 +143,7 @@ app.use('/api/auth/login', loginLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/articles', articleRoutes);
 app.use('/api/canonical-search', canonicalSearchRoutes);
+app.use('/api/search', publicSearchRoutes);
 app.use('/api', taxonomyRoutes); // /api/sports, /api/tags, /api/authors
 app.use('/api/competitions', competitionRoutes);
 app.use('/api/fixtures', fixtureRoutes);

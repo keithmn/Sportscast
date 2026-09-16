@@ -112,6 +112,7 @@ const NAV_LINKS = [
   { type: 'dropdown', key: 'sports', label: 'Sports', tab: null },
   { type: 'link', href: '/shows.html', label: 'Watch' },
   { type: 'dropdown', key: 'scores', label: 'Scores', tab: 'scores' },
+  { type: 'link', href: '/search.html', label: 'Search' },
 ];
 
 // Brand band — its own row above the primary nav (Sky Sports-style
