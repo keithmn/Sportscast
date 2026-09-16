@@ -18,6 +18,22 @@ function searchResultRowHtml(item, hrefPrefix) {
     </li>`;
 }
 
+// Wave 9 §8.3 — canonical (Data Platform) results have no local page to
+// link to, unlike the site-content sections above — plain labeled text,
+// not a link, same "don't link what doesn't resolve" precedent already
+// used for local Athlete/Venue results (no detail route exists for
+// either here). Clearly tagged "Sports Data" so a reader never confuses
+// it for this site's own content.
+function canonicalResultRowHtml(item) {
+  return `<li>${escapeHtml(item.name)}${item.sportName ? `<span class="meta"> · ${escapeHtml(item.sportName)}</span>` : ''}</li>`;
+}
+
+const CANONICAL_SEARCH_SECTIONS = [
+  { key: 'teams', label: 'Teams (Sports Data)' },
+  { key: 'athletes', label: 'Athletes (Sports Data)' },
+  { key: 'competitions', label: 'Competitions (Sports Data)' },
+];
+
 async function loadSearch() {
   const root = document.getElementById('search-results');
   const q = qs('q');
@@ -52,14 +68,15 @@ async function loadSearch() {
     return;
   }
 
-  const totalCount = SEARCH_SECTIONS.reduce((sum, s) => sum + (results[s.key]?.length ?? 0), 0);
+  const localCount = SEARCH_SECTIONS.reduce((sum, s) => sum + (results[s.key]?.length ?? 0), 0);
+  const canonicalCount = CANONICAL_SEARCH_SECTIONS.reduce((sum, s) => sum + (results.canonical?.[s.key]?.length ?? 0), 0);
 
-  if (totalCount === 0) {
+  if (localCount === 0 && canonicalCount === 0) {
     root.innerHTML = `<p class="empty-state">No matches found for &ldquo;${escapeHtml(q)}&rdquo;.</p>`;
     return;
   }
 
-  root.innerHTML = SEARCH_SECTIONS
+  const localHtml = SEARCH_SECTIONS
     .map(({ key, label, hrefPrefix }) => {
       const items = results[key];
       if (!items || items.length === 0) return '';
@@ -70,6 +87,25 @@ async function loadSearch() {
         </section>`;
     })
     .join('');
+
+  // results.canonical is null when the Data Platform had nothing to
+  // offer OR was unreachable — indistinguishable to this page on purpose
+  // (server/routes/publicSearch.js's fail-soft contract), and correctly
+  // so: a reader searching sees "no canonical matches," not an alarming
+  // "Sports Data is down" message for what's very likely just no results.
+  const canonicalHtml = CANONICAL_SEARCH_SECTIONS
+    .map(({ key, label }) => {
+      const items = results.canonical?.[key];
+      if (!items || items.length === 0) return '';
+      return `
+        <section style="margin-bottom:2rem;">
+          <span class="section-label">${label}</span>
+          <ul>${items.map(canonicalResultRowHtml).join('')}</ul>
+        </section>`;
+    })
+    .join('');
+
+  root.innerHTML = localHtml + canonicalHtml;
 }
 
 document.addEventListener('DOMContentLoaded', () => {

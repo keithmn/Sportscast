@@ -208,6 +208,33 @@ router.delete('/:id/canonical-event', requireRole('ADMIN', 'EDITOR'), async (req
   res.json({ ok: true });
 });
 
+// Wave 9 (pre-OS refinement) §8.4 — "what media outputs exist for this
+// sporting Event?" Episode and Clip have no canonical-event link field
+// of their own (confirmed via schema — only Article does); they don't
+// need one, since Episode is 1:1 with the Article that carries it and
+// Clip belongs to that Episode, so an Event's Episode/Clip coverage is
+// already fully reachable by walking every Article linked to that Event.
+// Every Article whose CanonicalMapping points at this canonical Event
+// id, each with its Episode (and that Episode's Clips) and Poll —
+// everything Sportscast has actually produced for one real-world Event,
+// in one call, rather than an editor having to guess or search by title.
+router.get('/by-event/:canonicalEventId', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const mappings = await prisma.canonicalMapping.findMany({
+    where: { localEntityType: 'ARTICLE', canonicalId: req.params.canonicalEventId, provider: 'underdawgs-data' },
+  });
+  if (!mappings.length) return res.json({ articles: [] });
+
+  const articles = await prisma.article.findMany({
+    where: { id: { in: mappings.map((m) => m.localId) } },
+    include: {
+      episode: { include: { clips: true } },
+      poll: { include: { options: true } },
+    },
+    orderBy: { publishedAt: 'desc' },
+  });
+  res.json({ articles });
+});
+
 // ---- Admin: create article ----
 router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const {

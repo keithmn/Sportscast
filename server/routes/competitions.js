@@ -2,7 +2,7 @@ const express = require('express');
 const prisma = require('../db');
 const { slugify } = require('../utils/slugify');
 const { requireRole } = require('../middleware/auth');
-const { fetchCanonicalStandings, fetchCanonicalCompetition, verifyCanonicalCompetition } = require('../lib/canonicalData');
+const { fetchCanonicalStandings, fetchCanonicalCompetition, verifyCanonicalCompetition, fetchCanonicalFixture, verifyCanonicalFixture, listCanonicalFixtureCandidates } = require('../lib/canonicalData');
 const { resolveClubsForFixture, resolveClubIdForTeamName } = require('../lib/clubResolution');
 const { getOrCreateCurrentSeason } = require('../lib/seasonResolution');
 const { sendPushToFollowers } = require('../lib/push');
@@ -428,6 +428,55 @@ router.delete('/fixtures/:fixtureId', requireRole('ADMIN', 'EDITOR'), async (req
   if (existing) {
     await logChange('FIXTURE', existing.id, 'DELETE', `Removed fixture: ${existing.homeTeam} vs ${existing.awayTeam}`, req.session.user.name);
   }
+  res.json({ ok: true });
+});
+
+// ---- Canonical Fixture/Match linking (Wave 9 pre-OS refinement §8.2) ----
+// Closes the one core entity that never had a canonical integration at
+// all before this — see UNDERDAWGS_DOMAIN_CONTRACT.md's "Fixture" entry.
+router.get('/fixtures/:fixtureId/canonical-fixture', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const canonicalFixture = await fetchCanonicalFixture(req.params.fixtureId);
+  res.json({ canonicalFixture });
+});
+
+// Fixture has no name field on either side to search by — candidates are
+// browsed between the two Clubs' own already-linked canonical Teams, not
+// searched by text. Empty list (not an error) if either Club isn't
+// canonically linked yet, or if the fixture has no Club resolved at all.
+router.get('/fixtures/:fixtureId/canonical-fixture-candidates', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const fixture = await prisma.fixture.findUnique({ where: { id: req.params.fixtureId } });
+  if (!fixture) return res.status(404).json({ error: 'Fixture not found' });
+  const candidates = await listCanonicalFixtureCandidates(fixture.homeClubId, fixture.awayClubId);
+  res.json({ candidates });
+});
+
+router.put('/fixtures/:fixtureId/canonical-fixture', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const { canonicalFixtureId } = req.body;
+  if (!canonicalFixtureId) return res.status(400).json({ error: 'canonicalFixtureId is required' });
+
+  const fixture = await prisma.fixture.findUnique({ where: { id: req.params.fixtureId } });
+  if (!fixture) return res.status(404).json({ error: 'Fixture not found' });
+
+  const canonicalFixture = await verifyCanonicalFixture(canonicalFixtureId);
+  if (!canonicalFixture) {
+    return res.status(422).json({ error: 'No Data Platform Fixture with that id could be verified (check the id, or the Data Platform may be unreachable — try again).' });
+  }
+
+  await prisma.canonicalMapping.upsert({
+    where: {
+      localEntityType_localId_provider: { localEntityType: 'FIXTURE', localId: fixture.id, provider: 'underdawgs-data' },
+    },
+    update: { canonicalEntityType: 'Fixture', canonicalId: canonicalFixtureId },
+    create: { localEntityType: 'FIXTURE', localId: fixture.id, canonicalEntityType: 'Fixture', canonicalId: canonicalFixtureId },
+  });
+
+  res.json({ canonicalFixture });
+});
+
+router.delete('/fixtures/:fixtureId/canonical-fixture', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  await prisma.canonicalMapping.deleteMany({
+    where: { localEntityType: 'FIXTURE', localId: req.params.fixtureId, provider: 'underdawgs-data' },
+  });
   res.json({ ok: true });
 });
 

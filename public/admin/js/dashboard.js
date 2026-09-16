@@ -12,12 +12,14 @@ async function loadDashboard() {
   const cards = [];
 
   if (canManageArticles(user)) {
-    const [{ articles }, { items }, { submissions }, { sources }, { fixtures: todayFixtures }] = await Promise.all([
+    const [{ articles }, { items }, { submissions }, { sources }, { fixtures: todayFixtures }, { fixtures: missingReports }, { clips: pendingClips }] = await Promise.all([
       api('/api/articles/admin/all'),
       api('/api/monitoring?status=NEW'),
       api('/api/submissions'),
       api('/api/sources'),
       api('/api/fixtures/today'),
+      api('/api/fixtures/missing-reports'),
+      api('/api/episodes/clips/pending'),
     ]);
 
     const failedSources = sources.filter((s) => s.isActive && s.syncStatus === 'ERROR');
@@ -85,6 +87,33 @@ async function loadDashboard() {
           <p class="card-desc">${todayFixtures.length ? todayFixtures.slice(0, 3).map((f) => escapeHtml(f.competition.name)).join(', ') : 'Nothing scheduled today.'}</p>
         </div>
       </a>`);
+
+    // Wave 9 §8.8 — a finished match with no report yet is worth flagging
+    // the same way a live-and-awaiting-a-result match is above; this is
+    // the "already finished, still nothing written" half of that gap.
+    if (missingReports.length) {
+      alertCards.push(`
+        <a href="/admin/competitions.html" style="display:contents;">
+          <div class="card" style="border-left-color:var(--gold-text);">
+            <span class="card-eyebrow" style="color:var(--gold-text);">Missing reports</span>
+            <h3 class="card-title">${missingReports.length} finished match${missingReports.length === 1 ? '' : 'es'} with no report yet</h3>
+            <p class="card-desc">${missingReports.slice(0, 3).map((f) => `${escapeHtml(f.homeTeam)} vs ${escapeHtml(f.awayTeam)}`).join(', ')}</p>
+          </div>
+        </a>`);
+    }
+
+    // Wave 9 §8.8 — AI-suggested clips awaiting a human decision, across
+    // every episode (previously only visible per-episode).
+    if (pendingClips.length) {
+      cards.push(`
+        <a href="/admin/articles.html" style="display:contents;">
+          <div class="card">
+            <span class="card-eyebrow">Clips</span>
+            <h3 class="card-title">${pendingClips.length} awaiting approval</h3>
+            <p class="card-desc">${pendingClips.slice(0, 3).map((c) => escapeHtml(c.title)).join(', ')}</p>
+          </div>
+        </a>`);
+    }
 
     // Production — draft video posts (episodes not yet published).
     const draftEpisodes = articles.filter((a) => a.contentType === 'VIDEO_POST' && a.status === 'DRAFT');

@@ -26,12 +26,20 @@ drifting out of sync with each other.
   predates this file and still has its own bespoke implementation, not
   yet migrated to it — a real, small piece of remaining duplication, not
   an oversight worth fixing blind).
-- All four Wave 2 acceptance criteria this repo can satisfy on its own
-  are done, each with a real admin picker (not a one-off script) and
-  public-page display: **Article → Event**, **Club → Team**, **Player →
-  Athlete**, **Competition → Competition** (the last three added
-  2026-09-16). Fixture/Match remain out of reach — Match has no API
-  route on the Data Platform side at all yet.
+- All five canonical-link acceptance criteria this repo can satisfy on
+  its own are now done, each with a real admin picker (not a one-off
+  script) and public-page display: **Article → Event**, **Club →
+  Team**, **Player → Athlete**, **Competition → Competition** (added
+  2026-09-16), and **Fixture → Fixture/Match** (added Wave 9, same day —
+  the Data Platform side settled its own Match-API strategy in the same
+  pass, deciding Match is reached through Fixture, not a standalone
+  route; see that repo's copy of this doc). Fixture's picker is
+  deliberately NOT the shared name-search widget (`canonicalLinkWidget.js`)
+  the other four use — Fixture has no name field on either side — it
+  browses candidates between the fixture's two Clubs' own already-linked
+  canonical Teams instead (`listCanonicalFixtureCandidates`,
+  `server/lib/canonicalData.js`), and returns an empty, honest list
+  rather than a guess when either Club isn't linked yet.
 
 See the Sports Data repo's copy for the full per-entity breakdown, the
 domain-event inventory, and exactly which of Wave 2's acceptance

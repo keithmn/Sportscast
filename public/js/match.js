@@ -1,10 +1,17 @@
 // match.html's bootstrap (Wave 4 — Match Hub, the one hub this app had
-// no detail page for at all before this file). Deliberately does not
-// attempt a canonical/Data Platform fixture link — Fixture has no name
-// field to match against on either side of this ecosystem (see
-// UNDERDAWGS_DOMAIN_CONTRACT.md), so unlike club.js/player.js/
-// competition.js, this page is local-only; no fetchCanonicalFixture
-// exists and none is faked here.
+// no detail page for at all before this file).
+//
+// Canonical Fixture/Match linking (Wave 9 pre-OS refinement §8.2): unlike
+// club.js/player.js/competition.js, this page can't offer a name-search
+// picker — Fixture has no name field on either side of this ecosystem
+// (see UNDERDAWGS_DOMAIN_CONTRACT.md) — so the admin link is built by
+// browsing candidates between the fixture's two Clubs' already-linked
+// canonical Teams instead (server/routes/competitions.js's canonical-
+// fixture-candidates endpoint). This page just reads whatever
+// GET /api/fixtures/:id already embeds (fixture.canonicalFixture, fails
+// soft to null) and prefers it for status/score when present, always
+// falling back to local data — same fail-soft contract as every other
+// canonical integration in this app.
 // No "Player of the Match" poll either — Poll is Article-scoped only
 // (server/routes/polls.js), there's no fixture-scoped poll target to
 // reuse; a real addition, not something to bolt on as a fake here.
@@ -78,9 +85,23 @@ async function loadMatch() {
 
   document.title = `${fixture.homeTeam}${fixture.awayTeam ? ` vs ${fixture.awayTeam}` : ''} — The Sportscast`;
 
-  const hasRealScore = fixture.homeScore != null || fixture.awayScore != null;
-  const scoreHtml = fixture.status === 'FINISHED' && hasRealScore
-    ? `<p style="font-size:2rem; font-weight:800; margin:1rem 0;">${fixture.homeScore ?? 0} – ${fixture.awayScore ?? 0}</p>`
+  // Prefer the canonical Data Platform score once one exists there — it's
+  // the verified, source-tracked record; local score stays the fallback
+  // whenever no canonical link exists yet, or the Data Platform hasn't
+  // recorded a result on its side either. Deliberately NOT swapping in
+  // the canonical `status` string for the status badge below — the two
+  // platforms' FixtureStatus enums differ (this app has LIVE/FINISHED,
+  // the Data Platform has PLAYED/CANCELLED, no LIVE) and this app's own
+  // CSS classes (.fixture-status.FINISHED etc.) are keyed to its own
+  // vocabulary; the status badge stays local, only the score is shared.
+  const canonical = fixture.canonicalFixture;
+  const canonicalHasScore = canonical && (canonical.homeScore != null || canonical.awayScore != null);
+  const hasRealScore = canonicalHasScore || fixture.homeScore != null || fixture.awayScore != null;
+  const displayHomeScore = canonicalHasScore ? canonical.homeScore : fixture.homeScore;
+  const displayAwayScore = canonicalHasScore ? canonical.awayScore : fixture.awayScore;
+  const scoreHtml = (canonicalHasScore || fixture.status === 'FINISHED') && hasRealScore
+    ? `<p style="font-size:2rem; font-weight:800; margin:1rem 0;">${displayHomeScore ?? 0} – ${displayAwayScore ?? 0}</p>
+       ${canonicalHasScore ? '<p class="source-note">Verified via the Underdawgs Sports Data platform</p>' : ''}`
     : `<p class="empty-state">${fixture.status === 'POSTPONED' ? 'Postponed' : 'No result yet'}</p>`;
 
   const postponedNote = fixture.status === 'POSTPONED' && fixture.originalKickoff

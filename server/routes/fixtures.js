@@ -1,6 +1,7 @@
 const express = require('express');
 const prisma = require('../db');
 const { requireRole } = require('../middleware/auth');
+const { fetchCanonicalFixture } = require('../lib/canonicalData');
 
 const router = express.Router();
 
@@ -91,6 +92,25 @@ router.get('/today', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   res.json({ fixtures });
 });
 
+// ---- Admin: recently-finished fixtures with no match report yet (Wave 9
+// §8.8 — a real dashboard gap: the existing "match underway" alert only
+// covers LIVE fixtures, nothing flagged once a fixture finishes without
+// ever getting a report). Scoped to the last 7 days — this repo also
+// syncs global leagues via football-data.org/TheSportsDB/BallDontLie,
+// and most of those FINISHED fixtures were never going to get a
+// Sportscast report at all; an unbounded all-time query would make this
+// card permanently, uselessly huge rather than "what needs attention
+// now." ----
+router.get('/missing-reports', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const fixtures = await prisma.fixture.findMany({
+    where: { status: 'FINISHED', kickoff: { gte: sevenDaysAgo }, articles: { none: {} } },
+    include: { competition: { select: { name: true, slug: true } } },
+    orderBy: { kickoff: 'desc' },
+  });
+  res.json({ fixtures });
+});
+
 // ---- Admin: search local fixtures by team name, for the "attach fixture
 // to a match report" picker on the article form (Wave 4 — there are 4,700+
 // fixtures, far too many for a plain <select>). Registered before /:id for
@@ -126,7 +146,12 @@ router.get('/:id', async (req, res) => {
     },
   });
   if (!fixture) return res.status(404).json({ error: 'Fixture not found' });
-  res.json({ fixture });
+  // Wave 9 §8.2 — same embed-in-the-public-response pattern
+  // articles.js's GET /:slug uses for canonicalEvent. Fails soft to null
+  // (no mapping, network error, Data Platform down) — the match page
+  // always has its own local data to fall back to.
+  const canonicalFixture = await fetchCanonicalFixture(fixture.id);
+  res.json({ fixture: { ...fixture, canonicalFixture } });
 });
 
 module.exports = router;

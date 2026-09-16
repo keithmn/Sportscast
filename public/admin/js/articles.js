@@ -351,9 +351,41 @@ function renderCanonicalEvent(event) {
   document.getElementById('unlink-canonical-event-btn').addEventListener('click', () => unlinkCanonicalEvent());
 }
 
+// Wave 9 §8.4 — "what media outputs exist for this Event?" One line per
+// sibling Article (this one included, so an editor sees the full
+// picture, not just "everyone else"), tagging what each one carries —
+// episode, clips, poll — so gaps (an Event with a story but no episode
+// yet) are visible at a glance, not something to go hunting for.
+function renderEventContentGraph(articles, currentArticleId) {
+  const wrap = document.getElementById('event-content-graph');
+  const listEl = document.getElementById('event-content-graph-list');
+  if (!articles || !articles.length) {
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = 'block';
+  listEl.innerHTML = articles.map((a) => {
+    const tags = [
+      a.episode ? `Episode${a.episode.clips?.length ? ` (${a.episode.clips.length} clip${a.episode.clips.length === 1 ? '' : 's'})` : ''}` : null,
+      a.poll ? 'Poll' : null,
+    ].filter(Boolean);
+    return `
+      <div style="font-size:0.78rem; padding:0.25rem 0; ${a.id === currentArticleId ? 'font-weight:600;' : ''}">
+        ${escapeHtml(a.title)}${a.id === currentArticleId ? ' <span style="color:var(--text-secondary);">(this article)</span>' : ''}
+        ${tags.map((t) => `<span class="pill" style="margin-left:0.3rem;">${escapeHtml(t)}</span>`).join('')}
+      </div>`;
+  }).join('');
+}
+
 async function loadCanonicalEvent(articleId) {
   const { canonicalEvent } = await api(`/api/articles/${articleId}/canonical-event`);
   renderCanonicalEvent(canonicalEvent);
+  if (canonicalEvent) {
+    const { articles } = await api(`/api/articles/by-event/${canonicalEvent.id}`);
+    renderEventContentGraph(articles, articleId);
+  } else {
+    renderEventContentGraph(null);
+  }
 }
 
 // Wave 2 — real search picker (server/routes/canonicalSearch.js), replacing
@@ -414,6 +446,10 @@ async function linkCanonicalEvent(articleId, canonicalEventId) {
     document.getElementById('canonical-event-search-input').value = '';
     hideCanonicalEventResults();
     renderCanonicalEvent(canonicalEvent);
+    if (canonicalEvent) {
+      const { articles } = await api(`/api/articles/by-event/${canonicalEvent.id}`);
+      renderEventContentGraph(articles, articleId);
+    }
   } catch (err) {
     errorEl.textContent = err.message;
     errorEl.style.display = 'block';
@@ -424,6 +460,7 @@ async function unlinkCanonicalEvent() {
   const articleId = document.getElementById('article-id').value;
   await api(`/api/articles/${articleId}/canonical-event`, { method: 'DELETE' });
   renderCanonicalEvent(null);
+  renderEventContentGraph(null);
 }
 
 function addPollOptionInput(value) {

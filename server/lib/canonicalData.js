@@ -212,6 +212,81 @@ async function verifyCanonicalEvent(canonicalEventId) {
   };
 }
 
+// Fixture -> Data Platform Fixture/Match link (Wave 9 pre-OS refinement
+// §8.2, closing the one canonical-integration gap this repo never had at
+// all before — every other core entity (Competition/Club/Player/Article)
+// already had one). Same fail-soft contract as fetchCanonicalEvent.
+async function fetchCanonicalFixture(localFixtureId) {
+  const mapping = await prisma.canonicalMapping.findUnique({
+    where: {
+      localEntityType_localId_provider: {
+        localEntityType: 'FIXTURE',
+        localId: localFixtureId,
+        provider: 'underdawgs-data',
+      },
+    },
+  });
+  if (!mapping) return null;
+  return verifyCanonicalFixture(mapping.canonicalId);
+}
+
+// Live-verifies a Data Platform Fixture id exists before routes/
+// competitions.js's fixture link endpoint is allowed to store a
+// CanonicalMapping pointing at it. Same shape as fetchCanonicalFixture,
+// includes score/result where a Match has been recorded on the other
+// side (fixture.match.result), null fields otherwise — "no result yet"
+// is a real, valid state, not an error.
+async function verifyCanonicalFixture(canonicalFixtureId) {
+  const data = await fetchWithTimeout(`${DATA_PLATFORM_BASE}/fixtures/${encodeURIComponent(canonicalFixtureId)}`);
+  const fixture = data?.fixture;
+  if (!fixture) return null;
+  return {
+    id: fixture.id,
+    homeTeamName: fixture.homeTeam?.name ?? null,
+    awayTeamName: fixture.awayTeam?.name ?? null,
+    competitionName: fixture.competition?.name ?? null,
+    scheduledStart: fixture.scheduledStart,
+    status: fixture.status,
+    homeScore: fixture.match?.result?.homeScore ?? null,
+    awayScore: fixture.match?.result?.awayScore ?? null,
+  };
+}
+
+// Fixture has no name field on the Data Platform side either (see
+// UNDERDAWGS_DOMAIN_CONTRACT.md's own "Fixture" section there) — the
+// generic name-search picker (canonicalLinkWidget.js) genuinely doesn't
+// fit it. Instead: browse candidate canonical Fixtures between two
+// Clubs that are ALREADY canonically linked to their own Data Platform
+// Team (via the existing Club->Team mapping above) — a short, real,
+// non-guessed list, not raw UUID entry. Returns an empty list (not an
+// error) if either Club isn't linked yet — a genuine, honest
+// precondition, not a bug to work around.
+async function listCanonicalFixtureCandidates(localHomeClubId, localAwayClubId) {
+  if (!localHomeClubId || !localAwayClubId) return [];
+  const [homeMapping, awayMapping] = await Promise.all([
+    prisma.canonicalMapping.findUnique({
+      where: { localEntityType_localId_provider: { localEntityType: 'CLUB', localId: localHomeClubId, provider: 'underdawgs-data' } },
+    }),
+    prisma.canonicalMapping.findUnique({
+      where: { localEntityType_localId_provider: { localEntityType: 'CLUB', localId: localAwayClubId, provider: 'underdawgs-data' } },
+    }),
+  ]);
+  if (!homeMapping || !awayMapping) return [];
+
+  const data = await fetchWithTimeout(`${DATA_PLATFORM_BASE}/fixtures?teamId=${encodeURIComponent(homeMapping.canonicalId)}&limit=50`);
+  const fixtures = Array.isArray(data?.fixtures) ? data.fixtures : [];
+  return fixtures
+    .filter((f) => f.homeTeamId === awayMapping.canonicalId || f.awayTeamId === awayMapping.canonicalId)
+    .map((f) => ({
+      id: f.id,
+      homeTeamName: f.homeTeam?.name ?? null,
+      awayTeamName: f.awayTeam?.name ?? null,
+      competitionName: f.competition?.name ?? null,
+      scheduledStart: f.scheduledStart,
+      status: f.status,
+    }));
+}
+
 // Club -> Data Platform Team link (Wave 2, closing "Team/club page can
 // reference canonical Team"). The mapping type these rows use
 // (localEntityType: 'CLUB', canonicalEntityType: 'Team') already existed —
@@ -367,6 +442,9 @@ module.exports = {
   fetchCanonicalStandings,
   fetchCanonicalEvent,
   verifyCanonicalEvent,
+  fetchCanonicalFixture,
+  verifyCanonicalFixture,
+  listCanonicalFixtureCandidates,
   fetchCanonicalTeam,
   verifyCanonicalTeam,
   fetchCanonicalAthlete,

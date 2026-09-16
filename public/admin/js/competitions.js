@@ -38,10 +38,54 @@ function fixtureAdminRowHtml(f, listId) {
       <span>
         <button type="button" class="btn-outline-sm save-fixture-btn">Save</button>
         <button type="button" class="btn-outline-sm delete-fixture-btn" style="color:var(--danger); border-color:var(--danger);">✕</button>
+        <button type="button" class="btn-outline-sm canonical-fixture-toggle-btn" style="font-size:0.72rem;">🔗 Canonical</button>
       </span>
       ${postponedNote}
       ${clubMatchNote}
+      <div class="canonical-fixture-panel" style="display:none; grid-column:1/-1; font-size:0.78rem; margin-top:0.25rem;"></div>
     </div>`;
+}
+
+// Wave 9 §8.2 — Fixture has no name to search by, so this browses
+// candidates between the fixture's two Clubs' already-linked canonical
+// Teams (server/lib/canonicalData.js's listCanonicalFixtureCandidates)
+// rather than offering a text-search box. On-demand only (opens on
+// click), same "don't eagerly fetch per row" discipline as articles.js's
+// canonical-event panel — a competition's fixture list can be long.
+function canonicalFixturePanelHtml({ current, candidates }) {
+  const currentLine = current
+    ? `<p style="margin:0 0 0.35rem;">Linked: <strong>${escapeHtml(current.homeTeamName)} vs ${escapeHtml(current.awayTeamName)}</strong> — ${escapeHtml(current.competitionName || '')} <button type="button" class="btn-outline-sm canonical-fixture-unlink-btn" style="margin-left:0.35rem; padding:0.1rem 0.4rem;">Unlink</button></p>`
+    : `<p style="margin:0 0 0.35rem; color:var(--text-secondary);">Not linked.</p>`;
+  if (candidates === null) return currentLine;
+  const candidateLines = candidates.length
+    ? candidates.map((c) => `
+        <button type="button" class="canonical-fixture-candidate-btn" data-id="${c.id}" style="display:block; width:100%; text-align:left; padding:0.3rem 0.5rem; border:1px solid var(--border); border-radius:4px; background:none; cursor:pointer; font-size:0.76rem; margin-bottom:0.2rem;">
+          ${escapeHtml(c.homeTeamName || '?')} vs ${escapeHtml(c.awayTeamName || '?')} — ${escapeHtml(c.competitionName || '')} (${c.scheduledStart ? new Date(c.scheduledStart).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'no date'})
+        </button>`).join('')
+    : `<p style="color:var(--text-secondary);">No candidates found — both this fixture's Clubs need their own canonical Team link first (Clubs admin page).</p>`;
+  return `${currentLine}${candidateLines}`;
+}
+
+function wireCanonicalFixturePanel(panel, fixtureId) {
+  panel.querySelectorAll('.canonical-fixture-candidate-btn').forEach((candidateBtn) => {
+    candidateBtn.addEventListener('click', async () => {
+      panel.innerHTML = '<p style="color:var(--text-secondary);">Linking…</p>';
+      const { canonicalFixture } = await api(`/api/competitions/fixtures/${fixtureId}/canonical-fixture`, {
+        method: 'PUT',
+        body: JSON.stringify({ canonicalFixtureId: candidateBtn.dataset.id }),
+      });
+      panel.innerHTML = canonicalFixturePanelHtml({ current: canonicalFixture, candidates: null });
+      wireCanonicalFixturePanel(panel, fixtureId);
+    });
+  });
+  const unlinkBtn = panel.querySelector('.canonical-fixture-unlink-btn');
+  if (unlinkBtn) {
+    unlinkBtn.addEventListener('click', async () => {
+      await api(`/api/competitions/fixtures/${fixtureId}/canonical-fixture`, { method: 'DELETE' });
+      panel.innerHTML = canonicalFixturePanelHtml({ current: null, candidates: null });
+      wireCanonicalFixturePanel(panel, fixtureId);
+    });
+  }
 }
 
 // Read-only history + the one forward action (archive current, start new).
@@ -290,6 +334,27 @@ async function loadCompetitions() {
       await api(`/api/competitions/fixtures/${fixtureId}`, { method: 'DELETE' });
       loadCompetitions();
       loadChangeLog();
+    });
+  });
+
+  root.querySelectorAll('.canonical-fixture-toggle-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const row = btn.closest('.fixture-admin-row');
+      const fixtureId = row.dataset.fixtureId;
+      const panel = row.querySelector('.canonical-fixture-panel');
+      const isOpen = panel.style.display !== 'none';
+      if (isOpen) {
+        panel.style.display = 'none';
+        return;
+      }
+      panel.style.display = 'block';
+      panel.innerHTML = '<p style="color:var(--text-secondary);">Loading…</p>';
+      const [{ canonicalFixture }, { candidates }] = await Promise.all([
+        api(`/api/competitions/fixtures/${fixtureId}/canonical-fixture`),
+        api(`/api/competitions/fixtures/${fixtureId}/canonical-fixture-candidates`),
+      ]);
+      panel.innerHTML = canonicalFixturePanelHtml({ current: canonicalFixture, candidates });
+      wireCanonicalFixturePanel(panel, fixtureId);
     });
   });
 

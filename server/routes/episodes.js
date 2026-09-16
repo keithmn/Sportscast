@@ -184,6 +184,20 @@ function buildEpisodesRouter(rawRecordingsDir, uploadsDir) {
   // transcription) and burns in its captions. The output lands in
   // prisma/uploads — same persistent-volume location and /uploads static
   // route Wave 4's image upload already established. ----
+  // ---- Admin: every AI-suggested clip still awaiting a human decision,
+  // across every episode (Wave 9 §8.8 — no cross-episode clip view
+  // existed before this; clips were only ever reachable per-episode).
+  // Registered before /clips/:clipId/render so "pending" is never
+  // swallowed as a clipId. ----
+  router.get('/clips/pending', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+    const clips = await prisma.clip.findMany({
+      where: { status: 'SUGGESTED' },
+      include: { episode: { include: { article: { select: { id: true, title: true, slug: true } } } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ clips });
+  });
+
   router.post('/clips/:clipId/render', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
     const clip = await prisma.clip.findUnique({ where: { id: req.params.clipId } });
     if (!clip) return res.status(404).json({ error: 'Clip not found' });

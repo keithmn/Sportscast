@@ -100,28 +100,35 @@ Implementation: `.logo-wrap` (`position: relative`) wraps the wordmark; `.logo-b
 
 ## 4. Content Model
 
-Everything is one Prisma model — `Article` — differentiated by fields, not separate tables:
+**Corrected 2026-09-16 (Wave 9 pre-OS refinement, §8.1)** — this section
+previously described a pre-Show-model architecture ("there is no Show
+database table," six shows fixed in a plain JS array). That was true
+before §25/§28 below; it is not true now. Documenting current reality:
+
+Articles/stories are one Prisma model — `Article` — differentiated by
+fields, not separate tables:
 
 | Field | Meaning |
 |---|---|
 | `contentType` | `ARTICLE` (a written feature) or `VIDEO_POST` (an episode) |
-| `videoSeries` | which show this episode belongs to — e.g. `"The Sportscast"`, `"The Ruck"` — **this is the entire mechanism that makes "Shows" work**, there is no Show database table |
-| `sportId` | the sport this content is tagged under — see §5 for why this is a *different* dimension from Show |
+| `videoSeries` | which show this episode belongs to. **Still the real, load-bearing sync trigger** — `syncEpisodeForArticle` (`server/routes/articles.js`) matches this string against `Show.name` to create/update the corresponding `Episode` row. Not a legacy leftover; the mechanism by which a `VIDEO_POST` Article becomes a real `Episode`. |
+| `sportId` | the sport this content is tagged under — a different dimension from Show, see §5 |
 | `episodeLabel`, `runtimeLabel` | `"Episode 023"`, `"15 min"` — display-only, video posts |
 | `tags` | many-to-many; current tags are `Feature`, `Transfers`, `Analysis`, `Interview` |
 
-**Querying:** `GET /api/articles?contentType=VIDEO_POST&videoSeries=The%20Sportscast&limit=1` is how the homepage finds "the latest flagship episode." Every show page works this exact way — filter by `videoSeries`.
+**A real `Show` → `Season` → `Episode` model also exists** (`prisma/schema.prisma`, added §25 2026-09-13) — `Episode` is 1:1 with the `Article` that carries its title/dek/body/cover (`Episode.articleId`), holding only episode-specific fields (`hosts`, `guests`, `transcript`, `chapters`, `clips`, `socialAssets`, `sponsors`). The two systems aren't competing: `videoSeries` is the *trigger* (an editor writing a VIDEO_POST article tags it with a show name), the `Show`/`Episode` rows are the *result* (a real, queryable relational record of that episode).
+
+**Querying:** `GET /api/articles?contentType=VIDEO_POST&videoSeries=The%20Sportscast&limit=1` still finds "the latest flagship episode" the same way it always did.
 
 ---
 
 ## 5. Shows vs. Sports — Read This Before Touching Either
 
-This distinction has come up repeatedly and is easy to get backwards:
+- **A Show is a real Prisma model now** (`Show`, `prisma/schema.prisma`) — `slug`/`name`/`tagline`/`description`/`color`/`coverImageUrl`/`sportLabel`/`isActive`. `public/js/shows-data.js` (the old plain-array definition) was deleted entirely 2026-09-13 (§28) — fully dead code once the content it described was removed, not just unused.
+- **Exactly one Show is active: "The Sportscast" (flagship).** The 5 niche shows named in earlier revisions of this doc (The Hydration Break, The Ruck, Bully Off, Fast Break, The Circuit) were a deliberate founder decision to actually remove — both their `Article` content (§28) and, as of Wave 9 (2026-09-16), `prisma/seed.js`'s own recreation of that content on every reseed, which had silently contradicted the removal decision until closed here. If a real second show launches, it starts from a genuine product decision and a new `Show` row — not a re-seed of the old niche-show data, which is gone.
+- **A Sport is a data-tagging dimension**, independent of Show. Boxing, Martial Arts, and Darts each still have their own `Sport` row even with no show bundling them anymore — collapsing them would make search/stats for boxing specifically impossible.
 
-- **A Show is a packaging/product decision.** It's what you'd pitch to a sponsor or put on a YouTube thumbnail. Defined entirely in `public/js/shows-data.js` — a plain array, **not a database model**. Six shows, fixed: The Sportscast (flagship), The Hydration Break (football), The Ruck (rugby), Bully Off (hockey), Fast Break (basketball), The Circuit (athletics + boxing + martial arts + darts — deliberately one show covering four disciplines).
-- **A Sport is a data-tagging dimension**, kept granular even when a Show bundles several. Boxing, Martial Arts, and Darts each have their own `Sport` row in the database even though they all ship under one show (The Circuit) — collapsing them would make search/stats for boxing specifically impossible.
-
-If a seventh show gets added: add an entry to `shows-data.js` (slug, name, videoSeries, color, tagline, description, coverImageUrl), *not* a migration. If an eighth sport gets added (say, swimming): add it to the `sportNames` array in `seed.js`/create it via the taxonomy API — it doesn't need a show.
+If an eighth sport gets added (say, swimming): add it to the `sportNames` array in `seed.js`/create it via the taxonomy API — it doesn't need a show.
 
 **Show accent colors** (used for card borders, header banners): gold `#f2a20c` (flagship), green `#3a7d3a` (football), teal `#1F7A6C` (rugby — was red originally, changed to stay off the removed brand-red), blue `#3d6fa3` (hockey), brown `#a35b3d` (basketball), purple `#7a4a9e` (circuit).
 

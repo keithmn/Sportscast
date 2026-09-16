@@ -14,15 +14,30 @@
 // not FK'd everywhere — see its own schema comment), the same
 // structural gap the Data Platform side of this ecosystem has for the
 // same reason. Left as its own follow-up, not forced into this pattern.
+//
+// Canonical results (Wave 9 pre-OS refinement §8.3): local results
+// first, always — this route's original local-only contract is
+// unchanged for a caller that ignores the new field. A `canonical` key
+// is added alongside, from the Data Platform's own /v1/search
+// (`searchCanonical`, already used by the admin-only canonicalSearch.js
+// proxy — same fail-soft function, reused rather than duplicated).
+// Restricted to the three types the Data Platform's own search actually
+// covers with a name-searchable field (team/athlete/competition — see
+// UNDERDAWGS_DOMAIN_CONTRACT.md) — Fixture has none there either, same
+// reasoning as the local exclusion above. Genuinely graceful: a Data
+// Platform outage or timeout returns `canonical: null` for that
+// request, never breaks the local results already fetched.
 const express = require('express');
 const prisma = require('../db');
 const { publicWriteLimiter } = require('../middleware/rateLimits');
+const { searchCanonical } = require('../lib/canonicalData');
 
 const router = express.Router();
 
 const MAX_PER_TYPE = 10;
 const MIN_QUERY_LENGTH = 2;
 const VALID_TYPES = ['article', 'show', 'club', 'player', 'competition'];
+const CANONICAL_TYPES = ['team', 'athlete', 'competition'];
 
 router.get('/', publicWriteLimiter, async (req, res) => {
   const { q, type } = req.query;
@@ -89,6 +104,23 @@ router.get('/', publicWriteLimiter, async (req, res) => {
     });
     results.competitions = competitions.map((c) => ({ id: c.id, name: c.name, slug: c.slug, sportName: c.sport.name }));
   }
+
+  // Independent of `type` (which only scopes local results) — canonical
+  // is its own clearly-labeled bucket a caller can ignore. searchCanonical
+  // itself never throws (network error/timeout/unreachable → []); the
+  // only way `canonical` comes back non-null is if at least one of the
+  // three calls actually returned something.
+  const [teams, athletes, canonicalCompetitions] = await Promise.all(
+    CANONICAL_TYPES.map((t) => searchCanonical(t, query)),
+  );
+  const canonicalHasAny = teams.length || athletes.length || canonicalCompetitions.length;
+  results.canonical = canonicalHasAny
+    ? {
+        teams: teams.map((t) => ({ id: t.id, name: t.name, sportName: t.sportName || null })),
+        athletes: athletes.map((a) => ({ id: a.id, name: a.name, sportName: a.sportName || null })),
+        competitions: canonicalCompetitions.map((c) => ({ id: c.id, name: c.name, sportName: c.sportName || null })),
+      }
+    : null;
 
   res.json({ results });
 });

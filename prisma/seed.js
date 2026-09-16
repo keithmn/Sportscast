@@ -187,75 +187,21 @@ async function main() {
     });
   }
 
-  // ---------------- Niche shows (video posts) ----------------
-  // Each show is a fixed weekly product, tagged to the sport(s) it covers.
-  // "The Circuit" bundles several disciplines under one show identity —
-  // see the sports list above for why Boxing/Martial Arts/Darts still get
-  // their own Sport rows.
-  const showEpisodes = [
-    {
-      show: 'The Hydration Break', sport: 'Football',
-      title: "Gor Mahia's Away-Day Problem",
-      dek: 'A seated 15-minute breakdown of the weekend across the Kenyan Premier League.',
-      body: "This week: why Gor Mahia keep dropping points on the road, AFC Leopards' new-look midfield, and a Tusker FC performance nobody saw coming.",
-      episodeLabel: 'Episode 023', runtimeLabel: '15 min', daysAgo: 3,
-    },
-    {
-      show: 'The Hydration Break', sport: 'Football',
-      title: 'Kakamega Homeboyz Are Building Something',
-      dek: 'The weekend in Kenyan football, seated and unhurried.',
-      body: "Kakamega Homeboyz's unbeaten run, a coaching change under pressure, and what the table actually says four games in.",
-      episodeLabel: 'Episode 022', runtimeLabel: '14 min', daysAgo: 10,
-    },
-    {
-      show: 'The Ruck', sport: 'Rugby',
-      title: "Inside the Shujaa's Pre-Season Camp",
-      dek: 'A fast 7-minute rundown of the weekend across Kenyan rugby.',
-      body: "Kenya Sevens' conditioning-first pre-season, a Kenya Cup upset, and why this rebuild finally looks structural.",
-      episodeLabel: 'Episode 009', runtimeLabel: '7 min', daysAgo: 5,
-    },
-    {
-      show: 'Bully Off', sport: 'Hockey',
-      title: 'The Blackbucks Push for Visibility',
-      dek: 'The weekly digest for Kenyan hockey.',
-      body: "Blackbucks Hockey Club's push for a wider audience, a tight top-of-table finish, and a national junior program worth watching.",
-      episodeLabel: 'Episode 006', runtimeLabel: '9 min', daysAgo: 6,
-    },
-    {
-      show: 'Fast Break', sport: 'Basketball',
-      title: "Nairobi's Youth Courts Are Producing Talent",
-      dek: 'The weekly digest for Kenyan basketball.',
-      body: "A look at the grassroots courts reshaping Nairobi's youth scene, and the weekend's results across the local league.",
-      episodeLabel: 'Episode 006', runtimeLabel: '8 min', daysAgo: 7,
-    },
-    {
-      show: 'The Circuit', sport: 'Athletics',
-      title: 'Who Carries Kenyan Distance Running Next?',
-      dek: 'Athletics, boxing, martial arts, and darts — every individual sport, one show.',
-      body: "The succession question in Kenyan distance running, a rising national boxing prospect, and results from the weekend's meets.",
-      episodeLabel: 'Episode 006', runtimeLabel: '12 min', daysAgo: 4,
-    },
-  ];
-
-  for (const ep of showEpisodes) {
-    await prisma.article.create({
-      data: {
-        title: ep.title,
-        slug: slugify(`${ep.show} ${ep.episodeLabel} ${ep.title}`).slice(0, 90),
-        dek: ep.dek,
-        body: ep.body,
-        sportId: sports[ep.sport].id,
-        authorId: authors['The Sportscast Newsroom'].id,
-        status: 'PUBLISHED',
-        contentType: 'VIDEO_POST',
-        youtubeId: 'aqz-KE-bpKQ',
-        videoSeries: ep.show,
-        episodeLabel: ep.episodeLabel,
-        runtimeLabel: ep.runtimeLabel,
-        publishedAt: new Date(now.getTime() - ep.daysAgo * 86400000),
-      },
-    });
-  }
+  // ---------------- Niche shows (video posts) — REMOVED (Wave 9, 2026-09-16) ----------------
+  // The 5 niche shows (The Hydration Break, The Ruck, Bully Off, Fast
+  // Break, The Circuit) were a founder decision to actually remove, not
+  // just leave dormant — see BLUEPRINT.md §28 (2026-09-13): the 6 real
+  // Article rows were deleted from both dev and production, and
+  // public/js/shows-data.js was removed entirely as fully dead code.
+  // This seed script kept unconditionally recreating those same 6
+  // niche-show articles on every reseed, silently resurrecting content
+  // that was explicitly ordered removed — a real contradiction between
+  // documented strategy and actual seed behavior, closed here by
+  // deleting this block rather than by changing the strategy again.
+  // Flagship-only is the single source of truth now: one Show record
+  // ("The Sportscast"), seeded above; Article.videoSeries remains the
+  // real, load-bearing sync trigger for THAT show's episodes
+  // (syncEpisodeForArticle in server/routes/articles.js) — untouched.
 
   // ---------------- News briefs ----------------
   // Short, fast-turnaround factual updates — same Article model as features,
