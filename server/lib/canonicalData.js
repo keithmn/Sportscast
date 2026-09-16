@@ -165,4 +165,19 @@ async function verifyCanonicalEvent(canonicalEventId) {
   };
 }
 
-module.exports = { fetchCanonicalStandings, fetchCanonicalEvent, verifyCanonicalEvent };
+// Wave 2 — powers a real admin picker (server/routes/canonicalSearch.js)
+// instead of pasting a raw Data Platform UUID by hand. Same fail-soft
+// contract: a network problem or unexpected shape returns an empty list,
+// never throws — a picker with no results is a fine degraded state, an
+// admin page that crashes because the Data Platform is briefly down
+// isn't. `type` is passed straight through to the Data Platform's own
+// /v1/search?type= allowlist (athlete/team/competition/venue/event) —
+// this file doesn't duplicate that validation, the route calling this
+// does, same division of responsibility as everywhere else here.
+async function searchCanonical(type, q) {
+  const data = await fetchWithTimeout(`${DATA_PLATFORM_BASE}/search?type=${encodeURIComponent(type)}&q=${encodeURIComponent(q)}`);
+  const results = data?.results?.[`${type}s`];
+  return Array.isArray(results) ? results : [];
+}
+
+module.exports = { fetchCanonicalStandings, fetchCanonicalEvent, verifyCanonicalEvent, searchCanonical };

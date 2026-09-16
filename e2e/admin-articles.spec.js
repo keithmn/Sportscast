@@ -50,4 +50,39 @@ test.describe('Admin — article CMS', () => {
 
     await page.request.delete(`/api/articles/${created.id}`);
   });
+
+  // Wave 2 — the canonical-event picker (server/routes/canonicalSearch.js)
+  // replaced a raw-UUID-paste field. This doesn't assert a real link
+  // happens (that needs a real Data Platform Event to search for, which
+  // this suite's throwaway SQLite DB has no equivalent counterpart for —
+  // verified separately, live, against a real local Data Platform
+  // instance rather than faked here). What's safe and CI-portable
+  // regardless of whether the Data Platform is reachable from wherever
+  // this runs: searching for something that matches nothing must degrade
+  // to an empty state, never an error — same fail-soft contract
+  // canonicalData.js documents for every other function in that file.
+  test('canonical-event picker degrades cleanly when nothing matches', async ({ page }) => {
+    await page.goto('/admin/articles.html');
+    await expect(page.locator('#sportId option').first()).toBeAttached();
+    await page.click('#new-article-btn');
+    await page.fill('#title', `E2E Picker Test ${Date.now()}`);
+    await page.fill('#dek', 'dek');
+    await page.fill('#body', 'body');
+    await page.selectOption('#sportId', { index: 0 });
+    await page.selectOption('#authorId', { index: 0 });
+    await page.selectOption('#status', 'PUBLISHED');
+    await page.click('#article-form button[type="submit"]');
+    await expect(page.locator('#article-form')).toBeHidden();
+
+    const { articles } = await page.request.get('/api/articles/admin/all').then((r) => r.json());
+    const created = articles.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+    await page.click(`.edit-btn[data-id="${created.id}"]`);
+    await expect(page.locator('#canonical-event-section')).toBeVisible();
+
+    await page.fill('#canonical-event-search-input', 'zzz-no-such-event-should-ever-match-zzz');
+    await expect(page.locator('#canonical-event-results')).toContainText('No matching events found.', { timeout: 5000 });
+    await expect(page.locator('#canonical-event-error')).toBeHidden();
+
+    await page.request.delete(`/api/articles/${created.id}`);
+  });
 });

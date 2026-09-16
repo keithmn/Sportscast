@@ -161,9 +161,9 @@
           <div id="canonical-event-section" class="form-field" style="display:none; border-top:1px solid var(--border); padding-top:1rem; margin-top:0.5rem;">
             <label>Canonical Event (optional — links this article to a real event on the Underdawgs Sports Data platform)</label>
             <div id="canonical-event-current" style="margin-bottom:0.5rem;"></div>
-            <div class="form-row">
-              <input type="text" id="canonical-event-id-input" placeholder="Data Platform Event id (uuid)" style="flex:1;">
-              <button type="button" class="btn-outline-sm" id="link-canonical-event-btn">Link</button>
+            <div style="position:relative;">
+              <input type="text" id="canonical-event-search-input" placeholder="Search Data Platform events by title…" style="width:100%;" autocomplete="off">
+              <div id="canonical-event-results" style="display:none; position:absolute; z-index:10; width:100%; background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius); max-height:240px; overflow-y:auto;"></div>
             </div>
             <p class="form-error" id="canonical-event-error" style="display:none;"></p>
           </div>

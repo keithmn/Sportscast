@@ -128,7 +128,8 @@ function resetForm() {
   // Only shown once an article actually exists — see editArticle(); a new,
   // unsaved article has no id to link a canonical Event against yet.
   document.getElementById('canonical-event-section').style.display = 'none';
-  document.getElementById('canonical-event-id-input').value = '';
+  document.getElementById('canonical-event-search-input').value = '';
+  hideCanonicalEventResults();
   document.getElementById('canonical-event-error').style.display = 'none';
 
   document.getElementById('poll-section').style.display = 'none';
@@ -154,17 +155,63 @@ async function loadCanonicalEvent(articleId) {
   renderCanonicalEvent(canonicalEvent);
 }
 
-async function linkCanonicalEvent(articleId) {
+// Wave 2 — real search picker (server/routes/canonicalSearch.js), replacing
+// the raw-UUID-paste field this used to be. Debounced so every keystroke
+// doesn't fire its own server-to-server fetch to the Data Platform.
+let canonicalEventSearchTimer = null;
+let canonicalEventSearchToken = 0;
+
+function hideCanonicalEventResults() {
+  const resultsEl = document.getElementById('canonical-event-results');
+  resultsEl.style.display = 'none';
+  resultsEl.innerHTML = '';
+}
+
+function renderCanonicalEventResults(events, articleId) {
+  const resultsEl = document.getElementById('canonical-event-results');
+  if (!events.length) {
+    resultsEl.innerHTML = `<div style="padding:0.6rem 0.8rem; color:var(--text-secondary); font-size:var(--text-small);">No matching events found.</div>`;
+    resultsEl.style.display = 'block';
+    return;
+  }
+  resultsEl.innerHTML = events
+    .map(
+      (e) => `
+      <button type="button" class="canonical-event-result" data-id="${e.id}"
+        style="display:block; width:100%; text-align:left; padding:0.6rem 0.8rem; border:none; border-bottom:1px solid var(--border); background:none; cursor:pointer; font-family:inherit;">
+        <span class="pill">${escapeHtml(e.category)}</span>
+        <strong>${escapeHtml(e.name)}</strong>
+        <span style="color:var(--text-secondary); font-size:var(--text-small);"> — ${escapeHtml(e.status)}</span>
+      </button>`
+    )
+    .join('');
+  resultsEl.querySelectorAll('.canonical-event-result').forEach((btn) => {
+    btn.addEventListener('click', () => linkCanonicalEvent(articleId, btn.dataset.id));
+  });
+  resultsEl.style.display = 'block';
+}
+
+async function searchCanonicalEvents(articleId, q) {
+  const token = ++canonicalEventSearchToken;
+  if (q.trim().length < 2) {
+    hideCanonicalEventResults();
+    return;
+  }
+  const { results } = await api(`/api/canonical-search?type=event&q=${encodeURIComponent(q.trim())}`);
+  if (token !== canonicalEventSearchToken) return; // a newer keystroke's search already landed — drop this stale one
+  renderCanonicalEventResults(results.events || [], articleId);
+}
+
+async function linkCanonicalEvent(articleId, canonicalEventId) {
   const errorEl = document.getElementById('canonical-event-error');
   errorEl.style.display = 'none';
-  const canonicalEventId = document.getElementById('canonical-event-id-input').value.trim();
-  if (!canonicalEventId) return;
   try {
     const { canonicalEvent } = await api(`/api/articles/${articleId}/canonical-event`, {
       method: 'PUT',
       body: JSON.stringify({ canonicalEventId }),
     });
-    document.getElementById('canonical-event-id-input').value = '';
+    document.getElementById('canonical-event-search-input').value = '';
+    hideCanonicalEventResults();
     renderCanonicalEvent(canonicalEvent);
   } catch (err) {
     errorEl.textContent = err.message;
@@ -395,8 +442,19 @@ async function initArticlesPage() {
   document.getElementById('clubs-checkboxes').addEventListener('change', (e) => {
     if (e.target.classList.contains('club-checkbox')) populatePlayerOptions(getSelectedClubIds());
   });
-  document.getElementById('link-canonical-event-btn').addEventListener('click', () => {
-    linkCanonicalEvent(document.getElementById('article-id').value);
+  document.getElementById('canonical-event-search-input').addEventListener('input', (e) => {
+    const q = e.target.value;
+    clearTimeout(canonicalEventSearchTimer);
+    canonicalEventSearchTimer = setTimeout(() => {
+      searchCanonicalEvents(document.getElementById('article-id').value, q);
+    }, 300);
+  });
+  // Clicking a result already hides the dropdown (linkCanonicalEvent);
+  // this covers clicking anywhere else on the page instead.
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#canonical-event-search-input') && !e.target.closest('#canonical-event-results')) {
+      hideCanonicalEventResults();
+    }
   });
   document.getElementById('poll-add-option-btn').addEventListener('click', () => addPollOptionInput(''));
   document.getElementById('create-poll-btn').addEventListener('click', () => {
