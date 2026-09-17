@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Underdawgs Rising provides sports operations technology, verified data infrastructure, and AI-assisted intelligence products for Kenyan and African sport.">
-  <title>Underdawgs Rising — AI-Led Sports Operations &amp; Data Infrastructure</title>
+  <meta name="description" content="Underdawgs Rising builds verified sports data infrastructure and operating technology for Kenyan and African sport.">
+  <title>Underdawgs Rising — Verified Sports Data Infrastructure</title>
   <meta property="og:title" content="Underdawgs Rising">
-  <meta property="og:description" content="AI-led sports operations and data infrastructure for African sport.">
+  <meta property="og:description" content="Verified sports data infrastructure for Kenyan and African sport.">
   <meta property="og:image" content="/brand/social/og-black-1200x630.png">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://sportscast-production-c267.up.railway.app/company.html">
@@ -22,14 +22,10 @@
   <link rel="stylesheet" href="/brand/tokens.css">
   <style>
     /* Page-specific layout only — colour/button/card rules come from
-       /brand/tokens.css, including its "flat fill only, never a gradient"
-       rule for brand colours: keeping that even though this brief asks
-       for a "premium/futuristic" feel, since it's a documented, normative
-       constraint on the existing brand system, not a soft preference.
-       The dark-section-led rhythm below carries the premium register
-       instead. Heading sizes are overridden below on purpose — this is an
-       investor/partner profile, not a media page. Scoped to this file
-       only; tokens.css and every other page are untouched. */
+       /brand/tokens.css, including its flat-fill-only rule for brand
+       colours (kept; see prior revision's note — still normative).
+       Heading sizes overridden deliberately: investor/partner profile,
+       not a media page. Scoped to this file only. */
     body { font-size: 16px; }
     h1, h2, h3 { text-wrap: balance; }
     h1 { font-size: clamp(28px, 5vw, 44px); line-height: 1.05; }
@@ -49,8 +45,7 @@
     .co-nav a:not(.sc-btn):hover { color: var(--sc-gold); }
 
     /* Primary CTA meant to sit on a gold ground — black fill, gold label.
-       Same accessible pair tokens.css already sanctions (Black -> gold),
-       just not pre-packaged as a class there. */
+       Same accessible pair tokens.css already sanctions (Black -> gold). */
     .sc-btn--onlight { display: inline-flex; align-items: center; gap: .5em; font-family: var(--sc-font-title); font-weight: 900; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; padding: 12px 20px; border: 0; border-radius: var(--sc-radius); cursor: pointer; text-decoration: none; background: var(--sc-black); color: var(--sc-gold); }
     .sc-btn--onlight:hover { background: #1E1E1E; }
     .co-hero-ctas .sc-btn--secondary { border-color: var(--sc-black); }
@@ -63,10 +58,21 @@
     .co-hero p.co-hero-support { font-size: 14.5px; max-width: 46em; margin-top: .75em; opacity: .75; }
     .co-hero-ctas { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1.75rem; }
 
-    /* ---- Section header pattern (eyebrow + title + optional intro) ---- */
+    /* ---- Section header pattern ---- */
     .co-eyebrow { display: block; margin-bottom: .6em; }
     .co-intro { margin-top: .9em; max-width: 62ch; }
     .co-section-cream { background: var(--sc-cream); }
+
+    /* ---- Platform Architecture stack ---- */
+    .co-stack { display: flex; flex-direction: column; gap: .85rem; margin-top: 2.25rem; }
+    .co-stack-row { border: 1px solid var(--sc-rule); padding: 1.25rem 1.5rem; display: flex; gap: 1.1rem; align-items: flex-start; }
+    .co-stack-num { font-family: var(--sc-font-graphic); font-size: 26px; color: var(--sc-gold-deep); line-height: 1.1; flex-shrink: 0; min-width: 1.4em; }
+    .co-stack-row h3 { margin-bottom: .3em; }
+    .co-stack-row p { margin: 0; font-size: 14.5px; opacity: .85; }
+    .co-stack-row--core { background: var(--sc-black); border-color: var(--sc-black); }
+    .co-stack-row--core h3 { color: var(--sc-gold); }
+    .co-stack-row--core p { color: #D8D8D8; opacity: 1; }
+    .co-stack-row--core .co-stack-num { color: var(--sc-gold); }
 
     /* ---- Card grids ---- */
     .co-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.1rem; margin-top: 2rem; }
@@ -76,15 +82,15 @@
     .co-grid .sc-card li + li { margin-top: .25em; }
     .co-grid-3 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
     .co-grid-3 .sc-card p { font-size: 14.5px; margin: 0; opacity: .85; }
+    .co-grid .sc-card--foundation { border-color: var(--sc-gold-deep); border-width: 2px; }
 
-    /* Dark-ground card variant — used inside .sc-dark sections, since the
-       default .sc-card border/body-text pairing assumes a paper/cream
-       ground. */
+    /* Dark-ground card variant */
     .co-card-dark .sc-card { background: #161616; border-color: var(--sc-rule-dark); }
     .co-card-dark .sc-card h3 { color: var(--sc-paper); }
     .co-card-dark .sc-card > p, .co-card-dark .sc-card ul { color: #C9C9C9; opacity: 1; }
+    .co-card-dark .sc-card--foundation { border-color: var(--sc-gold); }
 
-    /* ---- Chain visual (Operating Technology) ---- */
+    /* ---- Chain visual ---- */
     .co-chain { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: 2rem 0 1.5rem; font-family: var(--sc-font-title); font-weight: 700; font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; }
     .co-chain span.co-chain-step { background: var(--sc-black); color: var(--sc-gold); padding: 7px 12px; }
     .co-chain span.co-chain-arrow { color: var(--sc-black); opacity: .4; }
@@ -93,7 +99,7 @@
     .co-serve-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: .6rem; margin-top: 1.75rem; }
     .co-serve-item { border: 1px solid var(--sc-rule); padding: .85rem 1rem; font-family: var(--sc-font-title); font-weight: 700; font-size: 12.5px; letter-spacing: .04em; text-transform: uppercase; }
 
-    /* ---- Dotted-bullet list sections (Verified Data, Strategic Edge) ---- */
+    /* ---- Dotted-bullet list sections ---- */
     .co-dotlist ul { list-style: none; margin: 1.75rem 0 0; padding: 0; display: grid; gap: .85rem; }
     .co-dotlist li { padding-left: 1.5em; position: relative; font-size: 16px; max-width: 62ch; }
     .co-dotlist li::before { content: ''; position: absolute; left: 0; top: .55em; width: 7px; height: 7px; background: var(--sc-gold); }
@@ -135,6 +141,7 @@
       .co-nav a:not(.sc-btn) { display: none; }
       .co-work-grid { grid-template-columns: 1fr; }
       .co-chain { font-size: 10.5px; }
+      .co-stack-row { flex-direction: column; gap: .4rem; }
     }
   </style>
 </head>
@@ -147,10 +154,10 @@
     </a>
     <nav class="co-nav" aria-label="Primary">
       <a href="#thesis">Thesis</a>
-      <a href="#capabilities">Capabilities</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#data">Data</a>
       <a href="#technology">Technology</a>
       <a href="#intelligence">Intelligence</a>
-      <a href="#expansion">Expansion</a>
       <a href="#partnerships">Partnerships</a>
       <a href="#contact" class="sc-btn sc-btn--secondary">Contact</a>
     </nav>
@@ -160,12 +167,12 @@
 <section class="co-hero sc-gold-section">
   <div class="container">
     <span class="sc-label co-eyebrow">Underdawgs Rising</span>
-    <h1>AI-led sports operations and data infrastructure for African sport.</h1>
-    <p class="co-hero-sub">Underdawgs Rising helps leagues, clubs, tournaments, schools, academies, and organizers run sport with better systems — turning fixtures, results, athletes, teams, events, and evidence into verified data and useful intelligence.</p>
-    <p class="co-hero-support">Built from Kenya for African sports markets where talent is already present and infrastructure is ready to catch up.</p>
+    <h1>Verified sports data infrastructure for Kenyan and African sport.</h1>
+    <p class="co-hero-sub">Underdawgs Rising structures the records that sport depends on — fixtures, results, teams, athletes, events, evidence, and histories — while providing operating technology that helps leagues, clubs, tournaments, schools, and academies create trusted data at the source.</p>
+    <p class="co-hero-support">The data platform is the foundation. The operating tools make it stronger.</p>
     <div class="co-hero-ctas">
-      <a href="#partnerships" class="sc-btn--onlight">Partner With Underdawgs Rising</a>
-      <a href="https://web-production-b15f4.up.railway.app" class="sc-btn sc-btn--secondary" target="_blank" rel="noopener">Explore the Data Platform</a>
+      <a href="https://web-production-b15f4.up.railway.app" class="sc-btn--onlight" target="_blank" rel="noopener">Explore the Data Platform</a>
+      <a href="#partnerships" class="sc-btn sc-btn--secondary">Partner With Underdawgs Rising</a>
     </div>
   </div>
 </section>
@@ -173,22 +180,104 @@
 <section id="thesis" aria-labelledby="thesis-heading">
   <div class="container">
     <span class="sc-label co-eyebrow">Company Thesis</span>
-    <h2 id="thesis-heading">African sport needs infrastructure equal to its talent.</h2>
-    <p class="co-intro">Across Kenyan and African sport, competitions are often managed through scattered spreadsheets, WhatsApp groups, manual records, and fragmented communication. Results disappear. Player histories are incomplete. Sponsors struggle to measure value. Organizers lack the systems needed to connect operations, visibility, data, and commercial growth.</p>
-    <p class="co-intro">Underdawgs Rising provides the technology layer beneath that gap: competition tools, verified records, evidence workflows, AI-assisted intelligence, APIs, dashboards, and reporting systems that help sports organizations operate with clarity.</p>
+    <h2 id="thesis-heading">Sport cannot grow on scattered records.</h2>
+    <p class="co-intro">Kenyan and African sport already has talent, participation, culture, and commercial potential. What is missing is the trusted information layer that preserves what happens and makes it useful.</p>
+    <p class="co-intro">Fixtures live in spreadsheets. Results move through WhatsApp. Athlete histories disappear. Competition archives are incomplete. Sponsors struggle to measure value. Institutions make decisions without reliable records.</p>
+    <p class="co-intro">Underdawgs Rising exists to build that verified sports data layer. Our operating tools help clubs, leagues, tournaments, schools, and academies manage sport more professionally while contributing structured records into the core data platform.</p>
     <p class="co-intro" style="font-weight:700;">Better information creates better sport.</p>
   </div>
 </section>
 
-<section id="capabilities" class="sc-dark co-card-dark" aria-labelledby="capabilities-heading">
+<section id="architecture" class="co-section-cream" aria-labelledby="architecture-heading">
   <div class="container">
-    <span class="sc-label co-eyebrow" style="color:var(--sc-gold);opacity:1;">Platform Capabilities</span>
-    <h2 id="capabilities-heading" style="color:var(--sc-paper);">A connected infrastructure layer for modern sport.</h2>
-    <p class="co-intro" style="color:#D8D8D8;">The Underdawgs Rising platform supports the full information chain around sport — from competition operations to verified records, intelligence products, and partner-ready data.</p>
+    <span class="sc-label co-eyebrow">Platform Architecture</span>
+    <h2 id="architecture-heading">One data foundation. Multiple ways to strengthen it.</h2>
+    <p class="co-intro">Underdawgs Rising is organized around a single core asset: verified sports data. Every product, workflow, and partnership is designed to improve the completeness, reliability, and usefulness of that data layer.</p>
+    <div class="co-stack">
+      <div class="co-stack-row co-stack-row--core">
+        <span class="co-stack-num">01</span>
+        <div>
+          <h3>Core Data Platform</h3>
+          <p>The verified record of competitions, teams, athletes, fixtures, results, events, evidence, and histories.</p>
+        </div>
+      </div>
+      <div class="co-stack-row">
+        <span class="co-stack-num">02</span>
+        <div>
+          <h3>Operating Tools</h3>
+          <p>League, tournament, club, school, and academy systems that help institutions create reliable data through everyday operations.</p>
+        </div>
+      </div>
+      <div class="co-stack-row">
+        <span class="co-stack-num">03</span>
+        <div>
+          <h3>Verification Layer</h3>
+          <p>Evidence, source tracking, corrections, review queues, and audit trails that protect trust in the record.</p>
+        </div>
+      </div>
+      <div class="co-stack-row">
+        <span class="co-stack-num">04</span>
+        <div>
+          <h3>Intelligence Layer</h3>
+          <p>AI-assisted insights, dashboards, reports, APIs, and partner integrations built on top of verified data.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="data" class="sc-dark co-dotlist" aria-labelledby="data-heading">
+  <div class="container">
+    <span class="sc-label co-eyebrow" style="color:var(--sc-gold);opacity:1;">Sports Data Platform</span>
+    <h2 id="data-heading" style="color:var(--sc-paper);">The record is the core asset.</h2>
+    <p class="co-intro" style="color:#D8D8D8;">Every match, competition, athlete, team, venue, result, and correction adds to a long-term information layer. When that record is structured and verified, it becomes useful beyond the day of the event.</p>
+    <p class="co-intro" style="color:#D8D8D8;">The Underdawgs Sports Data platform supports:</p>
+    <ul>
+      <li>Fixture and result records</li>
+      <li>Team and athlete identities</li>
+      <li>Competition archives</li>
+      <li>Event histories</li>
+      <li>Evidence and verification</li>
+      <li>Corrections and audit trails</li>
+      <li>Public data surfaces</li>
+      <li>APIs and dashboards</li>
+      <li>Future intelligence products</li>
+    </ul>
+    <p class="co-closing" style="color:var(--sc-paper);">The platform turns sports activity into memory, intelligence, and commercial value.</p>
+  </div>
+</section>
+
+<section id="capabilities" aria-labelledby="capabilities-heading">
+  <div class="container">
+    <span class="sc-label co-eyebrow">Platform Capabilities</span>
+    <h2 id="capabilities-heading">Six capabilities, one data foundation.</h2>
+    <p class="co-intro">Every capability below is designed to strengthen the same core asset — the verified sports data platform.</p>
     <div class="co-grid">
+      <div class="sc-card sc-card--foundation">
+        <h3>Verified Sports Data Infrastructure</h3>
+        <p>The core platform for structuring competitions, teams, athletes, fixtures, venues, events, results, evidence, corrections, and historical records.</p>
+        <ul>
+          <li>Canonical identities</li>
+          <li>Fixtures and results</li>
+          <li>Athlete and team histories</li>
+          <li>Competition archives</li>
+          <li>Evidence-backed records</li>
+        </ul>
+      </div>
       <div class="sc-card">
-        <h3>Competition &amp; League Technology</h3>
-        <p>Tools for leagues, tournaments, schools, academies, and organizers to manage competitions with structured fixtures, teams, results, standings, and records.</p>
+        <h3>Evidence &amp; Verification Systems</h3>
+        <p>Trust workflows that support source tracking, evidence collection, corrections, review queues, reliability signals, and audit trails.</p>
+        <ul>
+          <li>Evidence uploads</li>
+          <li>Source reliability</li>
+          <li>Verification queues</li>
+          <li>Corrections history</li>
+          <li>Audit trails</li>
+        </ul>
+      </div>
+      <div class="sc-card">
+        <h3>Competition &amp; League Operating Tools</h3>
+        <p>Tools that help leagues, tournaments, schools, academies, and organizers manage fixtures, teams, results, standings, and competition records while feeding trusted data into the core platform.</p>
         <ul>
           <li>Competition setup</li>
           <li>Fixtures and scheduling</li>
@@ -199,7 +288,7 @@
       </div>
       <div class="sc-card">
         <h3>Club, Academy &amp; Team Systems</h3>
-        <p>Operational tools that help clubs and academies organize teams, athletes, seasons, staff, events, and participation records in one structured environment.</p>
+        <p>Systems that help sports institutions organize athletes, teams, staff, seasons, events, and participation records in a structured environment connected to the data layer.</p>
         <ul>
           <li>Team profiles</li>
           <li>Athlete records</li>
@@ -209,41 +298,19 @@
         </ul>
       </div>
       <div class="sc-card">
-        <h3>Verified Sports Data Infrastructure</h3>
-        <p>Structured datasets for competitions, teams, athletes, fixtures, venues, events, results, and historical records.</p>
-        <ul>
-          <li>Canonical identities</li>
-          <li>Fixtures and results</li>
-          <li>Athlete and team histories</li>
-          <li>Competition archives</li>
-          <li>Searchable records</li>
-        </ul>
-      </div>
-      <div class="sc-card">
-        <h3>Evidence &amp; Verification Workflows</h3>
-        <p>Systems that improve trust in sports information through evidence collection, source tracking, review queues, corrections, and audit trails.</p>
-        <ul>
-          <li>Evidence uploads</li>
-          <li>Source reliability</li>
-          <li>Verification queues</li>
-          <li>Corrections history</li>
-          <li>Audit trails</li>
-        </ul>
-      </div>
-      <div class="sc-card">
         <h3>AI-Assisted Sports Intelligence</h3>
-        <p>AI-supported tools that help structure information, surface insights, summarize activity, detect gaps, enrich records, and support better reporting.</p>
+        <p>AI-supported tools that help enrich records, identify gaps, summarize activity, assist reporting, and turn verified data into practical insight.</p>
         <ul>
           <li>Data enrichment</li>
-          <li>Insight generation</li>
           <li>Gap detection</li>
           <li>Report assistance</li>
+          <li>Insight generation</li>
           <li>Workflow support</li>
         </ul>
       </div>
       <div class="sc-card">
-        <h3>APIs, Dashboards &amp; Integrations</h3>
-        <p>Technology interfaces that make verified sports information usable across websites, mobile products, dashboards, partner systems, and institutional tools.</p>
+        <h3>APIs, Dashboards &amp; Partner Integrations</h3>
+        <p>Interfaces that make verified sports information useful across websites, dashboards, mobile products, institutional systems, and partner platforms.</p>
         <ul>
           <li>Structured APIs</li>
           <li>Partner dashboards</li>
@@ -256,96 +323,75 @@
   </div>
 </section>
 
-<section id="technology" class="co-section-cream" aria-labelledby="technology-heading">
+<section id="technology" class="sc-dark co-card-dark" aria-labelledby="technology-heading">
   <div class="container">
-    <span class="sc-label co-eyebrow">Operating Technology</span>
-    <h2 id="technology-heading">The strongest sports data is created through real operations.</h2>
-    <p class="co-intro">Underdawgs Rising does not treat data collection as a separate burden placed on already stretched organizers. The platform is designed so that fixtures, results, teams, athlete records, evidence, and competition archives are created naturally as organizations manage sport.</p>
-    <div class="co-chain" aria-label="Competition Setup to Team Registration to Fixtures to Results to Evidence to Verification to Records to Intelligence">
-      <span class="co-chain-step">Competition Setup</span><span class="co-chain-arrow">→</span>
-      <span class="co-chain-step">Team Registration</span><span class="co-chain-arrow">→</span>
-      <span class="co-chain-step">Fixtures</span><span class="co-chain-arrow">→</span>
-      <span class="co-chain-step">Results</span><span class="co-chain-arrow">→</span>
+    <span class="sc-label co-eyebrow" style="color:var(--sc-gold);opacity:1;">Operating Technology</span>
+    <h2 id="technology-heading" style="color:var(--sc-paper);">Trusted data created at the source.</h2>
+    <p class="co-intro" style="color:#D8D8D8;">The strongest sports records are created where sport is actually managed: at the competition, club, league, school, academy, and organizer level.</p>
+    <p class="co-intro" style="color:#D8D8D8;">Underdawgs Rising provides operating tools that make this possible. As institutions manage fixtures, register teams, update results, upload evidence, and document participation, they strengthen the verified data platform in real time.</p>
+    <div class="co-chain" aria-label="Sport Operations to Structured Inputs to Evidence to Verification to Core Data Platform to Intelligence Products">
+      <span class="co-chain-step">Sport Operations</span><span class="co-chain-arrow">→</span>
+      <span class="co-chain-step">Structured Inputs</span><span class="co-chain-arrow">→</span>
       <span class="co-chain-step">Evidence</span><span class="co-chain-arrow">→</span>
       <span class="co-chain-step">Verification</span><span class="co-chain-arrow">→</span>
-      <span class="co-chain-step">Records</span><span class="co-chain-arrow">→</span>
-      <span class="co-chain-step">Intelligence</span>
+      <span class="co-chain-step">Core Data Platform</span><span class="co-chain-arrow">→</span>
+      <span class="co-chain-step">Intelligence Products</span>
     </div>
-    <p style="font-size:14.5px;">When better operations create better data, sport becomes easier to manage, easier to fund, and easier to grow.</p>
+    <p style="color:#D8D8D8;font-size:14.5px;">The goal is not to reconstruct African sport from scattered fragments later. The goal is to help institutions create reliable records as sport happens.</p>
   </div>
 </section>
 
-<section id="intelligence" aria-labelledby="intelligence-heading">
+<section id="intelligence" class="co-section-cream" aria-labelledby="intelligence-heading">
   <div class="container">
     <span class="sc-label co-eyebrow">Intelligence Layer</span>
-    <h2 id="intelligence-heading">AI that supports human judgment, not replaces it.</h2>
-    <p class="co-intro">AI is used to make sports information more useful: structuring messy records, identifying missing data, assisting reports, summarizing competition activity, enriching athlete and team profiles, and helping organizations understand what their sports activity means.</p>
-    <p class="co-intro">Human review remains central. Verification, editorial judgment, official records, and organizer approval continue to define what becomes trusted information.</p>
+    <h2 id="intelligence-heading">AI is only as strong as the record beneath it.</h2>
+    <p class="co-intro">AI can support African sport only when it works from structured, trusted information. Underdawgs Rising uses AI as an intelligence layer on top of verified records — helping identify gaps, enrich profiles, summarize activity, generate reports, and surface patterns across competitions, teams, and athletes.</p>
+    <p class="co-intro">Human review remains central. Verification, official records, source evidence, and organizer input define what becomes trusted data.</p>
     <div class="co-grid co-grid-3">
       <div class="sc-card">
-        <h3>Operational Intelligence</h3>
-        <p>AI-assisted summaries, alerts, gap detection, and workflow support for organizers and administrators.</p>
+        <h3>Data Quality</h3>
+        <p>AI-assisted gap detection, duplicate detection, enrichment prompts, and consistency checks.</p>
       </div>
       <div class="sc-card">
-        <h3>Data Enrichment</h3>
-        <p>Tools that help connect athletes, teams, competitions, fixtures, results, evidence, and historical records into cleaner datasets.</p>
+        <h3>Operational Insight</h3>
+        <p>Summaries, alerts, workflow support, and reporting assistance for organizers and administrators.</p>
       </div>
       <div class="sc-card">
-        <h3>Commercial Insight</h3>
-        <p>Reports and dashboards that help sponsors, partners, and institutions understand participation, consistency, reach, and value.</p>
+        <h3>Commercial Intelligence</h3>
+        <p>Dashboards and reports that help sponsors, institutions, and partners understand participation, visibility, and value.</p>
       </div>
     </div>
   </div>
 </section>
 
-<section id="verified-data" class="sc-dark co-dotlist" aria-labelledby="data-heading">
-  <div class="container">
-    <span class="sc-label co-eyebrow" style="color:var(--sc-gold);opacity:1;">Verified Sports Data</span>
-    <h2 id="data-heading" style="color:var(--sc-paper);">From match records to long-term sports intelligence.</h2>
-    <p class="co-intro" style="color:#D8D8D8;">Every competition creates valuable information: who played, when, where, under which organizer, with what result, supported by what evidence, and connected to which athletes, teams, schools, sponsors, and communities.</p>
-    <p class="co-intro" style="color:#D8D8D8;">Underdawgs Rising structures that information into a reusable data layer that can support:</p>
-    <ul>
-      <li>Public records</li>
-      <li>Athlete profiles</li>
-      <li>Competition archives</li>
-      <li>Sponsor reporting</li>
-      <li>Institutional planning</li>
-      <li>APIs</li>
-      <li>Future mobile products</li>
-      <li>Commercial intelligence</li>
-    </ul>
-    <p class="co-closing" style="color:var(--sc-paper);">The record becomes the asset.</p>
-  </div>
-</section>
-
-<section id="expansion" class="co-section-cream" aria-labelledby="expansion-heading">
+<section id="expansion" aria-labelledby="expansion-heading">
   <div class="container">
     <span class="sc-label co-eyebrow">African Expansion</span>
-    <h2 id="expansion-heading">Built in Kenya. Designed for African scale.</h2>
-    <p class="co-intro">Kenya is the first operating market, but the infrastructure gap is regional. Across African sport, talent and participation often move faster than the systems available to document, organize, verify, and commercialize them.</p>
-    <p class="co-intro">Underdawgs Rising is designed around a common data model, repeatable competition workflows, verification systems, partner integrations, and local deployment. That allows the company to expand across sports, regions, and markets without rebuilding the foundation each time.</p>
+    <h2 id="expansion-heading">Kenya first. African data infrastructure next.</h2>
+    <p class="co-intro">Kenya is the first operating market. The same data infrastructure gap exists across East Africa and wider African sport: fragmented records, inconsistent archives, manual operations, and limited commercial intelligence.</p>
+    <p class="co-intro">Underdawgs Rising is designed around a reusable data model, source-level operating tools, verification workflows, and partner integrations. That makes the company expandable across sports, regions, and institutions without rebuilding the foundation each time.</p>
     <div class="co-grid co-grid-3">
       <div class="sc-card">
-        <h3>Local Deployment</h3>
-        <p>Products are designed around real organizer workflows, local relationships, mobile-first usage, and practical adoption barriers.</p>
+        <h3>Kenya as Operating Base</h3>
+        <p>The first market for product development, partnerships, data collection, and institutional learning.</p>
       </div>
       <div class="sc-card">
-        <h3>Reusable Infrastructure</h3>
-        <p>The same core model supports new sports, competitions, schools, clubs, academies, counties, countries, and partners.</p>
+        <h3>Reusable Data Model</h3>
+        <p>A common structure for competitions, teams, athletes, fixtures, events, evidence, and records.</p>
       </div>
       <div class="sc-card">
-        <h3>Partnership-Led Growth</h3>
-        <p>Expansion can happen through organizers, federations, schools, sponsors, technology partners, investors, and regional institutions.</p>
+        <h3>Partnership-Led Expansion</h3>
+        <p>Growth through leagues, clubs, federations, schools, academies, counties, sponsors, and technology partners.</p>
       </div>
     </div>
   </div>
 </section>
 
-<section aria-labelledby="serve-heading">
+<section class="co-section-cream" aria-labelledby="serve-heading">
   <div class="container">
     <span class="sc-label co-eyebrow">Who We Serve</span>
-    <h2 id="serve-heading">Built for the organizations moving African sport forward.</h2>
-    <p class="co-intro">Underdawgs Rising serves stakeholders who need sport to be easier to manage, document, verify, fund, analyze, and commercialize.</p>
+    <h2 id="serve-heading">Built for the organizations that shape the record of sport.</h2>
+    <p class="co-intro">Underdawgs Rising serves the organizations that need sports information to be easier to create, verify, access, analyze, and commercialize.</p>
     <div class="co-serve-grid">
       <div class="co-serve-item">Leagues &amp; Tournament Organizers</div>
       <div class="co-serve-item">Clubs &amp; Teams</div>
@@ -364,34 +410,36 @@
 <section id="strategic-edge" class="sc-dark co-dotlist" aria-labelledby="edge-heading">
   <div class="container">
     <span class="sc-label co-eyebrow" style="color:var(--sc-gold);opacity:1;">Strategic Edge</span>
-    <h2 id="edge-heading" style="color:var(--sc-paper);">Technology built for the layer global incumbents rarely serve first.</h2>
-    <p class="co-intro" style="color:#D8D8D8;">Global sports technology and data companies are strongest where elite rights, broadcast economics, and mature competition structures already justify deep coverage. Underdawgs Rising focuses on the infrastructure gap inside Kenyan and African sport: the operating systems, records, workflows, evidence, and intelligence products that help organizations become more professional and commercially visible.</p>
+    <h2 id="edge-heading" style="color:var(--sc-paper);">A data platform strengthened by real operations.</h2>
+    <p class="co-intro" style="color:#D8D8D8;">Global sports data companies are strongest where elite rights, broadcast value, and mature competition structures already justify deep coverage. Underdawgs Rising focuses on Kenyan and African sports environments where the record itself still needs to be built, verified, and made useful.</p>
+    <p class="co-intro" style="color:#D8D8D8;">Our edge is not simply collecting data from outside. It is building the systems that help institutions create reliable data from inside their own operations.</p>
     <ul>
-      <li>We solve operational pain before selling abstract data.</li>
-      <li>We combine local access with structured technology.</li>
-      <li>We verify the record through evidence and workflow.</li>
-      <li>We turn everyday competition activity into reusable intelligence.</li>
-      <li>We build for African sports realities while maintaining a premium technology standard.</li>
+      <li>The data platform is the foundation.</li>
+      <li>Operating tools strengthen the data at the source.</li>
+      <li>Evidence and verification protect trust.</li>
+      <li>AI turns verified records into insight.</li>
+      <li>APIs and dashboards make the data commercially useful.</li>
+      <li>The model is Kenya-first and designed for African expansion.</li>
       <li>We are not betting-led.</li>
     </ul>
-    <p class="co-closing" style="color:var(--sc-paper);">The opportunity is not to imitate global incumbents. It is to build the infrastructure African sport needs on its own terms.</p>
+    <p class="co-closing" style="color:var(--sc-paper);">The opportunity is not only to display sports data. It is to build the infrastructure that makes trusted sports data possible.</p>
   </div>
 </section>
 
 <section id="partnerships" aria-labelledby="partnerships-heading">
   <div class="container">
     <span class="sc-label co-eyebrow">Partnership Opportunities</span>
-    <h2 id="partnerships-heading">Work with Underdawgs Rising.</h2>
-    <p class="co-intro">We work with organizations that want to modernize sports operations, improve data quality, document competitions, and turn participation into long-term value.</p>
+    <h2 id="partnerships-heading">Build the verified record with us.</h2>
+    <p class="co-intro">We work with organizations that want to improve sports records, modernize operations, document competitions, and turn participation into long-term value.</p>
     <div class="co-work-grid">
       <div>
         <ul class="co-work-list" style="margin-top:1.25rem;">
-          <li>League and tournament management</li>
-          <li>Club and academy systems</li>
-          <li>Verified fixtures and results</li>
+          <li>Verified sports data partnerships</li>
+          <li>League and tournament systems</li>
+          <li>Club and academy records</li>
           <li>Competition documentation</li>
           <li>Athlete and team databases</li>
-          <li>School and academy visibility</li>
+          <li>Evidence and verification workflows</li>
           <li>Sponsor reporting</li>
           <li>Sports intelligence dashboards</li>
           <li>API and data integrations</li>
@@ -441,19 +489,19 @@
     <a href="/company.html" aria-label="Underdawgs Rising — Home">
       <img src="/brand/parent/underdawgs-parent-lower-gold.png" alt="Underdawgs Rising">
     </a>
-    <p>Underdawgs Rising provides AI-led sports operations and data infrastructure for Kenyan and African sport.</p>
+    <p>Underdawgs Rising builds verified sports data infrastructure and operating technology for Kenyan and African sport.</p>
     <nav class="co-footer-links" aria-label="Footer navigation">
       <a href="#thesis">Company Thesis</a>
-      <a href="#capabilities">Platform Capabilities</a>
+      <a href="#architecture">Platform Architecture</a>
+      <a href="#data">Sports Data Platform</a>
       <a href="#technology">Operating Technology</a>
       <a href="#intelligence">Intelligence Layer</a>
-      <a href="#expansion">African Expansion</a>
       <a href="#partnerships">Partnership Opportunities</a>
       <a href="#contact">Contact</a>
     </nav>
     <div class="co-footer-bottom">
       <span>&copy; 2026 Underdawgs Rising. All rights reserved.</span>
-      <span>AI-led sports operations and data infrastructure for African sport.</span>
+      <span>Verified sports data infrastructure for Kenyan and African sport.</span>
     </div>
   </div>
 </footer>
