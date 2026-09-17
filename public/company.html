@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Underdawgs builds local-first sports media, verified sports data, and storytelling infrastructure for Kenyan and African sport.">
+  <title>Underdawgs — Sports Media, Data &amp; Technology</title>
+  <meta property="og:title" content="Underdawgs — Sports Media, Data &amp; Technology">
+  <meta property="og:description" content="Building the information layer for Kenyan and African sport.">
+  <meta property="og:image" content="/brand/social/og-black-1200x630.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://sportscast-production-c267.up.railway.app/company.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://sportscast-production-c267.up.railway.app/company.html">
+  <link rel="icon" href="/brand/favicon/favicon-32.png" sizes="32x32">
+  <link rel="icon" href="/brand/favicon/favicon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="/brand/favicon/favicon-180.png">
+  <meta name="theme-color" content="#0D0D0D">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&family=Nunito:wght@400;600;700;900&family=Anton&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/brand/tokens.css">
+  <style>
+    /* Page-specific layout only — colour/type/button/card rules all come
+       from /brand/tokens.css. Nothing here introduces a hex, a weight or
+       a radius outside that file. */
+    .container { max-width: 1280px; margin: 0 auto; padding: 0 clamp(1.25rem, 6vw, 5rem); }
+    section { padding: clamp(3rem, 8vw, 6rem) 0; }
+
+    /* ---- Header ---- */
+    .co-header { position: sticky; top: 0; z-index: 10; }
+    .co-header .container { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding-top: 1rem; padding-bottom: 1rem; }
+    .co-header img { height: 34px; width: auto; display: block; }
+    .co-nav { display: flex; align-items: center; gap: clamp(1rem, 2vw, 2rem); flex-wrap: wrap; }
+    .co-nav a:not(.sc-btn) { color: var(--sc-paper); text-decoration: none; font-family: var(--sc-font-title); font-weight: 700; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+    .co-nav a:not(.sc-btn):hover { color: var(--sc-gold); }
+    .co-header .sc-btn--secondary { border-color: var(--sc-paper); color: var(--sc-paper); box-shadow: inset 0 0 0 1px var(--sc-paper); }
+    .co-header .sc-btn--secondary:hover { background: var(--sc-paper); color: var(--sc-black); }
+
+    /* Primary CTA meant to sit on a gold ground — black fill, gold label.
+       Same accessible pair tokens.css already sanctions (Black -> gold),
+       just not pre-packaged as a class there. */
+    .sc-btn--onlight { display: inline-flex; align-items: center; gap: .5em; font-family: var(--sc-font-title); font-weight: 900; font-size: 14px; letter-spacing: .06em; text-transform: uppercase; padding: 13px 22px; border: 0; border-radius: var(--sc-radius); cursor: pointer; text-decoration: none; background: var(--sc-black); color: var(--sc-gold); }
+    .sc-btn--onlight:hover { background: #1E1E1E; }
+
+    /* ---- Hero ---- */
+    .co-hero { padding-top: clamp(4rem, 10vw, 7rem); padding-bottom: clamp(4rem, 10vw, 7rem); }
+    .co-hero .sc-label { color: var(--sc-black); opacity: .7; }
+    .co-hero h1 { max-width: 16ch; margin-top: .6em; }
+    .co-hero p { font-size: clamp(17px, 2vw, 20px); max-width: 42em; margin-top: 1.25em; }
+    .co-hero-ctas { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 2rem; }
+
+    /* ---- Belief ---- */
+    .co-belief h2 { max-width: 18ch; }
+    .co-belief p { margin-top: 1.25em; font-size: 18px; }
+
+    /* ---- Card grids ---- */
+    .co-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; margin-top: 2.5rem; }
+    .co-grid .sc-card h3 { font-size: 19px; margin-bottom: .6em; }
+    .co-grid .sc-card ul { margin: 0; padding-left: 1.1em; font-size: 15px; line-height: 1.6; }
+    .co-grid .sc-card li + li { margin-top: .3em; }
+    .co-eyebrow-tag { display: inline-block; margin-bottom: .5em; }
+
+    /* ---- Products ---- */
+    .co-products .sc-card { background: #161616; border-color: var(--sc-rule-dark); display: flex; flex-direction: column; gap: 1rem; }
+    .co-products .sc-card h3 { color: var(--sc-paper); font-size: 20px; }
+    .co-products .sc-card p { color: #C9C9C9; font-size: 15px; margin-top: 0; }
+    .co-products .sc-card .co-status { margin-top: auto; }
+
+    /* ---- Serve grid ---- */
+    .co-serve-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .75rem; margin-top: 2rem; }
+    .co-serve-item { border: 1px solid var(--sc-rule); padding: 1rem 1.1rem; font-family: var(--sc-font-title); font-weight: 700; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; }
+
+    /* ---- Why different ---- */
+    .co-diff ul { list-style: none; margin: 2rem 0 0; padding: 0; display: grid; gap: 1rem; }
+    .co-diff li { padding-left: 1.6em; position: relative; font-size: 17px; max-width: 58ch; }
+    .co-diff li::before { content: ''; position: absolute; left: 0; top: .5em; width: 8px; height: 8px; background: var(--sc-gold); }
+
+    /* ---- Work with us ---- */
+    .co-work-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: clamp(2rem, 5vw, 4rem); margin-top: 2.5rem; align-items: start; }
+    .co-work-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
+    .co-work-list li { padding-left: 1.4em; position: relative; font-size: 15px; }
+    .co-work-list li::before { content: '—'; position: absolute; left: 0; color: var(--sc-gold-deep); }
+    .co-form-field { display: flex; flex-direction: column; gap: .35em; margin-bottom: 1rem; }
+    .co-form-field label { font-family: var(--sc-font-title); font-weight: 700; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+    .co-form-field input, .co-form-field textarea { font-family: var(--sc-font-body); font-size: 16px; padding: .7em .8em; border: 1px solid var(--sc-rule); border-radius: 0; background: var(--sc-paper); color: var(--sc-black); }
+    .co-form-field input:focus, .co-form-field textarea:focus { outline: 2px solid var(--sc-black); outline-offset: 1px; }
+    .co-form-error { color: #B3261E; font-size: 14px; margin-top: .5em; display: none; }
+    .co-form-success { display: none; }
+    .co-form-success h3 { font-size: 20px; }
+    .co-form-success p { margin-top: .5em; }
+    .co-placeholder-email { font-size: 14px; margin-top: 1.5rem; opacity: .75; }
+
+    /* ---- Footer ---- */
+    .co-footer .container { padding-top: 3rem; padding-bottom: 2rem; }
+    .co-footer img { height: 30px; width: auto; }
+    .co-footer p { color: #C9C9C9; font-size: 14px; max-width: 42em; margin-top: 1em; }
+    .co-footer-links { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-top: 1.5rem; }
+    .co-footer-links a { color: var(--sc-paper); font-family: var(--sc-font-title); font-weight: 700; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; text-decoration: none; }
+    .co-footer-links a:hover { color: var(--sc-gold); }
+    .co-footer-bottom { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .5rem; margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--sc-rule-dark); font-size: 13px; color: #8A8A8A; }
+
+    @media (max-width: 720px) {
+      .co-nav { display: none; }
+      .co-work-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="co-header sc-dark">
+  <div class="container">
+    <a href="/company.html" aria-label="Underdawgs — Home">
+      <img src="/brand/parent/underdawgs-parent-lower-transparent.png" alt="Underdawgs">
+    </a>
+    <nav class="co-nav" aria-label="Primary">
+      <a href="#what-we-build">What We Build</a>
+      <a href="#why-it-matters">Why It Matters</a>
+      <a href="#products">Products</a>
+      <a href="#work-with-us">Work With Us</a>
+      <a href="#contact">Contact</a>
+      <a href="/" class="sc-btn sc-btn--secondary">Visit The Sportscast</a>
+    </nav>
+  </div>
+</header>
+
+<section class="co-hero sc-gold-section">
+  <div class="container">
+    <span class="sc-label">Underdawgs</span>
+    <h1>Building the information layer for Kenyan and African sport.</h1>
+    <p>We create sports media, verified data products, storytelling platforms, and commercial tools that make local sport more visible, searchable, and valuable.</p>
+    <div class="co-hero-ctas">
+      <a href="/" class="sc-btn--onlight">Explore The Sportscast</a>
+      <a href="#work-with-us" class="sc-btn sc-btn--secondary">Partner With Us</a>
+    </div>
+  </div>
+</section>
+
+<section class="co-belief" aria-labelledby="belief-heading">
+  <div class="container">
+    <span class="sc-label">Core Belief</span>
+    <h2 id="belief-heading">Better information creates better sport.</h2>
+    <p>Local sport does not suffer from a lack of talent. It suffers from a lack of visibility, reliable records, consistent storytelling, and systems that preserve what happens. We are building the media and data infrastructure to change that.</p>
+  </div>
+</section>
+
+<section id="what-we-build" class="sc-gold-section" aria-labelledby="build-heading" style="background:var(--sc-cream);">
+  <div class="container">
+    <span class="sc-label">What We Build</span>
+    <h2 id="build-heading" style="margin-top:.5em;">Four capabilities, one direction.</h2>
+    <div class="co-grid">
+      <div class="sc-card">
+        <span class="sc-tag co-eyebrow-tag">Building</span>
+        <h3>Media &amp; Storytelling</h3>
+        <ul>
+          <li>The Sportscast</li>
+          <li>Underdog stories</li>
+          <li>Interviews</li>
+          <li>Match reports</li>
+          <li>Shows</li>
+          <li>Athlete and team features</li>
+        </ul>
+      </div>
+      <div class="sc-card">
+        <span class="sc-tag co-eyebrow-tag">Developing</span>
+        <h3>Sports Data &amp; Records</h3>
+        <ul>
+          <li>Fixtures</li>
+          <li>Results</li>
+          <li>Teams and athletes</li>
+          <li>Evidence and verification</li>
+          <li>Historical records</li>
+        </ul>
+      </div>
+      <div class="sc-card">
+        <span class="sc-tag co-eyebrow-tag">Growing</span>
+        <h3>Production &amp; Distribution</h3>
+        <ul>
+          <li>Video</li>
+          <li>Podcasts</li>
+          <li>Clips</li>
+          <li>Social distribution</li>
+          <li>Branded storytelling</li>
+        </ul>
+      </div>
+      <div class="sc-card">
+        <span class="sc-tag co-eyebrow-tag">Supporting</span>
+        <h3>Events &amp; Commercial Intelligence</h3>
+        <ul>
+          <li>Coverage partnerships</li>
+          <li>Sponsorship insights</li>
+          <li>Activations</li>
+          <li>Future reports and dashboards</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="products" class="sc-dark" aria-labelledby="products-heading">
+  <div class="container">
+    <span class="sc-label" style="color:var(--sc-gold);opacity:1;">Our Products</span>
+    <h2 id="products-heading" style="margin-top:.5em;color:var(--sc-paper);">What's live, what's next.</h2>
+    <div class="co-grid co-products">
+      <div class="sc-card">
+        <h3>The Sportscast</h3>
+        <p>Our local-first sports media and distribution engine covering the stories, athletes, teams, and competitions that deserve more visibility.</p>
+        <a href="/" class="sc-btn sc-btn--primary co-status">Visit The Sportscast</a>
+      </div>
+      <div class="sc-card">
+        <h3>Underdawgs Sports Data</h3>
+        <p>Our verified sports information platform for fixtures, results, athletes, teams, events, evidence, and historical records.</p>
+        <a href="https://web-production-b15f4.up.railway.app" class="sc-btn sc-btn--primary co-status" target="_blank" rel="noopener">View Sports Data</a>
+      </div>
+      <div class="sc-card">
+        <h3>Underdawgs Productions</h3>
+        <p>Video, podcast, interview, documentary, and branded-content production for sport and culture.</p>
+        <span class="sc-tag co-status">Coming Soon</span>
+      </div>
+      <div class="sc-card">
+        <h3>Underdawgs Events</h3>
+        <p>Future activations, live shows, tournament coverage, fan experiences, and partner-led sports events.</p>
+        <span class="sc-tag co-status">Coming Soon</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="serve-heading">
+  <div class="container">
+    <span class="sc-label">Who We Serve</span>
+    <h2 id="serve-heading" style="margin-top:.5em;">Ground-up, not top-down.</h2>
+    <p style="margin-top:1em;">We help people discover, document, support, and commercialize sport from the ground up.</p>
+    <div class="co-serve-grid">
+      <div class="co-serve-item">Fans</div>
+      <div class="co-serve-item">Athletes</div>
+      <div class="co-serve-item">Teams &amp; Clubs</div>
+      <div class="co-serve-item">Schools &amp; Academies</div>
+      <div class="co-serve-item">Federations &amp; Organizers</div>
+      <div class="co-serve-item">Sponsors &amp; Brands</div>
+      <div class="co-serve-item">Journalists &amp; Creators</div>
+      <div class="co-serve-item">Counties &amp; Communities</div>
+    </div>
+  </div>
+</section>
+
+<section id="why-it-matters" class="sc-dark co-diff" aria-labelledby="diff-heading">
+  <div class="container">
+    <span class="sc-label" style="color:var(--sc-gold);opacity:1;">Why We're Different</span>
+    <h2 id="diff-heading" style="margin-top:.5em;color:var(--sc-paper);">Not another sports site.</h2>
+    <ul>
+      <li>We focus on underdog stories people can relate to.</li>
+      <li>We connect storytelling with verified sports data.</li>
+      <li>We care about local competitions, athlete pathways, and historical memory.</li>
+      <li>We build relationships before scale.</li>
+      <li>We treat information as infrastructure, not disposable content.</li>
+      <li>We are not betting-led.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="work-with-us" aria-labelledby="work-heading">
+  <div class="container">
+    <span class="sc-label">Work With Us</span>
+    <h2 id="work-heading" style="margin-top:.5em;">Let's build something together.</h2>
+    <div class="co-work-grid">
+      <div>
+        <p>There are several ways to work with us:</p>
+        <ul class="co-work-list" style="margin-top:1.25rem;">
+          <li>Event coverage</li>
+          <li>Athlete or team features</li>
+          <li>Media production</li>
+          <li>Sponsorship storytelling</li>
+          <li>Data partnerships</li>
+          <li>School, academy, or club visibility</li>
+          <li>Tournament documentation</li>
+          <li>Branded sports campaigns</li>
+        </ul>
+        <p class="co-placeholder-email" id="contact">
+          Or reach us directly at <a href="mailto:partnerships@underdawgs.co.ke">partnerships@underdawgs.co.ke</a>
+          <br><em>(placeholder address — replace with the real inbox before this page is shared externally)</em>
+        </p>
+      </div>
+      <form id="co-partnership-form" novalidate>
+        <div class="co-form-field">
+          <label for="co-name">Name</label>
+          <input type="text" id="co-name" required>
+        </div>
+        <div class="co-form-field">
+          <label for="co-email">Email</label>
+          <input type="email" id="co-email" required>
+        </div>
+        <div class="co-form-field">
+          <label for="co-message">Tell us about your brand or partnership idea</label>
+          <textarea id="co-message" rows="5" required></textarea>
+        </div>
+        <button type="submit" class="sc-btn sc-btn--primary">Send</button>
+        <p class="co-form-error" id="co-form-error"></p>
+      </form>
+      <div class="co-form-success" id="co-form-success">
+        <h3>Message received.</h3>
+        <p>Thanks — our team will follow up about working together.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="co-footer sc-dark">
+  <div class="container">
+    <a href="/company.html" aria-label="Underdawgs — Home">
+      <img src="/brand/parent/underdawgs-parent-lower-transparent.png" alt="Underdawgs">
+    </a>
+    <p>Underdawgs is building the media, data, and technology layer for Kenyan and African sport.</p>
+    <nav class="co-footer-links" aria-label="Footer navigation">
+      <a href="/">The Sportscast</a>
+      <a href="https://web-production-b15f4.up.railway.app" target="_blank" rel="noopener">Sports Data</a>
+      <a href="#work-with-us">Work With Us</a>
+      <a href="mailto:partnerships@underdawgs.co.ke">Contact</a>
+    </nav>
+    <div class="co-footer-bottom">
+      <span>&copy; 2026 Underdawgs. All rights reserved.</span>
+      <span>Building the information layer for Kenyan and African sport.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var form = document.getElementById('co-partnership-form');
+    var errorEl = document.getElementById('co-form-error');
+    var successEl = document.getElementById('co-form-success');
+    if (!form) return;
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      errorEl.style.display = 'none';
+      var name = document.getElementById('co-name').value.trim();
+      var email = document.getElementById('co-email').value.trim();
+      var message = document.getElementById('co-message').value.trim();
+      fetch('/api/submissions', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'PARTNERSHIP', name: name, email: email, message: message }),
+      })
+        .then(function (res) {
+          return res.json().catch(function () { return {}; }).then(function (data) {
+            if (!res.ok) throw new Error(data.error || 'Request failed (' + res.status + ')');
+            return data;
+          });
+        })
+        .then(function () {
+          form.style.display = 'none';
+          successEl.style.display = 'block';
+        })
+        .catch(function (err) {
+          errorEl.textContent = err.message;
+          errorEl.style.display = 'block';
+        });
+    });
+  })();
+</script>
+</body>
+</html>
