@@ -201,7 +201,7 @@ function renderFooter() {
       <div class="container">
         <div class="footer-top">
           <div>
-            <a href="/" aria-label="The Sportscast — Home"><img src="/brand/logo/lockup-lower-black.png" alt="The Sportscast by Underdawgs" style="height:36px; width:auto;"></a>
+            <a href="/" aria-label="The Sportscast — Home"><img src="/brand/mic/mic-mark-transparent-gold.png" alt="The Sportscast by Underdawgs" style="height:72px; width:auto;"></a>
             <span class="footer-tl" style="display:block; margin-top:0.75rem;">Where Kenyan sports live.</span>
           </div>
           <div class="footer-socials" aria-label="Social media links">

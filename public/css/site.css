@@ -564,7 +564,7 @@ table.data-table td.num { text-align: center; }
 /* ===== FOOTER + CONTACT (consolidated 2026-08-19 — was index.html-only
    inline CSS + a separate bare .footer-simple used by every other page;
    now one shared footer, used everywhere via renderFooter() in site.js) ===== */
-.footer { background: #000; border-top: 1px solid var(--border); padding: 4rem 0 2.5rem; }
+.footer { background: var(--sc-black); border-top: 1px solid var(--border); padding: 4rem 0 2.5rem; }
 .footer-top { display: flex; justify-content: space-between; align-items: center; padding-bottom: 2.5rem; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
 .footer-logo { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.35rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-primary); display: block; margin-bottom: 0.2rem; }
 .footer-tl { font-family: 'Nunito', sans-serif; font-size: var(--text-small); color: var(--text-secondary); font-weight: 400; }
