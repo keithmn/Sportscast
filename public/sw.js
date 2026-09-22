@@ -17,7 +17,7 @@
 // admin, and every HTML document/navigation — always goes to the network,
 // so a visitor is never shown stale sports data or a stale page shell.
 
-const CACHE_NAME = 'sportscast-static-v1';
+const CACHE_NAME = 'sportscast-static-v2';
 const STATIC_PATH_RE = /^\/(css\/|js\/|brand\/|manifest\.json$)/;
 
 self.addEventListener('install', (event) => {

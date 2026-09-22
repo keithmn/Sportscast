@@ -5,7 +5,8 @@
   --sc-gold-deep: #8A6110;   /* gold at body-text size. links, small type */
 
   /* ── Structure ───────────────────────────── */
-  --sc-black:     #0D0D0D;
+  --sc-charcoal:  #201C19;
+  --sc-black:     var(--sc-charcoal); /* back-compat alias — the kit renamed --sc-black to --sc-charcoal in this update; kept so existing call sites (company.html) don't need touching */
   --sc-paper:     #FFFFFF;
 
   /* ── Secondary ───────────────────────────── */
@@ -29,7 +30,7 @@
    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&family=Nunito:wght@400;600;700;900&family=Anton&display=swap" rel="stylesheet"> */
 
 html{-webkit-text-size-adjust:100%}
-body{margin:0;font-family:var(--sc-font-body);font-weight:400;font-size:17px;line-height:1.55;color:var(--sc-black);background:var(--sc-paper)}
+body{margin:0;font-family:var(--sc-font-body);font-weight:400;font-size:17px;line-height:1.55;color:var(--sc-charcoal);background:var(--sc-paper)}
 
 h1,h2,h3,h4{font-family:var(--sc-font-title);font-weight:900;text-transform:uppercase;letter-spacing:-.02em;line-height:1;margin:0}
 h1{font-size:clamp(40px,7vw,88px);line-height:.95}
@@ -42,32 +43,32 @@ h3{font-size:clamp(22px,2.4vw,32px)}
 p{max-width:54em;text-wrap:pretty}
 a{color:var(--sc-gold-deep);text-decoration:underline;text-underline-offset:2px}
 a:hover{color:#5E430F}
-:focus-visible{outline:2px solid var(--sc-black);outline-offset:2px}
-::selection{background:var(--sc-gold);color:var(--sc-black)}
+:focus-visible{outline:2px solid var(--sc-charcoal);outline-offset:2px}
+::selection{background:var(--sc-gold);color:var(--sc-charcoal)}
 
 /* Gold highlight behind a phrase. clone so multi-line breaks correctly. */
-.sc-mark{background:var(--sc-gold);color:var(--sc-black);padding:0 .22em;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.sc-mark{background:var(--sc-gold);color:var(--sc-charcoal);padding:0 .22em;box-decoration-break:clone;-webkit-box-decoration-break:clone}
 
 /* Tag / live badge */
-.sc-tag{display:inline-block;background:var(--sc-black);color:var(--sc-gold);font-family:var(--sc-font-title);font-weight:900;font-size:13px;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px}
-.sc-tag--invert{background:var(--sc-gold);color:var(--sc-black)}
+.sc-tag{display:inline-block;background:var(--sc-charcoal);color:var(--sc-gold);font-family:var(--sc-font-title);font-weight:900;font-size:13px;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px}
+.sc-tag--invert{background:var(--sc-gold);color:var(--sc-charcoal)}
 
 /* Buttons — square corners, gold primary */
 .sc-btn{display:inline-flex;align-items:center;gap:.5em;font-family:var(--sc-font-title);font-weight:900;font-size:14px;letter-spacing:.06em;text-transform:uppercase;padding:13px 22px;border:0;border-radius:var(--sc-radius);cursor:pointer;text-decoration:none}
-.sc-btn--primary{background:var(--sc-gold);color:var(--sc-black)}
-.sc-btn--primary:hover{background:var(--sc-gold-hover);color:var(--sc-black)}
-.sc-btn--secondary{background:transparent;color:var(--sc-black);box-shadow:inset 0 0 0 1px var(--sc-black)}
-.sc-btn--secondary:hover{background:var(--sc-black);color:var(--sc-gold)}
+.sc-btn--primary{background:var(--sc-gold);color:var(--sc-charcoal)}
+.sc-btn--primary:hover{background:var(--sc-gold-hover);color:var(--sc-charcoal)}
+.sc-btn--secondary{background:transparent;color:var(--sc-charcoal);box-shadow:inset 0 0 0 1px var(--sc-charcoal)}
+.sc-btn--secondary:hover{background:var(--sc-charcoal);color:var(--sc-gold)}
 
 /* Dark section */
-.sc-dark{background:var(--sc-black);color:var(--sc-paper)}
+.sc-dark{background:var(--sc-charcoal);color:var(--sc-paper)}
 .sc-dark a{color:var(--sc-gold)}
 .sc-dark a:hover{color:var(--sc-paper)}
 .sc-dark :focus-visible{outline-color:var(--sc-gold)}
 
 /* Gold section — black type only */
-.sc-gold-section{background:var(--sc-gold);color:var(--sc-black)}
-.sc-gold-section a{color:var(--sc-black)}
+.sc-gold-section{background:var(--sc-gold);color:var(--sc-charcoal)}
+.sc-gold-section a{color:var(--sc-charcoal)}
 
 /* Card — no radius, no shadow */
 .sc-card{border:1px solid var(--sc-rule);padding:22px;border-radius:var(--sc-radius)}

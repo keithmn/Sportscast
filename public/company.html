@@ -15,7 +15,7 @@
   <link rel="icon" href="/brand/favicon/favicon-32.png" sizes="32x32">
   <link rel="icon" href="/brand/favicon/favicon-192.png" sizes="192x192">
   <link rel="apple-touch-icon" href="/brand/favicon/favicon-180.png">
-  <meta name="theme-color" content="#0D0D0D">
+  <meta name="theme-color" content="#201C19">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&family=Nunito:wght@400;600;700;900&family=Anton&display=swap" rel="stylesheet">
@@ -46,8 +46,14 @@
 
     /* Primary CTA meant to sit on a gold ground — black fill, gold label.
        Same accessible pair tokens.css already sanctions (Black -> gold). */
-    .sc-btn--onlight { display: inline-flex; align-items: center; gap: .5em; font-family: var(--sc-font-title); font-weight: 900; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; padding: 12px 20px; border: 0; border-radius: var(--sc-radius); cursor: pointer; text-decoration: none; background: var(--sc-black); color: var(--sc-gold); }
-    .sc-btn--onlight:hover { background: #1E1E1E; }
+    /* .co-hero-ctas prefix (not just .sc-btn--onlight) is load-bearing:
+       tokens.css's .sc-gold-section a{color:var(--sc-charcoal)} is two
+       selectors deep and otherwise wins the specificity fight, since this
+       button is an <a> inside .co-hero.sc-gold-section — silently
+       rendering charcoal text on a charcoal background. Caught via an
+       actual browser screenshot, not just curl/grep. */
+    .co-hero-ctas .sc-btn--onlight { display: inline-flex; align-items: center; gap: .5em; font-family: var(--sc-font-title); font-weight: 900; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; padding: 12px 20px; border: 0; border-radius: var(--sc-radius); cursor: pointer; text-decoration: none; background: var(--sc-black); color: var(--sc-gold); }
+    .co-hero-ctas .sc-btn--onlight:hover { background: #1E1E1E; }
     .co-hero-ctas .sc-btn--secondary { border-color: var(--sc-black); }
 
     /* ---- Hero ---- */
@@ -150,7 +156,7 @@
 <header class="co-header sc-dark">
   <div class="container">
     <a href="/company.html" aria-label="Underdawgs Rising — Home">
-      <img src="/brand/parent/underdawgs-parent-lower-white.png" alt="Underdawgs Rising">
+      <img src="/brand/parent/underdawgs-parent-open-white.png" alt="Underdawgs Rising">
     </a>
     <nav class="co-nav" aria-label="Primary">
       <a href="#thesis">Thesis</a>
@@ -487,7 +493,7 @@
 <footer class="co-footer sc-dark">
   <div class="container">
     <a href="/company.html" aria-label="Underdawgs Rising — Home">
-      <img src="/brand/parent/underdawgs-parent-lower-white.png" alt="Underdawgs Rising">
+      <img src="/brand/parent/underdawgs-parent-open-white.png" alt="Underdawgs Rising">
     </a>
     <p>Underdawgs Rising builds verified sports data infrastructure and operating technology for Kenyan and African sport.</p>
     <nav class="co-footer-links" aria-label="Footer navigation">
