@@ -14,6 +14,8 @@
    admin main content) is paper/light by default. */
 
 :root {
+  color-scheme: light;
+
   --sc-gold:       #F3B01C;
   --sc-gold-hover: #D89A10;
   --sc-gold-deep:  #8A6110;
@@ -66,6 +68,38 @@
      fill too, or paper-white text lands on the now-paper-white default. */
   --bg-surface: var(--sc-rule-dark);
   --bg-elevated: var(--sc-rule-dark);
+}
+
+/* Site-wide dark mode — reuses the exact same token values as the
+   permanently-dark chrome above (nav/footer/admin-sidebar), just applied
+   to :root so every page surface picks them up too. Three layers, same
+   pattern as the rest of the token system: bare :root above is the light
+   default; prefers-color-scheme covers a visitor who hasn't chosen
+   anything explicitly, guarded so an explicit ?theme=light always wins;
+   [data-theme="dark"] covers the toggle itself (js/site.js,
+   THEME_STORAGE_KEY). Nothing here introduces a colour outside the
+   existing --sc-* set. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg-primary: var(--sc-black);
+    --bg-surface: var(--sc-rule-dark);
+    --bg-elevated: var(--sc-rule-dark);
+    --text-primary: var(--sc-paper);
+    --text-secondary: #9A9A9A;
+    --border: var(--sc-rule-dark);
+    --gold-text: var(--sc-gold);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-primary: var(--sc-black);
+  --bg-surface: var(--sc-rule-dark);
+  --bg-elevated: var(--sc-rule-dark);
+  --text-primary: var(--sc-paper);
+  --text-secondary: #9A9A9A;
+  --border: var(--sc-rule-dark);
+  --gold-text: var(--sc-gold);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -133,6 +167,28 @@ img { display: block; max-width: 100%; }
   padding: 13px 4px; margin: -13px -4px;
 }
 .nav-links a:hover, .nav-links a.active { color: var(--text-primary); }
+
+/* Theme toggle — lives inside .nav, which is always-dark regardless of
+   the page's own light/dark state (see the dark-section overrides
+   above), so its own colours are fixed rather than token-driven. Icon
+   visibility mirrors the same three-layer light/media-query/explicit
+   pattern the tokens themselves use, keyed off <html>'s data-theme
+   (site.js sets it; see THEME_STORAGE_KEY). */
+.theme-toggle {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px;
+  color: var(--sc-paper);
+  flex-shrink: 0;
+}
+.theme-toggle:hover { color: var(--sc-gold); }
+.theme-toggle-icon { width: 19px; height: 19px; }
+.theme-toggle-icon--sun { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-toggle-icon--sun { display: block; }
+  :root:not([data-theme="light"]) .theme-toggle-icon--moon { display: none; }
+}
+:root[data-theme="dark"] .theme-toggle-icon--sun { display: block; }
+:root[data-theme="dark"] .theme-toggle-icon--moon { display: none; }
 
 /* Sports/Scores/Kits — click/hover reveals a vertical list of active
    sports (nav-dropdown.js). :focus-within covers keyboard nav; .open is

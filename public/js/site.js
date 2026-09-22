@@ -143,12 +143,48 @@ function renderNav(activeHref) {
           : `<li><a href="${l.href}" class="${activeHref === l.href ? 'active' : ''}">${l.label}</a></li>`
         ).join('')}
       </ul>
+      <button type="button" class="theme-toggle" id="theme-toggle">
+        <svg class="theme-toggle-icon theme-toggle-icon--sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><line x1="12" y1="2" x2="12" y2="4.5"></line><line x1="12" y1="19.5" x2="12" y2="22"></line><line x1="4.22" y1="4.22" x2="5.94" y2="5.94"></line><line x1="18.06" y1="18.06" x2="19.78" y2="19.78"></line><line x1="2" y1="12" x2="4.5" y2="12"></line><line x1="19.5" y1="12" x2="22" y2="12"></line><line x1="4.22" y1="19.78" x2="5.94" y2="18.06"></line><line x1="18.06" y1="5.94" x2="19.78" y2="4.22"></line></svg>
+        <svg class="theme-toggle-icon theme-toggle-icon--moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      </button>
     </nav>`;
 
   const navEl = el.querySelector('.nav-links');
   wireNavDropdownToggles(navEl);
   const tabByKey = Object.fromEntries(NAV_LINKS.filter((l) => l.type === 'dropdown').map((l) => [l.key, l.tab]));
   loadNavDropdowns(navEl, tabByKey).catch((err) => console.warn('Could not load nav dropdowns:', err));
+  initThemeToggle();
+}
+
+// Dark/light toggle. THEME_STORAGE_KEY's value ('light'|'dark') is read
+// synchronously in each page's <head>, before site.css/site.js even load,
+// to set data-theme on <html> and avoid a flash of the wrong theme — see
+// the inline snippet right after <meta charset> in every public page.
+// No stored value = no data-theme attribute = the visitor's OS preference
+// decides, via the prefers-color-scheme block in site.css.
+const THEME_STORAGE_KEY = 'sc-theme';
+
+function currentTheme() {
+  if (document.documentElement.getAttribute('data-theme') === 'dark') return 'dark';
+  if (document.documentElement.getAttribute('data-theme') === 'light') return 'light';
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function initThemeToggle() {
+  const btn = document.getElementById('theme-toggle');
+  if (!btn) return;
+  const sync = () => {
+    const theme = currentTheme();
+    btn.setAttribute('aria-pressed', String(theme === 'dark'));
+    btn.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+  };
+  sync();
+  btn.addEventListener('click', () => {
+    const next = currentTheme() === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem(THEME_STORAGE_KEY, next); } catch (err) { /* private mode etc. — theme just won't persist */ }
+    sync();
+  });
 }
 
 // Consolidated 2026-08-19: this used to be a bare one-line copyright bar
