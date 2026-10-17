@@ -9,4 +9,7 @@ prisma/uploads/
 prisma/raw-recordings/
 generated/
 .DS_Store
-.claude/
+.claude/*
+# Project skills are shared with every editor; local Claude Code settings stay ignored.
+!.claude/skills/
+scripts/demo/.cache/

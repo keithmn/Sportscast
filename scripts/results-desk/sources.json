@@ -1,0 +1,31 @@
+{
+  "_note": "Where the results desk looks, per competition, in trust order. Read with normal page requests only: respect robots.txt and terms, never work around bot protection or logins. If a source blocks automated reading, skip it and say so. Never use sites named in Milestone Games' June 2026 KPL data lawsuit (Sofascore, FotMob, LiveScore, OneFootball, ESPN, Superport) as KPL sources.",
+  "kenyan-premier-league": {
+    "sport": "football",
+    "official": {
+      "table": "https://footballkenya.org/sportpesa-league/table",
+      "fixtures": "https://footballkenya.org/sportpesa-league/fixtures",
+      "overview": "https://footballkenya.org/sportpesa-league"
+    },
+    "officialNames": "Use the team names exactly as FKF's table writes them (Tusker, 3K, Kenya Police, KCB, Murang'a Seal) so reconcile can match.",
+    "secondary": ["capitalfm.africa", "citizen.digital", "standardmedia.co.ke / thestandard.ke", "k24.digital", "nation.africa", "kenyans.co.ke"],
+    "notes": "FKF's fixtures page lists only upcoming rounds; finished-round dates and venues come from the round's announced schedule (secondary outlets). FKF writes 'Nyayo Stadium' — the venue list uses 'Nyayo National Stadium'."
+  },
+  "kenya-cup": {
+    "sport": "rugby",
+    "official": { "table": "https://www.kenyacup.co.ke/standings/" },
+    "notes": "Already scraped daily by server/jobs/syncKenyaCup.js (standings only). Rugby tables include bonus points, so reconcile can't recompute them — use --skip-reconcile with that reason."
+  },
+  "khu-premier-league": {
+    "sport": "hockey",
+    "official": {},
+    "secondary": ["hockeyke.com (robots allows; table gives GD only — ask HockeyKE before relying on it)"],
+    "notes": "No automated source agreed yet."
+  },
+  "kbf-premier-league": {
+    "sport": "basketball",
+    "official": {},
+    "secondary": ["standardmedia.co.ke / thestandard.ke", "capitalfm.africa"],
+    "notes": "Results only appear in news reports — every score needs two outlets."
+  }
+}
