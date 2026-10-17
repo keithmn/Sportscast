@@ -148,12 +148,28 @@ async function testOnePage(testPage, pageIndex) {
   const chromePath = findChrome();
   const userDataDir = `/tmp/mobile-regression-chrome-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
   const port = CDP_PORT + pageIndex;
-  const chrome = spawn(chromePath, ['--headless', `--remote-debugging-port=${port}`, `--user-data-dir=${userDataDir}`]);
+  // about:blank so there's always a page target (chrome-headless-shell
+  // starts with none otherwise), and poll for the debugging port instead
+  // of a fixed 1.5s sleep — a cold Chrome start often took longer than
+  // that, which made this check fail to run at all on a slow launch.
+  const chrome = spawn(chromePath, ['--headless', `--remote-debugging-port=${port}`, `--user-data-dir=${userDataDir}`, 'about:blank'], {
+    // Discard Chrome's own output: piped but never read, its stderr (macOS
+    // spams display-link warnings) fills the pipe buffer and Chrome blocks.
+    stdio: 'ignore',
+  });
+  // If this run dies partway (a throw below, Ctrl-C), don't leave a headless
+  // Chrome holding the debugging port — the next run would silently talk to
+  // it, or fail to get a page at all.
+  const killChrome = () => { try { chrome.kill(); } catch { /* already gone */ } };
+  process.once('exit', killChrome);
 
-  await new Promise((r) => setTimeout(r, 1500));
-
-  const targets = await fetch(`http://localhost:${port}/json`).then((r) => r.json());
-  const page = targets.find((t) => t.type === 'page') || targets[0];
+  let targets = [];
+  for (let attempt = 0; attempt < 60 && !targets.some((t) => t.type === 'page'); attempt++) {
+    await new Promise((r) => setTimeout(r, 250));
+    targets = await fetch(`http://localhost:${port}/json`).then((r) => r.json()).catch(() => []);
+  }
+  const page = targets.find((t) => t.type === 'page');
+  if (!page) { killChrome(); throw new Error(`Chrome didn't expose a page on port ${port} within 15s`); }
   const ws = new WebSocket(page.webSocketDebuggerUrl);
   const pending = new Map();
   const idRef = { next: 1 };
