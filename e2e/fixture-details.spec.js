@@ -53,6 +53,50 @@ test.describe('Fixture match details (venue, round, broadcaster)', () => {
     for (const f of [fixture, other]) await page.request.delete(`/api/competitions/fixtures/${f.id}`);
   });
 
+  test('re-pasting an existing fixture is skipped with a message, not a crash, and creates no stray venue', async ({ page }) => {
+    const stamp = Date.now();
+    const { competitions } = await page.request.get('/api/competitions').then((r) => r.json());
+    const kpl = competitions.find((c) => c.name === 'Kenyan Premier League');
+    const line = { homeTeam: `Repaste Home ${stamp}`, awayTeam: `Repaste Away ${stamp}`, kickoff: '2026-12-05T15:00' };
+    const first = await page.request.post(`/api/competitions/${kpl.id}/fixtures/bulk`, { data: { fixtures: [line] } }).then((r) => r.json());
+    expect(first.created).toBe(1);
+
+    const freshVenue = `Repaste Ground ${stamp}`;
+    const res = await page.request.post(`/api/competitions/${kpl.id}/fixtures/bulk`, {
+      data: { fixtures: [{ ...line, venue: freshVenue }, { ...line, homeTeam: `Repaste Home2 ${stamp}` }, { ...line, homeTeam: `Repaste Home2 ${stamp}` }] },
+    });
+    expect(res.status()).toBe(201);
+    const body = await res.json();
+    expect(body.created).toBe(1);
+    expect(body.errors.join(' ')).toContain('already exists');
+    expect(body.errors.join(' ')).toContain('duplicates an earlier line');
+    const { venues } = await page.request.get('/api/venues').then((r) => r.json());
+    expect(venues.some((v) => v.name === freshVenue)).toBe(false);
+
+    const { competition } = await page.request.get('/api/competitions/kenyan-premier-league').then((r) => r.json());
+    for (const f of competition.fixtures.filter((x) => x.homeTeam.startsWith('Repaste Home'))) {
+      await page.request.delete(`/api/competitions/fixtures/${f.id}`);
+    }
+  });
+
+  test('saving the same fixture twice in one round is refused, so followers never get two full-time alerts', async ({ page }) => {
+    const stamp = Date.now();
+    const { competitions } = await page.request.get('/api/competitions').then((r) => r.json());
+    const kpl = competitions.find((c) => c.name === 'Kenyan Premier League');
+    const { fixture } = await page.request.post(`/api/competitions/${kpl.id}/fixtures`, {
+      data: { homeTeam: `Twice Home ${stamp}`, awayTeam: `Twice Away ${stamp}`, kickoff: '2026-12-06T15:00' },
+    }).then((r) => r.json());
+    const res = await page.request.put(`/api/competitions/${kpl.id}/fixtures/results`, {
+      data: { results: [{ fixtureId: fixture.id, homeScore: 1, awayScore: 0 }, { fixtureId: fixture.id, homeScore: 2, awayScore: 0 }] },
+    });
+    expect(res.status()).toBe(400);
+    expect((await res.json()).error).toContain('more than once');
+    // Basketball-sized scores are accepted.
+    const ok = await page.request.put(`/api/competitions/${kpl.id}/fixtures/results`, { data: { results: [{ fixtureId: fixture.id, homeScore: 102, awayScore: 87 }] } });
+    expect(ok.status()).toBe(200);
+    await page.request.delete(`/api/competitions/fixtures/${fixture.id}`);
+  });
+
   test('admin fixture rows show and save venue/round/broadcaster, with a venue list', async ({ page }) => {
     const stamp = Date.now();
     const { competitions } = await page.request.get('/api/competitions').then((r) => r.json());

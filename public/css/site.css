@@ -471,9 +471,11 @@ table.data-table th.num { text-align: center; }
   table.standings-table { min-width: 0; table-layout: fixed; }
   table.standings-table .col-detail { display: none; }
   table.standings-table th, table.standings-table td { padding: 0.6rem 0.4rem; }
+  /* Every number column gets the same compact width and the team name
+     takes the rest — by class, not column position, because the columns
+     differ by sport (basketball has no D and keeps W/L). */
+  table.standings-table .num { width: 2.75rem; }
   table.standings-table th:first-child, table.standings-table td:first-child { width: 2.25rem; padding-left: 0.75rem; }
-  table.standings-table th:nth-child(3), table.standings-table td:nth-child(3) { width: 2.5rem; }
-  table.standings-table th:nth-last-child(2), table.standings-table td:nth-last-child(2) { width: 3rem; }
   table.standings-table th:last-child, table.standings-table td:last-child { width: 3rem; padding-right: 0.75rem; }
   table.standings-table td.team { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }

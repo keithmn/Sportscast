@@ -1,6 +1,6 @@
 const express = require('express');
 const prisma = require('../db');
-const { requireRole } = require('../middleware/auth');
+const { requireRole, isEditor } = require('../middleware/auth');
 const { fetchCanonicalFixture } = require('../lib/canonicalData');
 
 const router = express.Router();
@@ -174,8 +174,7 @@ router.get('/:id', async (req, res) => {
   });
   // Hidden competitions (Competition.isActive false) 404 publicly, same as
   // their competition page — editors can still open them.
-  const isEditor = ['ADMIN', 'EDITOR'].includes(req.session?.user?.role);
-  if (!fixture || (!fixture.competition.isActive && !isEditor)) return res.status(404).json({ error: 'Fixture not found' });
+  if (!fixture || (!fixture.competition.isActive && !isEditor(req))) return res.status(404).json({ error: 'Fixture not found' });
   // Wave 9 §8.2 — same embed-in-the-public-response pattern
   // articles.js's GET /:slug uses for canonicalEvent. Fails soft to null
   // (no mapping, network error, Data Platform down) — the match page

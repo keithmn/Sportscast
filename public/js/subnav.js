@@ -260,8 +260,8 @@ async function loadScoresTab(panelEl, scope) {
 }
 
 async function loadTablesTab(panelEl, scope) {
-  if (scope.club) { panelEl.innerHTML = standingsTableHtml(scope.club.competitionDetail.standings); return; }
-  if (scope.competition) { panelEl.innerHTML = standingsTableHtml(scope.competition.detail.standings); return; }
+  if (scope.club) { panelEl.innerHTML = standingsTableHtml(scope.club.competitionDetail.standings, scope.sportSlug); return; }
+  if (scope.competition) { panelEl.innerHTML = standingsTableHtml(scope.competition.detail.standings, scope.sportSlug); return; }
 
   panelEl.innerHTML = '<div class="empty-state">Loading…</div>';
   const { competitions } = await api(`/api/competitions?sport=${encodeURIComponent(scope.sportSlug)}`);

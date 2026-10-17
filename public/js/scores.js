@@ -19,32 +19,44 @@ function formatDayLabel(dateStr) {
   return new Date(`${dateStr}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
-function standingsTableHtml(standings) {
+// Basketball and rugby score points, not goals — label the columns to
+// match (StandingRow's goalsFor/goalsAgainst hold either).
+const POINTS_SCORING_SPORTS = new Set(['basketball', 'rugby']);
+
+function standingsTableHtml(standings, sportSlug) {
   if (!standings.length) {
     return '<p class="empty-state">Standings haven\'t been entered for this competition yet.</p>';
   }
-  // `col-detail` columns (W/D/L/GF-GA) drop out on phones — see
-  // .standings-table in site.css. Sky Sports' mobile tables keep
-  // Pos/Team/P/GD/Pts, which is what a reader scanning a table needs.
-  const rows = standings.map((r) => {
-    const gd = r.goalsFor - r.goalsAgainst;
-    return `
-    <tr>
-      <td class="num">${r.position}</td>
-      <td class="team">${escapeHtml(r.teamName)}</td>
-      <td class="num">${r.played}</td>
-      <td class="num col-detail">${r.won}</td>
-      <td class="num col-detail">${r.drawn}</td>
-      <td class="num col-detail">${r.lost}</td>
-      <td class="num col-detail">${r.goalsFor}-${r.goalsAgainst}</td>
-      <td class="num">${gd > 0 ? '+' : ''}${gd}</td>
-      <td class="num"><strong>${r.points}</strong></td>
-    </tr>`;
-  }).join('');
+  const scoredPoints = POINTS_SCORING_SPORTS.has(sportSlug);
+  const basketball = sportSlug === 'basketball';
+  // Basketball tables are often published as win-loss only; when no row
+  // has a points-for/against figure, leave those columns out rather than
+  // show zeros as if they were real. Only basketball — a football or hockey
+  // table really can be all zeros (before the first goal of a season).
+  const hasScoring = !basketball || standings.some((r) => r.goalsFor || r.goalsAgainst);
+  // `col-detail` columns drop out on phones (see .standings-table in
+  // site.css): Sky Sports' mobile tables keep Pos/Team/P/GD/Pts. A
+  // basketball table is read by wins and losses, so W/L stay visible there.
+  const cols = [
+    { head: '#', cls: 'num', cell: (r) => r.position },
+    { head: 'Team', cls: 'team', cell: (r) => escapeHtml(r.teamName) },
+    // In basketball P is just W + L, so phones drop it to give names room.
+    { head: 'P', cls: basketball ? 'num col-detail' : 'num', cell: (r) => r.played },
+    { head: 'W', cls: basketball ? 'num' : 'num col-detail', cell: (r) => r.won },
+    ...(basketball ? [] : [{ head: 'D', cls: 'num col-detail', cell: (r) => r.drawn }]),
+    { head: 'L', cls: basketball ? 'num' : 'num col-detail', cell: (r) => r.lost },
+    ...(hasScoring ? [
+      { head: scoredPoints ? 'PF-PA' : 'GF-GA', cls: 'num col-detail', cell: (r) => `${r.goalsFor}-${r.goalsAgainst}` },
+      { head: scoredPoints ? 'PD' : 'GD', cls: 'num', cell: (r) => { const d = r.goalsFor - r.goalsAgainst; return `${d > 0 ? '+' : ''}${d}`; } },
+    ] : []),
+    { head: 'Pts', cls: 'num', cell: (r) => `<strong>${r.points}</strong>` },
+  ];
+  const th = cols.map((c) => `<th class="${c.cls === 'team' ? '' : c.cls}">${c.head}</th>`).join('');
+  const rows = standings.map((r) => `<tr>${cols.map((c) => `<td class="${c.cls}">${c.cell(r)}</td>`).join('')}</tr>`).join('');
   return `
     <div class="table-wrap">
       <table class="data-table standings-table">
-        <thead><tr><th class="num">#</th><th>Team</th><th class="num">P</th><th class="num col-detail">W</th><th class="num col-detail">D</th><th class="num col-detail">L</th><th class="num col-detail">GF-GA</th><th class="num">GD</th><th class="num">Pts</th></tr></thead>
+        <thead><tr>${th}</tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
@@ -118,7 +130,7 @@ function competitionTableHtml(competition) {
   return `
     <div class="competition-detail">
       ${competitionTitleHtml(competition)}
-      ${standingsTableHtml(competition.standings)}
+      ${standingsTableHtml(competition.standings, competition.sport?.slug)}
     </div>`;
 }
 
@@ -132,7 +144,7 @@ function competitionDetailHtml(competition) {
       ${competitionTitleHtml(competition)}
       <div style="margin-bottom:2rem;">
         <span class="section-label">Standings</span>
-        ${standingsTableHtml(competition.standings)}
+        ${standingsTableHtml(competition.standings, competition.sport?.slug)}
       </div>
       <div style="margin-bottom:2rem;">
         <span class="section-label">Upcoming Fixtures</span>

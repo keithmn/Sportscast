@@ -56,7 +56,7 @@ async function loadOverviewTab(panelEl, scope) {
       </div>
       <div>
         <span class="section-label">Table${primary ? ` — ${escapeHtml(primary.name)}` : ''}</span>
-        ${topStandings.length ? standingsTableHtml(topStandings) : '<p class="empty-state">No standings entered for this sport yet.</p>'}
+        ${topStandings.length ? standingsTableHtml(topStandings, scope.sportSlug) : '<p class="empty-state">No standings entered for this sport yet.</p>'}
       </div>
       <div>
         <span class="section-label">Teams</span>

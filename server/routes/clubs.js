@@ -1,7 +1,7 @@
 const express = require('express');
 const prisma = require('../db');
 const { slugify } = require('../utils/slugify');
-const { requireRole } = require('../middleware/auth');
+const { requireRole, isEditor } = require('../middleware/auth');
 const { fetchCanonicalTeam, verifyCanonicalTeam, fetchCanonicalAthlete, verifyCanonicalAthlete } = require('../lib/canonicalData');
 
 const router = express.Router();
@@ -30,8 +30,7 @@ router.get('/:slug', async (req, res) => {
       sponsors: { orderBy: { name: 'asc' } },
     },
   });
-  const isEditor = ['ADMIN', 'EDITOR'].includes(req.session?.user?.role);
-  if (!club || (!club.competition.isActive && !isEditor)) return res.status(404).json({ error: 'Club not found' });
+  if (!club || (!club.competition.isActive && !isEditor(req))) return res.status(404).json({ error: 'Club not found' });
 
   // Fails soft — see lib/canonicalData.js. A Data Platform outage, or a
   // club/player with no mapping at all, just means these come back null,
@@ -155,7 +154,7 @@ router.get('/players/:slug', async (req, res) => {
     where: { slug: req.params.slug },
     include: { club: { include: { competition: { include: { sport: true } } } } },
   });
-  if (!player) return res.status(404).json({ error: 'Player not found' });
+  if (!player || (!player.club.competition.isActive && !isEditor(req))) return res.status(404).json({ error: 'Player not found' });
 
   const canonicalAthlete = await fetchCanonicalAthlete(player.id);
   res.json({ player: { ...player, canonicalAthlete } });

@@ -114,8 +114,16 @@ async function fetchCanonicalStandings(localCompetitionId) {
   const standingsData = await fetchWithTimeout(
     `${DATA_PLATFORM_BASE}/standings?competitionId=${encodeURIComponent(mapping.canonicalId)}&seasonId=${encodeURIComponent(currentSeason.id)}`
   );
-  const rawRows = standingsData?.standings;
-  if (!Array.isArray(rawRows) || !rawRows.length) return null;
+  // Since the Data Platform's Wave 10, a season with CompetitionStages
+  // returns one table per stage (each with its own position 1) alongside
+  // any season-wide rows. Sportscast shows a single table, so take only
+  // the season-wide rows (stageId null — or absent, from a pre-Wave-10
+  // API); a season that only has per-stage tables falls back to local data
+  // rather than blending several tables into one.
+  const rawRows = Array.isArray(standingsData?.standings)
+    ? standingsData.standings.filter((r) => r.stageId == null)
+    : null;
+  if (!rawRows || !rawRows.length) return null;
 
   // A competition can have both a CALCULATED row (from recorded results)
   // and an OFFICIAL_PUBLISHED / MANUAL one (entered by hand) for the same

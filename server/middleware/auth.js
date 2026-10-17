@@ -17,4 +17,10 @@ function requireRole(...roles) {
   };
 }
 
-module.exports = { requireAuth, requireRole };
+// For public routes that show editors a little more — e.g. a competition
+// hidden from the public (Competition.isActive false) still opens for them.
+function isEditor(req) {
+  return ['ADMIN', 'EDITOR'].includes(req.session?.user?.role);
+}
+
+module.exports = { requireAuth, requireRole, isEditor };

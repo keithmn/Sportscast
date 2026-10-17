@@ -170,19 +170,14 @@ function canonicalName(shortName, tableNames) {
 // published one — a parser bug that drops or misreads matches shows up as
 // a mismatch here instead of silently becoming wrong demo data.
 function crossCheck(table, results) {
-  const tally = new Map(table.map((t) => [t.teamName, { played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 }]));
-  for (const r of results) {
-    const h = tally.get(r.home); const a = tally.get(r.away);
-    h.played++; a.played++;
-    h.goalsFor += r.homeScore; h.goalsAgainst += r.awayScore;
-    a.goalsFor += r.awayScore; a.goalsAgainst += r.homeScore;
-    if (r.homeScore > r.awayScore) { h.won++; a.lost++; h.points += 3; }
-    else if (r.homeScore < r.awayScore) { a.won++; h.lost++; a.points += 3; }
-    else { h.drawn++; a.drawn++; h.points++; a.points++; }
-  }
+  // The site's own table calculation (server/lib/pointsRules.js), so this
+  // check can't drift from what the admin "Recalculate" button does.
+  const { pointsRuleFor, computeTable } = require('../../server/lib/pointsRules');
+  const ours = new Map(computeTable(results, pointsRuleFor('football')).map((r) => [r.teamName, r]));
+  const empty = { played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 };
   const diffs = [];
   for (const t of table) {
-    const c = tally.get(t.teamName);
+    const c = ours.get(t.teamName) || empty;
     for (const k of ['played', 'won', 'drawn', 'lost', 'goalsFor', 'goalsAgainst', 'points']) {
       if (c[k] !== t[k]) diffs.push(`${t.teamName} ${k}: published ${t[k]}, recomputed ${c[k]}`);
     }
@@ -190,21 +185,23 @@ function crossCheck(table, results) {
   return diffs;
 }
 
-function slugify(name) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-}
-
 async function replaceSeason(prisma, competitionSlug, externalId, { standings = [], fixtures = [] }) {
   const { resolveClubsForFixture } = require('../../server/lib/clubResolution');
   const competition = await prisma.competition.findUnique({ where: { slug: competitionSlug } });
   if (!competition) throw new Error(`Competition "${competitionSlug}" not found in this database.`);
 
-  await prisma.competitionSeason.updateMany({ where: { competitionId: competition.id }, data: { isCurrent: false } });
+  // 2025/26 is history once a newer season exists (KPL 2026/27 is entered
+  // through admin): only make it the current season if the competition
+  // has none, never demote a newer one on a re-run.
+  const hasCurrent = await prisma.competitionSeason.findFirst({ where: { competitionId: competition.id, isCurrent: true, label: { not: SEASON_LABEL } } });
   const season = await prisma.competitionSeason.upsert({
     where: { competitionId_label: { competitionId: competition.id, label: SEASON_LABEL } },
-    create: { competitionId: competition.id, label: SEASON_LABEL, isCurrent: true },
-    update: { isCurrent: true },
+    create: { competitionId: competition.id, label: SEASON_LABEL, isCurrent: !hasCurrent },
+    update: hasCurrent ? {} : { isCurrent: true },
   });
+  if (!hasCurrent) {
+    await prisma.competitionSeason.updateMany({ where: { competitionId: competition.id, id: { not: season.id } }, data: { isCurrent: false } });
+  }
   await prisma.$transaction([
     prisma.fixture.deleteMany({ where: { seasonId: season.id } }),
     prisma.standingRow.deleteMany({ where: { seasonId: season.id } }),
@@ -305,7 +302,7 @@ async function main() {
     let created = 0;
     for (const t of kplTable) {
       if (resolveClubIdForTeamName(t.teamName, clubs)) continue;
-      let slug = slugify(t.teamName);
+      let slug = require('../../server/utils/slugify').slugify(t.teamName);
       if (await prisma.club.findUnique({ where: { slug } })) slug = `${slug}-kpl`;
       const club = await prisma.club.create({ data: { name: t.teamName, slug, competitionId: kpl.id, source: 'SCRAPED' } });
       clubs.push({ id: club.id, name: club.name });

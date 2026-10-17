@@ -8,24 +8,65 @@
       "overview": "https://footballkenya.org/sportpesa-league"
     },
     "officialNames": "Use the team names exactly as FKF's table writes them (Tusker, 3K, Kenya Police, KCB, Murang'a Seal) so reconcile can match.",
-    "secondary": ["capitalfm.africa", "citizen.digital", "standardmedia.co.ke / thestandard.ke", "k24.digital", "nation.africa", "kenyans.co.ke"],
-    "notes": "FKF's fixtures page lists only upcoming rounds; finished-round dates and venues come from the round's announced schedule (secondary outlets). FKF writes 'Nyayo Stadium' — the venue list uses 'Nyayo National Stadium'."
+    "secondary": [
+      "capitalfm.africa",
+      "citizen.digital",
+      "standardmedia.co.ke / thestandard.ke",
+      "k24.digital",
+      "nation.africa",
+      "kenyans.co.ke"
+    ],
+    "notes": "FKF's fixtures page lists only upcoming rounds; finished-round dates and venues come from the round's announced schedule (secondary outlets). FKF writes 'Nyayo Stadium' \u2014 the venue list uses 'Nyayo National Stadium'."
   },
   "kenya-cup": {
     "sport": "rugby",
-    "official": { "table": "https://www.kenyacup.co.ke/standings/" },
-    "notes": "Already scraped daily by server/jobs/syncKenyaCup.js (standings only). Rugby tables include bonus points, so reconcile can't recompute them — use --skip-reconcile with that reason."
+    "official": {
+      "table": "https://www.kenyacup.co.ke/standings/",
+      "fixtures": "https://www.kenyacup.co.ke/kenya-cup-2025-26-season/ (one page per season; find the new one on kenyacup.co.ke)",
+      "news": "https://www.kru.co.ke/news"
+    },
+    "officialNames": "Use kenyacup.co.ke's spellings (KCB Rugby, KU BlakBlad, Nondescript RFC, Kenya Harlequin FC, MMUST).",
+    "secondary": [
+      "capitalfm.africa",
+      "citizen.digital",
+      "standardmedia.co.ke / thestandard.ke"
+    ],
+    "notes": "Tables include try and losing bonus points (+1 for 4+ tries, +1 for losing by 7 or fewer; from outlets, not a KRU document), so reconcile can't rebuild them: --skip-reconcile and take standings from the official table. The official fixtures page gives no kick-off times and few venues. 2026/27 expected to start in November (Kabras Sugar v KCB Rugby); Mwamba RFC and JKUAT Cougars promoted, Kisumu RFC and MMUST relegated (KRU, 10 Jun 2026). Start a new season in admin before entering 2026/27 \u2014 server/jobs/syncKenyaCup.js writes standings into whichever season is current."
   },
   "khu-premier-league": {
     "sport": "hockey",
-    "official": {},
-    "secondary": ["hockeyke.com (robots allows; table gives GD only — ask HockeyKE before relying on it)"],
-    "notes": "No automated source agreed yet."
+    "official": {
+      "table": "https://www.kenyahockeyunion.org/joomsport_season/premier-league-men-plm-2026/",
+      "results": "https://www.kenyahockeyunion.org/joomsport_season/premier-league-men-plm-2026/?action=calendar (paged: add &pagejs=N&jslimit=25)"
+    },
+    "officialNames": "Use the KHU's spellings: Butali Warriors, Western Jaguars, Sikh Union Nairobi, Kenya Police, Parklands Sports Club, Kisumu Youngsters, USIU \u2013 A (spaced en dash), Greensharks, Daikyo Heroes, Wazalendo.",
+    "secondary": [
+      "standardmedia.co.ke / thestandard.ke",
+      "mozzartsport.co.ke (hockey reporting; owned by a betting firm \u2014 corroboration only)"
+    ],
+    "notes": "Rule 3/1/0 (derived: every official row is Pts = 3W + D). The KHU calendar gives dates and times but no venues; venues come from news, one outlet each. Three USIU \u2013 A results are listed by KHU as 5-0 (apparently awarded) where The Standard reported other scores \u2014 the KHU figure is what the official table uses. HockeyKE (hockeyke.com) is third-party, renders client-side and was ~3.5 months stale on 2026-10-17: don't use it as a source."
   },
   "kbf-premier-league": {
     "sport": "basketball",
     "official": {},
-    "secondary": ["standardmedia.co.ke / thestandard.ke", "capitalfm.africa"],
-    "notes": "Results only appear in news reports — every score needs two outlets."
+    "secondary": [
+      "standardmedia.co.ke / thestandard.ke",
+      "citizen.digital",
+      "capitalfm.africa",
+      "afrobasket.com (third-party; the only full regular-season table found, W-L only)"
+    ],
+    "notes": "No KBF website or KBF-published table or results found (2026-10-17). Every score needs two different outlets. Table points are 2 per win, 1 per loss (consistent with The Standard's and Citizen's published figures; no rulebook found). Playoff games share the competition, so never rebuild the table from results \u2014 enter the regular-season table directly. Citizen calls the league 'KNBL' / 'National Men's Basketball Premier League' (possible rebrand, unconfirmed). Scores often pass 100."
+  },
+  "national-super-league": {
+    "sport": "football",
+    "official": {
+      "overview": "https://footballkenya.org/leagues (find the NSL table/fixtures pages from here)"
+    },
+    "secondary": [
+      "capitalfm.africa",
+      "citizen.digital",
+      "standardmedia.co.ke / thestandard.ke"
+    ],
+    "notes": "As of 2026-10-17 the 2026/27 NSL hasn't started: FKF's NSL pages still show 2025/26, and 19 clubs have asked for it not to start until they meet the FKF president. Kariobangi Sharks relegated from the KPL (FKF ruling, 9 Oct 2026). A 25 Oct kick-off appeared only on a betting-firm site \u2014 not confirmed. FKF Cup: next edition not yet drawn; Division One: no official tables published."
   }
 }

@@ -49,7 +49,10 @@ You are the research half of the results desk. You read official and public page
    - `kickoff`: Nairobi time, `YYYY-MM-DDTHH:MM`. Omit if unconfirmed (an existing fixture keeps its date).
    - Omit `homeScore`/`awayScore` for unplayed or unconfirmed matches. With scores, set `"official": true` only if the official table/page confirms it; otherwise list 2+ independent URLs in `confirmedBy`.
    - Omit a detail field you couldn't confirm; use `""` only to deliberately clear a wrong value.
-   - Venue names: reuse existing ones (`curl -s $DESK_BASE_URL/api/venues`) — "Nyayo National Stadium", not a new spelling.
+   - Venue names: reuse existing ones (`curl -s $DESK_BASE_URL/api/venues`) — "Nyayo National Stadium", not a new spelling. A venue is a ground's name only: never a bare town ("Kakamega"), a guess, or a note ("Kakamega (per The Standard)") — leave it out instead. `apply` lists any venue it had to create; check every one.
+   - The same two teams can meet more than once (playoff series, a league game then a semi-final): always give `kickoff` for those so each row matches the right fixture.
+   - A row's `kickoff` finds the fixture on that date. If there's none, and exactly one *unplayed* fixture between the pair exists, the row is that match **rescheduled** — `plan` shows `RESCHEDULED kickoff: … → …`; check it really was moved. For a genuinely extra meeting (the next game of a series while an earlier one is unplayed) add `"new": true`.
+   - `confirmedBy` and `sourceUrl` must be real web addresses; "two outlets" means two different sites.
 
 4. **Write the official table** next to it, e.g. `kpl-table.json` — an array of `{ "team", "played", "won", "drawn", "lost", "goalsFor", "goalsAgainst", "points" }`, copied from the official table as it stands **after** the round.
 
@@ -62,7 +65,7 @@ You are the research half of the results desk. You read official and public page
 
    - `plan` lists every create / detail change / result, and flags `! CORRECT` where an already-published score would change — treat those as serious and double-check them.
    - `reconcile` recomputes the table from all results plus your changeset and compares it with the official one. **Any difference means the research is incomplete or wrong** — a missing match, a wrong score, a mismatched team name. Fix the research; never edit the official table to fit.
-   - Rugby and other sports whose tables can't be computed from scores alone: use `--skip-reconcile "reason"` and say so in the report.
+   - Each sport's points rule lives in `server/lib/pointsRules.js` (football and hockey, 3/1/0). Sports not listed there can't have their table rebuilt from scores: rugby (bonus points) and basketball (no official table; playoffs share the competition). For those use `--skip-reconcile "reason"`, enter the official/best-available table in admin, and say so in the report. Per-sport sources and quirks are in `sources.json` — read the competition's `notes` before starting.
 
 6. **Report to the user and ask for approval**: the plan, the reconcile result, sources used, and open items (unconfirmed scores, TBC venues, source conflicts). Keep it short.
 

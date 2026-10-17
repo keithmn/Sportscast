@@ -1,11 +1,12 @@
 const express = require('express');
 const prisma = require('../db');
 const { slugify } = require('../utils/slugify');
-const { requireRole } = require('../middleware/auth');
+const { requireRole, isEditor } = require('../middleware/auth');
 const { fetchCanonicalStandings, fetchCanonicalCompetition, verifyCanonicalCompetition, fetchCanonicalFixture, verifyCanonicalFixture, listCanonicalFixtureCandidates } = require('../lib/canonicalData');
 const { resolveClubsForFixture, resolveClubIdForTeamName } = require('../lib/clubResolution');
 const { getOrCreateCurrentSeason } = require('../lib/seasonResolution');
 const { resolveVenue } = require('../lib/venueResolution');
+const { pointsRuleFor, computeTable } = require('../lib/pointsRules');
 const { sendPushToFollowers } = require('../lib/push');
 
 const router = express.Router();
@@ -73,9 +74,6 @@ function logChange(entityType, entityId, action, summary, userName) {
 // switched off for Kenyan-first coverage) are hidden from the public;
 // the admin page passes ?includeInactive=1 so editors can still see and
 // re-enable them.
-function isEditor(req) {
-  return ['ADMIN', 'EDITOR'].includes(req.session?.user?.role);
-}
 
 router.get('/', async (req, res) => {
   const showInactive = req.query.includeInactive === '1' && isEditor(req);
@@ -151,6 +149,9 @@ router.get('/:slug', async (req, res) => {
   ]);
   competition.standings = standings;
   competition.fixtures = fixtures;
+  // Whether the table can be rebuilt from scores (lib/pointsRules.js) —
+  // the admin page shows the "Recalculate table" button only then.
+  competition.tableFromResults = !!pointsRuleFor(competition.sport.slug);
   competition.seasons = seasons;
   competition.currentSeasonId = currentSeason?.id || null;
   competition.viewingSeasonId = scopeSeasonId;
@@ -393,9 +394,11 @@ router.post('/:id/fixtures/bulk', requireRole('ADMIN', 'EDITOR'), async (req, re
   ]);
 
   const errors = [];
-  const toCreate = [];
-  const venueCache = await prisma.venue.findMany({ select: { id: true, name: true } });
-  const createdVenues = [];
+  // Validate every line first, without writing anything — a line that
+  // duplicates an existing fixture (or another line) used to make
+  // createMany fail on the unique key, a raw 500 that also left any venues
+  // already created for earlier lines behind.
+  const candidates = [];
   for (const [i, f] of fixtures.entries()) {
     if (!f.homeTeam || !f.awayTeam || !f.kickoff) {
       errors.push(`Line ${i + 1}: missing homeTeam, awayTeam, or kickoff`);
@@ -406,6 +409,27 @@ router.post('/:id/fixtures/bulk', requireRole('ADMIN', 'EDITOR'), async (req, re
       errors.push(`Line ${i + 1}: "${f.kickoff}" isn't a valid date`);
       continue;
     }
+    candidates.push({ i, f, kickoff });
+  }
+  const sameFixture = (a, b) => a.homeTeam === b.homeTeam && a.awayTeam === b.awayTeam && a.kickoff.getTime() === b.kickoff.getTime();
+  const already = candidates.length
+    ? await prisma.fixture.findMany({
+      where: { competitionId: req.params.id, OR: candidates.map(({ f, kickoff }) => ({ homeTeam: f.homeTeam, awayTeam: f.awayTeam, kickoff })) },
+      select: { homeTeam: true, awayTeam: true, kickoff: true },
+    })
+    : [];
+  const unique = [];
+  for (const c of candidates) {
+    const probe = { homeTeam: c.f.homeTeam, awayTeam: c.f.awayTeam, kickoff: c.kickoff };
+    if (already.some((x) => sameFixture(x, probe))) errors.push(`Line ${c.i + 1}: ${c.f.homeTeam} vs ${c.f.awayTeam} at that kick-off already exists — skipped`);
+    else if (unique.some((u) => sameFixture({ homeTeam: u.f.homeTeam, awayTeam: u.f.awayTeam, kickoff: u.kickoff }, probe))) errors.push(`Line ${c.i + 1}: duplicates an earlier line — skipped`);
+    else unique.push(c);
+  }
+
+  const toCreate = [];
+  const venueCache = await prisma.venue.findMany({ select: { id: true, name: true } });
+  const createdVenues = [];
+  for (const { f, kickoff } of unique) {
     const { venueId, created } = await resolveVenue(prisma, f.venue, venueCache);
     if (created) createdVenues.push(f.venue.trim());
     toCreate.push({
@@ -501,15 +525,23 @@ router.put('/:id/fixtures/results', requireRole('ADMIN', 'EDITOR'), async (req, 
   }
   const errors = [];
   results.forEach((r, i) => {
-    const ok = (n) => Number.isInteger(n) && n >= 0 && n <= 99;
+    const ok = (n) => Number.isInteger(n) && n >= 0 && n <= 999;
     if (!r.fixtureId) errors.push(`Row ${i + 1}: missing fixtureId`);
-    else if (!ok(r.homeScore) || !ok(r.awayScore)) errors.push(`Row ${i + 1}: scores must be whole numbers from 0 to 99`);
+    else if (!ok(r.homeScore) || !ok(r.awayScore)) errors.push(`Row ${i + 1}: scores must be whole numbers from 0 to 999`);
+  });
+  // The same fixture twice in one save would update it twice, log it twice
+  // and send followers two full-time notifications (possibly with
+  // different scores) — refuse instead of guessing which row is meant.
+  const seenIds = new Set();
+  results.forEach((r, i) => {
+    if (r.fixtureId && seenIds.has(r.fixtureId)) errors.push(`Row ${i + 1}: the same fixture appears more than once`);
+    seenIds.add(r.fixtureId);
   });
   if (errors.length) return res.status(400).json({ error: errors.join('; ') });
 
   const ids = results.map((r) => r.fixtureId);
   const existing = await prisma.fixture.findMany({ where: { id: { in: ids }, competitionId: req.params.id } });
-  if (existing.length !== new Set(ids).size) {
+  if (existing.length !== ids.length) {
     return res.status(400).json({ error: 'One or more fixtures were not found in this competition — reload the page and try again.' });
   }
   const byId = new Map(existing.map((f) => [f.id, f]));
@@ -532,17 +564,20 @@ router.put('/:id/fixtures/results', requireRole('ADMIN', 'EDITOR'), async (req, 
 
 // ---- Admin: rebuild the current season's table from its results ----
 // Standings were hand-typed, separately from results — after every round
-// someone re-entered all 18 rows. This computes them from the season's
-// FINISHED fixtures instead. Football only: 3/1/0 is football's rule;
-// rugby's bonus points and other sports' rules can't be derived from a
-// final score alone, so those keep manual entry. Explicit button, never
-// automatic — a competition's table may carry federation decisions
-// (points deductions, awarded matches) that results alone don't show.
+// someone re-entered every row. This computes them from the season's
+// FINISHED fixtures instead, using the sport's rule from
+// lib/pointsRules.js. Sports whose tables need more than final scores
+// (rugby's bonus points) aren't listed there and keep manual entry.
+// Explicit button, never automatic — a table may carry federation
+// decisions (points deductions, awarded matches) that results alone don't
+// show. Head-to-head tie-breaks (used by some leagues) aren't applied;
+// editors can still adjust by hand afterwards.
 router.post('/:id/standings/recalculate', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const competition = await prisma.competition.findUnique({ where: { id: req.params.id }, include: { sport: true } });
   if (!competition) return res.status(404).json({ error: 'Competition not found' });
-  if (competition.sport.slug !== 'football') {
-    return res.status(400).json({ error: `Automatic tables use football's 3/1/0 points rule — ${competition.sport.name} standings still need manual entry.` });
+  const rule = pointsRuleFor(competition.sport.slug);
+  if (!rule) {
+    return res.status(400).json({ error: `${competition.sport.name} tables can't be rebuilt from scores alone (e.g. bonus points) — standings still need manual entry.` });
   }
   const season = await getOrCreateCurrentSeason(prisma, competition.id);
   const fixtures = await prisma.fixture.findMany({
@@ -550,29 +585,7 @@ router.post('/:id/standings/recalculate', requireRole('ADMIN', 'EDITOR'), async 
   });
   if (!fixtures.length) return res.status(400).json({ error: 'No finished fixtures with scores in the current season yet.' });
 
-  const table = new Map();
-  const row = (name) => {
-    if (!table.has(name)) table.set(name, { teamName: name, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 });
-    return table.get(name);
-  };
-  for (const f of fixtures) {
-    const h = row(f.homeTeam); const a = row(f.awayTeam);
-    h.played++; a.played++;
-    h.goalsFor += f.homeScore; h.goalsAgainst += f.awayScore;
-    a.goalsFor += f.awayScore; a.goalsAgainst += f.homeScore;
-    if (f.homeScore > f.awayScore) { h.won++; a.lost++; h.points += 3; }
-    else if (f.homeScore < f.awayScore) { a.won++; h.lost++; a.points += 3; }
-    else { h.drawn++; a.drawn++; h.points++; a.points++; }
-  }
-  // Points, goal difference, goals scored, then name — the name only so
-  // re-running on unchanged data always gives the same order. Head-to-head
-  // tie-breaks (used by some leagues) aren't applied; editors can still
-  // adjust by hand afterwards.
-  const ranked = [...table.values()].sort((x, y) =>
-    y.points - x.points
-    || (y.goalsFor - y.goalsAgainst) - (x.goalsFor - x.goalsAgainst)
-    || y.goalsFor - x.goalsFor
-    || x.teamName.localeCompare(y.teamName));
+  const ranked = computeTable(fixtures.map((f) => ({ home: f.homeTeam, away: f.awayTeam, homeScore: f.homeScore, awayScore: f.awayScore })), rule);
 
   await prisma.$transaction([
     prisma.standingRow.deleteMany({ where: { competitionId: competition.id, seasonId: season.id } }),

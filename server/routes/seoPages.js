@@ -32,9 +32,11 @@ router.get('/club.html', async (req, res, next) => {
   try {
     const club = await prisma.club.findUnique({
       where: { slug },
-      select: { name: true, venue: true, crestUrl: true, competition: { select: { name: true, sport: { select: { name: true } } } } },
+      select: { name: true, venue: true, crestUrl: true, competition: { select: { name: true, isActive: true, sport: { select: { name: true } } } } },
     });
-    if (!club) return next();
+    // Hidden competitions (Competition.isActive false): plain static shell,
+    // no real title/description for search engines — same as their 404ing API.
+    if (!club || !club.competition.isActive) return next();
     res.type('html').send(renderSeoHtml('club.html', {
       title: `${club.name} — ${SITE_NAME}`,
       description: `${club.name} — ${club.competition.sport.name}, ${club.competition.name}${club.venue ? `. Plays at ${club.venue}` : ''}. Squad, fixtures, and news on ${SITE_NAME}.`,
@@ -53,9 +55,9 @@ router.get('/player.html', async (req, res, next) => {
   try {
     const player = await prisma.player.findUnique({
       where: { slug },
-      select: { name: true, position: true, nationality: true, photoUrl: true, club: { select: { name: true } } },
+      select: { name: true, position: true, nationality: true, photoUrl: true, club: { select: { name: true, competition: { select: { isActive: true } } } } },
     });
-    if (!player) return next();
+    if (!player || !player.club.competition.isActive) return next();
     const context = [player.position, player.nationality].filter(Boolean).join(', ');
     res.type('html').send(renderSeoHtml('player.html', {
       title: `${player.name} — ${SITE_NAME}`,
@@ -75,9 +77,9 @@ router.get('/competition.html', async (req, res, next) => {
   try {
     const competition = await prisma.competition.findUnique({
       where: { slug },
-      select: { name: true, category: true, sport: { select: { name: true } } },
+      select: { name: true, category: true, isActive: true, sport: { select: { name: true } } },
     });
-    if (!competition) return next();
+    if (!competition || !competition.isActive) return next();
     res.type('html').send(renderSeoHtml('competition.html', {
       title: `${competition.name} — ${SITE_NAME}`,
       description: `Standings, fixtures, and results for ${competition.name} (${competition.sport.name}) on ${SITE_NAME}.`,

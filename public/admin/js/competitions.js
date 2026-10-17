@@ -127,13 +127,13 @@ function dueFixtures(competition) {
 
 function matchdayPanelHtml(competition) {
   const due = dueFixtures(competition);
-  const isFootball = competition.sport.slug === 'football';
+  const canRecalculate = competition.tableFromResults;
   const rows = due.map((f) => `
     <div class="matchday-row" data-fixture-id="${f.id}">
       <span class="matchday-team matchday-home">${escapeHtml(f.homeTeam)}</span>
-      <input type="number" min="0" max="99" inputmode="numeric" data-score="home" aria-label="${escapeHtml(f.homeTeam)} score">
+      <input type="number" min="0" max="999" inputmode="numeric" data-score="home" aria-label="${escapeHtml(f.homeTeam)} score">
       <span class="matchday-dash">–</span>
-      <input type="number" min="0" max="99" inputmode="numeric" data-score="away" aria-label="${escapeHtml(f.awayTeam)} score">
+      <input type="number" min="0" max="999" inputmode="numeric" data-score="away" aria-label="${escapeHtml(f.awayTeam)} score">
       <span class="matchday-team">${escapeHtml(f.awayTeam)}</span>
       <span class="matchday-date">${new Date(f.kickoff).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })}</span>
     </div>`).join('');
@@ -145,7 +145,7 @@ function matchdayPanelHtml(competition) {
         : '<p class="empty-state" style="padding:0 0 0.5rem; font-size:0.8rem;">No fixtures waiting for a result.</p>'}
       <div style="display:flex; gap:0.75rem; flex-wrap:wrap; margin-top:0.75rem;">
         ${due.length ? `<button type="button" class="btn-sm-red save-results-btn" data-competition-id="${competition.id}">Save all results</button>` : ''}
-        ${isFootball ? `<button type="button" class="btn-outline-sm recalc-table-btn" data-competition-id="${competition.id}">Recalculate table from results</button>` : ''}
+        ${canRecalculate ? `<button type="button" class="btn-outline-sm recalc-table-btn" data-competition-id="${competition.id}">Recalculate table from results</button>` : ''}
       </div>
       <p class="form-error matchday-error" data-competition-id="${competition.id}" style="display:none; margin-top:0.5rem;"></p>
       <p class="matchday-success" data-competition-id="${competition.id}" style="display:none; margin-top:0.5rem; color:var(--gold-text); font-size:0.85rem;"></p>
