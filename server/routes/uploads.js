@@ -15,16 +15,14 @@
 // ingest via sharp, same discipline BLUEPRINT.md §35 already established
 // by hand for the one real photo in this repo — this makes it automatic.
 //
-// sharp is pinned to 0.33.x, not latest — found the hard way in
-// production: sharp >=0.34 requires Node >=20.9, but this app's Railway
-// container runs Node 18.20.8 (package.json's engines field only pins
-// ">=18"), so requiring a newer sharp here crashed the entire process on
-// boot, not just this route (server/index.js requires this file
-// unconditionally at startup). 0.33.5 supports Node 18.17+ and carries
-// known-but-lower-severity libvips/libheif CVEs than an unpatched public
-// endpoint would — acceptable here since this route is admin/editor-only,
-// not open to arbitrary public uploads. Bumping past 0.33.x needs the
-// Railway Node version raised first, as a separate, deliberate change.
+// sharp history: it was pinned to 0.33.x after sharp >=0.34 (which needs
+// Node >=20.9) crashed the whole process on boot in production, where the
+// Railway container ran Node 18.20.8. 2026-10-17: package.json's engines
+// now pins Node 24.x (Node 18 and 20 are both end-of-life), so sharp was
+// moved to 0.35.x, picking up the patched libvips. Don't lower the engines
+// pin without re-pinning sharp below 0.34 at the same time — server/
+// index.js requires this file unconditionally at startup, so a mismatch
+// takes the whole site down, not just this route.
 const express = require('express');
 const multer = require('multer');
 const sharp = require('sharp');
