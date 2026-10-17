@@ -31,6 +31,24 @@ function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// Match details line shared by fixture rows (scores.js) and the Match Hub
+// (match.js): round · kick-off time · venue · broadcaster. Kick-off time
+// and broadcaster only for matches not yet played. With no confirmed venue,
+// an upcoming home side's usual ground is shown as "Usually at …" — the
+// "Usually" is deliberate, never presented as the confirmed venue.
+function fixtureDetailParts(f) {
+  const upcoming = !['FINISHED', 'POSTPONED'].includes(f.status);
+  const parts = [];
+  if (f.round) parts.push(f.round);
+  if (upcoming && f.kickoff) {
+    parts.push(new Date(f.kickoff).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' }));
+  }
+  if (f.venue?.name) parts.push(f.venue.name);
+  else if (upcoming && f.homeClub?.venue) parts.push(`Usually at ${f.homeClub.venue}`);
+  if (upcoming && f.broadcaster) parts.push(`On ${f.broadcaster}`);
+  return parts;
+}
+
 function relativeTime(dateStr) {
   if (!dateStr) return '';
   const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
@@ -127,7 +145,7 @@ function renderHeader() {
   el.innerHTML = `
     <header class="site-header">
       <a href="/index.html" class="nav-logo" aria-label="The Sportscast — Home">
-        <img src="/brand/logo/lockup-lower-gold.png" alt="The Sportscast by Underdawgs" style="height:76px; width:auto;">
+        <img src="/brand/logo/lockup-lower-gold.png" alt="The Sportscast by Underdawgs" class="site-header-logo">
       </a>
     </header>`;
 }
@@ -140,9 +158,12 @@ function renderNav(activeHref) {
       <ul class="nav-links" role="list">
         ${NAV_LINKS.map((l) => l.type === 'dropdown'
           ? navDropdownTriggerHtml(l.key, l.label)
-          : `<li><a href="${l.href}" class="${activeHref === l.href ? 'active' : ''}">${l.label}</a></li>`
+          : `<li class="nav-item-${l.label.toLowerCase()}"><a href="${l.href}" class="${activeHref === l.href ? 'active' : ''}">${l.label}</a></li>`
         ).join('')}
       </ul>
+      <a href="/search.html" class="nav-search-btn" aria-label="Search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16.2" y2="16.2"></line></svg>
+      </a>
       <button type="button" class="theme-toggle" id="theme-toggle">
         <svg class="theme-toggle-icon theme-toggle-icon--sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><line x1="12" y1="2" x2="12" y2="4.5"></line><line x1="12" y1="19.5" x2="12" y2="22"></line><line x1="4.22" y1="4.22" x2="5.94" y2="5.94"></line><line x1="18.06" y1="18.06" x2="19.78" y2="19.78"></line><line x1="2" y1="12" x2="4.5" y2="12"></line><line x1="19.5" y1="12" x2="22" y2="12"></line><line x1="4.22" y1="19.78" x2="5.94" y2="18.06"></line><line x1="18.06" y1="5.94" x2="19.78" y2="4.22"></line></svg>
         <svg class="theme-toggle-icon theme-toggle-icon--moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>

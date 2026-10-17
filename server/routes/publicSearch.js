@@ -80,7 +80,7 @@ router.get('/', publicWriteLimiter, async (req, res) => {
 
   if (typesToSearch.includes('club')) {
     const clubs = await prisma.club.findMany({
-      where: { name: { contains: query } },
+      where: { name: { contains: query }, competition: { isActive: true } },
       include: { competition: { include: { sport: true } } },
       take: MAX_PER_TYPE,
     });
@@ -89,7 +89,7 @@ router.get('/', publicWriteLimiter, async (req, res) => {
 
   if (typesToSearch.includes('player')) {
     const players = await prisma.player.findMany({
-      where: { name: { contains: query } },
+      where: { name: { contains: query }, club: { competition: { isActive: true } } },
       include: { club: { include: { competition: { include: { sport: true } } } } },
       take: MAX_PER_TYPE,
     });
@@ -98,7 +98,7 @@ router.get('/', publicWriteLimiter, async (req, res) => {
 
   if (typesToSearch.includes('competition')) {
     const competitions = await prisma.competition.findMany({
-      where: { name: { contains: query } },
+      where: { name: { contains: query }, isActive: true },
       include: { sport: true },
       take: MAX_PER_TYPE,
     });

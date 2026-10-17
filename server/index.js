@@ -31,6 +31,7 @@ const sitemapRoutes = require('./routes/sitemap');
 const taxonomyRoutes = require('./routes/taxonomy');
 const competitionRoutes = require('./routes/competitions');
 const fixtureRoutes = require('./routes/fixtures');
+const venueRoutes = require('./routes/venues');
 const submissionRoutes = require('./routes/submissions');
 const clubRoutes = require('./routes/clubs');
 const playerRoutes = require('./routes/players');
@@ -185,6 +186,7 @@ app.use('/api/episodes', buildEpisodesRouter(rawRecordingsDir, uploadsDir));
 app.use('/api', taxonomyRoutes); // /api/sports, /api/tags, /api/authors
 app.use('/api/competitions', competitionRoutes);
 app.use('/api/fixtures', fixtureRoutes);
+app.use('/api/venues', venueRoutes);
 app.use('/api/submissions', submissionRoutes);
 app.use('/api/clubs', clubRoutes);
 app.use('/api/players', playerRoutes);

@@ -39,8 +39,8 @@ router.get('/sitemap.xml', async (req, res) => {
     const [articles, shows, competitions, clubs, sports] = await Promise.all([
       prisma.article.findMany({ where: { status: 'PUBLISHED' }, select: { slug: true, updatedAt: true } }),
       prisma.show.findMany({ where: { isActive: true }, select: { slug: true, updatedAt: true } }),
-      prisma.competition.findMany({ select: { slug: true } }),
-      prisma.club.findMany({ select: { slug: true } }),
+      prisma.competition.findMany({ where: { isActive: true }, select: { slug: true } }),
+      prisma.club.findMany({ where: { competition: { isActive: true } }, select: { slug: true } }),
       prisma.sport.findMany({ select: { slug: true } }),
     ]);
 

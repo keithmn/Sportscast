@@ -147,7 +147,10 @@ async function syncLeagues() {
   // externalProvider filter matters now that other API-sourced competitions
   // exist (TheSportsDB, see syncTheSportsDB.js) — this job only knows how to
   // talk to football-data.org's endpoint shape.
-  const competitions = await prisma.competition.findMany({ where: { source: 'API', externalProvider: 'football-data.org' } });
+  // isActive: hidden competitions (Kenyan-first coverage, 2026-10-17 —
+  // foreign club leagues) aren't synced at all, which also spends far less
+  // of football-data.org's free-tier rate limit.
+  const competitions = await prisma.competition.findMany({ where: { source: 'API', externalProvider: 'football-data.org', isActive: true } });
   if (!competitions.length) {
     console.log('[syncLeagues] No API-sourced competitions to sync.');
     return;

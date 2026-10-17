@@ -8,7 +8,9 @@ const router = express.Router();
 
 // ---- Public: list clubs, optionally filtered by competition ----
 router.get('/', async (req, res) => {
-  const where = req.query.competition ? { competition: { slug: req.query.competition } } : {};
+  // Clubs of hidden competitions (Competition.isActive false) stay out of
+  // public club lists.
+  const where = { competition: { isActive: true, ...(req.query.competition ? { slug: req.query.competition } : {}) } };
   const clubs = await prisma.club.findMany({
     where,
     include: { competition: { include: { sport: true } } },
@@ -28,7 +30,8 @@ router.get('/:slug', async (req, res) => {
       sponsors: { orderBy: { name: 'asc' } },
     },
   });
-  if (!club) return res.status(404).json({ error: 'Club not found' });
+  const isEditor = ['ADMIN', 'EDITOR'].includes(req.session?.user?.role);
+  if (!club || (!club.competition.isActive && !isEditor)) return res.status(404).json({ error: 'Club not found' });
 
   // Fails soft — see lib/canonicalData.js. A Data Platform outage, or a
   // club/player with no mapping at all, just means these come back null,

@@ -151,7 +151,7 @@ async function syncClub(competition, teamName) {
 }
 
 async function syncSquads() {
-  const competitions = await prisma.competition.findMany({ where: { syncSquads: true } });
+  const competitions = await prisma.competition.findMany({ where: { syncSquads: true, isActive: true } });
   if (!competitions.length) {
     console.log('[syncSquads] No competitions flagged for squad sync.');
     return;

@@ -40,6 +40,11 @@ function fixtureAdminRowHtml(f, listId) {
         <button type="button" class="btn-outline-sm delete-fixture-btn" style="color:var(--danger); border-color:var(--danger);">✕</button>
         <button type="button" class="btn-outline-sm canonical-fixture-toggle-btn" style="font-size:0.72rem;">🔗 Canonical</button>
       </span>
+      <div class="fixture-details-edit">
+        <input type="text" value="${escapeHtml(f.venue?.name || '')}" data-field="venue" placeholder="Venue${f.homeClub?.venue ? ` (usually ${escapeHtml(f.homeClub.venue)})` : ''}" list="venue-options">
+        <input type="text" value="${escapeHtml(f.round || '')}" data-field="round" placeholder="Round, e.g. Matchweek 2">
+        <input type="text" value="${escapeHtml(f.broadcaster || '')}" data-field="broadcaster" placeholder="Broadcaster, e.g. Azam TV">
+      </div>
       ${postponedNote}
       ${clubMatchNote}
       <div class="canonical-fixture-panel" style="display:none; grid-column:1/-1; font-size:0.78rem; margin-top:0.25rem;"></div>
@@ -109,12 +114,54 @@ function seasonSectionHtml(competition, seasons) {
     </div>`;
 }
 
+// Match-day results panel: every fixture that has kicked off (or kicks
+// off within the next 12 hours) and isn't FINISHED or POSTPONED yet, with
+// just two score boxes each — one Save for the whole round instead of one
+// per fixture. Rows left blank are simply not submitted.
+function dueFixtures(competition) {
+  const cutoff = Date.now() + 12 * 60 * 60 * 1000;
+  return competition.fixtures
+    .filter((f) => !['FINISHED', 'POSTPONED'].includes(f.status) && new Date(f.kickoff).getTime() <= cutoff)
+    .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
+}
+
+function matchdayPanelHtml(competition) {
+  const due = dueFixtures(competition);
+  const isFootball = competition.sport.slug === 'football';
+  const rows = due.map((f) => `
+    <div class="matchday-row" data-fixture-id="${f.id}">
+      <span class="matchday-team matchday-home">${escapeHtml(f.homeTeam)}</span>
+      <input type="number" min="0" max="99" inputmode="numeric" data-score="home" aria-label="${escapeHtml(f.homeTeam)} score">
+      <span class="matchday-dash">–</span>
+      <input type="number" min="0" max="99" inputmode="numeric" data-score="away" aria-label="${escapeHtml(f.awayTeam)} score">
+      <span class="matchday-team">${escapeHtml(f.awayTeam)}</span>
+      <span class="matchday-date">${new Date(f.kickoff).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })}</span>
+    </div>`).join('');
+  return `
+    <div class="matchday-panel" data-competition-id="${competition.id}">
+      <span class="section-label" style="font-size:0.68rem;">Match-day Results</span>
+      ${due.length
+        ? `<p class="empty-state" style="padding:0 0 0.5rem; font-size:0.8rem;">${due.length} fixture(s) kicked off with no result yet. Fill in what's final, leave the rest blank, save once.</p>${rows}`
+        : '<p class="empty-state" style="padding:0 0 0.5rem; font-size:0.8rem;">No fixtures waiting for a result.</p>'}
+      <div style="display:flex; gap:0.75rem; flex-wrap:wrap; margin-top:0.75rem;">
+        ${due.length ? `<button type="button" class="btn-sm-red save-results-btn" data-competition-id="${competition.id}">Save all results</button>` : ''}
+        ${isFootball ? `<button type="button" class="btn-outline-sm recalc-table-btn" data-competition-id="${competition.id}">Recalculate table from results</button>` : ''}
+      </div>
+      <p class="form-error matchday-error" data-competition-id="${competition.id}" style="display:none; margin-top:0.5rem;"></p>
+      <p class="matchday-success" data-competition-id="${competition.id}" style="display:none; margin-top:0.5rem; color:var(--gold-text); font-size:0.85rem;"></p>
+    </div>`;
+}
+
 function competitionBlockHtml(competition, teamNames, seasons) {
   const listId = `teamnames-${competition.id}`;
   return `
     <div class="card" style="margin-bottom:2.5rem; cursor:default;">
-      <span class="card-eyebrow">${escapeHtml(competition.sport.name)} · ${escapeHtml(competition.category)} · ${escapeHtml(competition.source)}</span>
+      <span class="card-eyebrow">${escapeHtml(competition.sport.name)} · ${escapeHtml(competition.category)} · ${escapeHtml(competition.source)}${competition.isActive ? '' : ' · HIDDEN'}</span>
       <h3 class="card-title">${escapeHtml(competition.name)}</h3>
+      <label class="checkbox-row" style="margin-top:0.5rem;">
+        <input type="checkbox" class="active-toggle" data-competition-id="${competition.id}" ${competition.isActive ? 'checked' : ''}>
+        <span style="font-size:0.85rem;">Show on public site (hidden competitions keep their data and stop syncing)</span>
+      </label>
       <datalist id="${listId}">
         ${teamNames.map((n) => `<option value="${escapeHtml(n)}">`).join('')}
       </datalist>
@@ -127,6 +174,8 @@ function competitionBlockHtml(competition, teamNames, seasons) {
       </label>
 
       ${canonicalLinkWidgetHtml('competition', competition.id, competition.canonicalCompetition)}
+
+      ${matchdayPanelHtml(competition)}
 
       <div style="margin-top:1.5rem;">
         <span class="section-label" style="font-size:0.68rem;">Standings</span>
@@ -147,17 +196,23 @@ function competitionBlockHtml(competition, teamNames, seasons) {
         <div class="fixture-admin-row" style="margin-top:0.75rem;">
           <input type="text" placeholder="Home team" data-new-fixture="homeTeam" list="${listId}">
           <input type="text" placeholder="Away team" data-new-fixture="awayTeam" list="${listId}">
-          <input type="datetime-local" data-new-fixture="kickoff">
+          <input type="datetime-local" data-new-fixture="kickoff" title="Kick-off, Nairobi time">
           <span></span>
           <span></span>
           <button type="button" class="btn-outline-sm add-fixture-btn" data-competition-id="${competition.id}">+ Add Fixture</button>
+          <div class="fixture-details-edit">
+            <input type="text" placeholder="Venue" data-new-fixture="venue" list="venue-options">
+            <input type="text" placeholder="Round, e.g. Matchweek 2" data-new-fixture="round">
+            <input type="text" placeholder="Broadcaster, e.g. Azam TV" data-new-fixture="broadcaster">
+          </div>
         </div>
       </div>
 
       <div style="margin-top:2rem;">
         <span class="section-label" style="font-size:0.68rem;">Bulk Import a Season's Fixtures</span>
         <p class="empty-state" style="padding:0 0 0.5rem; font-size:0.8rem;">
-          One fixture per line: <code>Home Team vs Away Team | 2026-08-23T15:00</code>
+          One fixture per line, Nairobi time: <code>Home Team vs Away Team | 2026-08-23T15:00</code><br>
+          Optionally add venue, round and broadcaster: <code>APS Bomet vs Gor Mahia | 2026-10-17T15:00 | Raila Odinga Stadium | Matchweek 2 | Azam TV</code>. Leave a column empty to skip it, e.g. <code>... | 2026-10-17T15:00 | | Matchweek 2</code>.
         </p>
         <textarea data-bulk-fixtures="${competition.id}" rows="5" style="width:100%; background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); padding:0.6rem; font-family:ui-monospace,monospace; font-size:0.82rem;" placeholder="Gor Mahia FC vs Tusker FC | 2026-08-23T15:00
 AFC Leopards vs Kakamega Homeboyz | 2026-08-24T15:00"></textarea>
@@ -192,9 +247,9 @@ function parseBulkFixtures(text) {
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => {
-      const [teamsPart, kickoffPart] = line.split('|').map((s) => s.trim());
+      const [teamsPart, kickoffPart, venue, round, broadcaster] = line.split('|').map((s) => s.trim());
       const [homeTeam, awayTeam] = (teamsPart || '').split(' vs ').map((s) => s.trim());
-      return { homeTeam, awayTeam, kickoff: kickoffPart };
+      return { homeTeam, awayTeam, kickoff: kickoffPart, venue, round, broadcaster };
     });
 }
 
@@ -220,8 +275,22 @@ async function loadChangeLog() {
 }
 
 async function loadCompetitions() {
-  const { competitions } = await api('/api/competitions');
+  const { competitions: all } = await api('/api/competitions?includeInactive=1');
+  // Active competitions first, hidden ones (foreign club leagues, switched
+  // off for Kenyan-first coverage) collected at the bottom.
+  const competitions = [...all.filter((c) => c.isActive), ...all.filter((c) => !c.isActive)];
   const root = document.getElementById('competitions-root');
+  // One shared venue list for every venue input's autocomplete, so editors
+  // pick an existing ground ("Nyayo National Stadium") instead of typing a
+  // second spelling of it.
+  const { venues } = await api('/api/venues');
+  let venueList = document.getElementById('venue-options');
+  if (!venueList) {
+    venueList = document.createElement('datalist');
+    venueList.id = 'venue-options';
+    document.body.appendChild(venueList);
+  }
+  venueList.innerHTML = venues.map((v) => `<option value="${escapeHtml(v.name)}">`).join('');
   if (!competitions.length) {
     root.innerHTML = '<p class="empty-state">No competitions added yet — add one above to start entering standings and fixtures.</p>';
     return;
@@ -240,6 +309,17 @@ async function loadCompetitions() {
   wireCanonicalLinkWidgets(root, {
     endpointFor: (kind, localId) => `/api/competitions/${localId}/canonical-competition`,
     onChange: loadCompetitions,
+  });
+
+  root.querySelectorAll('.active-toggle').forEach((checkbox) => {
+    checkbox.addEventListener('change', async () => {
+      await api(`/api/competitions/${checkbox.dataset.competitionId}/active`, {
+        method: 'PUT',
+        body: JSON.stringify({ isActive: checkbox.checked }),
+      });
+      loadCompetitions();
+      loadChangeLog();
+    });
   });
 
   root.querySelectorAll('.sync-squads-toggle').forEach((checkbox) => {
@@ -299,7 +379,11 @@ async function loadCompetitions() {
       const awayTeam = row.querySelector('[data-new-fixture="awayTeam"]').value.trim();
       const kickoff = row.querySelector('[data-new-fixture="kickoff"]').value;
       if (!homeTeam || !awayTeam || !kickoff) return;
-      await api(`/api/competitions/${btn.dataset.competitionId}/fixtures`, { method: 'POST', body: JSON.stringify({ homeTeam, awayTeam, kickoff }) });
+      const detail = (k) => row.querySelector(`[data-new-fixture="${k}"]`).value.trim();
+      await api(`/api/competitions/${btn.dataset.competitionId}/fixtures`, {
+        method: 'POST',
+        body: JSON.stringify({ homeTeam, awayTeam, kickoff, venue: detail('venue'), round: detail('round'), broadcaster: detail('broadcaster') }),
+      });
       loadCompetitions();
       loadChangeLog();
     });
@@ -320,6 +404,9 @@ async function loadCompetitions() {
           homeScore: homeScoreVal === '' ? null : parseInt(homeScoreVal, 10),
           awayScore: awayScoreVal === '' ? null : parseInt(awayScoreVal, 10),
           status: get('status'),
+          venue: get('venue'),
+          round: get('round'),
+          broadcaster: get('broadcaster'),
         }),
       });
       loadCompetitions();
@@ -358,6 +445,63 @@ async function loadCompetitions() {
     });
   });
 
+  const showMatchdayMessage = (competitionId, { error, success }) => {
+    const errorEl = root.querySelector(`.matchday-error[data-competition-id="${competitionId}"]`);
+    const okEl = root.querySelector(`.matchday-success[data-competition-id="${competitionId}"]`);
+    errorEl.style.display = error ? 'block' : 'none';
+    errorEl.textContent = error || '';
+    okEl.style.display = success ? 'block' : 'none';
+    okEl.textContent = success || '';
+  };
+
+  root.querySelectorAll('.save-results-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const competitionId = btn.dataset.competitionId;
+      const panel = root.querySelector(`.matchday-panel[data-competition-id="${competitionId}"]`);
+      const results = [];
+      const problems = [];
+      panel.querySelectorAll('.matchday-row').forEach((row) => {
+        const h = row.querySelector('[data-score="home"]').value.trim();
+        const a = row.querySelector('[data-score="away"]').value.trim();
+        if (h === '' && a === '') return;
+        if (h === '' || a === '') {
+          problems.push(`${row.querySelector('.matchday-home').textContent}: enter both scores or neither`);
+          return;
+        }
+        results.push({ fixtureId: row.dataset.fixtureId, homeScore: parseInt(h, 10), awayScore: parseInt(a, 10) });
+      });
+      if (problems.length) return showMatchdayMessage(competitionId, { error: problems.join('; ') });
+      if (!results.length) return showMatchdayMessage(competitionId, { error: 'No scores entered yet.' });
+      btn.disabled = true;
+      try {
+        const { saved } = await api(`/api/competitions/${competitionId}/fixtures/results`, { method: 'PUT', body: JSON.stringify({ results }) });
+        await loadCompetitions();
+        loadChangeLog();
+        showMatchdayMessage(competitionId, { success: `Saved ${saved} result(s).` });
+      } catch (err) {
+        btn.disabled = false;
+        showMatchdayMessage(competitionId, { error: err.message });
+      }
+    });
+  });
+
+  root.querySelectorAll('.recalc-table-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const competitionId = btn.dataset.competitionId;
+      if (!confirm('Rebuild this season\'s table from its finished results? Any hand-entered standings for the current season (e.g. points deductions) will be replaced.')) return;
+      btn.disabled = true;
+      try {
+        const { standings, fromResults } = await api(`/api/competitions/${competitionId}/standings/recalculate`, { method: 'POST', body: '{}' });
+        await loadCompetitions();
+        loadChangeLog();
+        showMatchdayMessage(competitionId, { success: `Table rebuilt: ${standings} teams from ${fromResults} result(s).` });
+      } catch (err) {
+        btn.disabled = false;
+        showMatchdayMessage(competitionId, { error: err.message });
+      }
+    });
+  });
+
   root.querySelectorAll('.bulk-import-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const competitionId = btn.dataset.competitionId;
@@ -371,8 +515,11 @@ async function loadCompetitions() {
           method: 'POST',
           body: JSON.stringify({ fixtures }),
         });
-        if (result.errors.length) {
-          errorEl.textContent = `Imported ${result.created}. Skipped: ${result.errors.join('; ')}`;
+        const notes = [];
+        if (result.errors.length) notes.push(`Imported ${result.created}. Skipped: ${result.errors.join('; ')}`);
+        if (result.createdVenues?.length) notes.push(`New venue(s) added to the list — check the spelling: ${[...new Set(result.createdVenues)].join(', ')}`);
+        if (notes.length) {
+          errorEl.textContent = notes.join(' — ');
           errorEl.style.display = 'block';
         }
         loadCompetitions();

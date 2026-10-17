@@ -312,6 +312,12 @@ model Competition {
   // competition's own StandingRow data (already authoritative for API
   // competitions), so no separate external id is needed here at all.
   syncSquads       Boolean             @default(false)
+  // Kenyan-first coverage (2026-10-17): false hides a competition from
+  // every public page/API and stops its sync job, without deleting any of
+  // its data — toggled from the admin Competitions page. Foreign club
+  // leagues (EPL, Bundesliga, NBA, ...) were switched off because they
+  // were overshadowing Kenyan competitions.
+  isActive         Boolean             @default(true)
   standings        StandingRow[]
   fixtures         Fixture[]
   seasons          CompetitionSeason[]
@@ -395,6 +401,15 @@ model Fixture {
   homeScore       Int?
   awayScore       Int?
   status          String             @default("SCHEDULED") // SCHEDULED | LIVE | FINISHED | POSTPONED
+  // Match details added 2026-10-17 — all optional, filled from the
+  // federation's fixtures page or the newsroom's own research. A fixture
+  // with no venueId shows the home club's usual ground (Club.venue),
+  // labelled as such, never as a confirmed venue.
+  venueId         String?
+  venue           Venue?             @relation(fields: [venueId], references: [id])
+  round           String? // "Matchweek 2", "Quarterfinals" — free text, competitions name rounds differently
+  broadcaster     String? // "Azam TV", "KBC" — where to watch
+  sourceUrl       String? // where the fixture details came from, for editors re-checking them
   updatedAt       DateTime           @updatedAt
   articles        Article[]
 
@@ -795,4 +810,19 @@ model PollVote {
   // from the same device for the same poll fails at the DB level even if
   // a client somehow bypassed the app's own check.
   @@unique([pollId, anonymousId])
+}
+
+// Grounds fixtures are played at. A list rather than free text on each
+// fixture so one stadium has one spelling ("Nyayo National Stadium", not
+// also "Nyayo Stadium") and can later get its own page. The Underdawgs
+// Data Platform owns the canonical Venue record; this is Sportscast's local
+// list, linkable to it later the same way Club links to Team.
+model Venue {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  slug      String    @unique
+  city      String?
+  capacity  Int?
+  fixtures  Fixture[]
+  createdAt DateTime  @default(now())
 }

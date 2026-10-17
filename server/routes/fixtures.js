@@ -32,13 +32,14 @@ router.get('/', async (req, res) => {
 
   const fixtures = await prisma.fixture.findMany({
     where: {
-      competition: { sport: { slug: sport } },
+      competition: { sport: { slug: sport }, isActive: true },
       kickoff: { gte: start, lt: end },
     },
     include: {
       competition: { select: { id: true, name: true, slug: true, category: true, region: true } },
-      homeClub: { select: { id: true, name: true, slug: true, crestUrl: true } },
+      homeClub: { select: { id: true, name: true, slug: true, crestUrl: true, venue: true } },
       awayClub: { select: { id: true, name: true, slug: true, crestUrl: true } },
+      venue: { select: { id: true, name: true, slug: true, city: true } },
     },
     orderBy: { kickoff: 'asc' },
   });
@@ -64,12 +65,13 @@ router.get('/upcoming', async (req, res) => {
     where: {
       status: { not: 'FINISHED' },
       kickoff: { gte: since },
-      competition: { sport: { isActive: true } },
+      competition: { sport: { isActive: true }, isActive: true },
     },
     include: {
       competition: { select: { id: true, name: true, slug: true, category: true, region: true, sport: { select: { name: true, slug: true } } } },
-      homeClub: { select: { id: true, name: true, slug: true, crestUrl: true } },
+      homeClub: { select: { id: true, name: true, slug: true, crestUrl: true, venue: true } },
       awayClub: { select: { id: true, name: true, slug: true, crestUrl: true } },
+      venue: { select: { id: true, name: true, slug: true, city: true } },
     },
     orderBy: { kickoff: 'asc' },
     take: limit,
@@ -85,7 +87,7 @@ router.get('/upcoming', async (req, res) => {
 router.get('/today', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const { start, end } = eatDayWindow(new Date().toISOString().slice(0, 10));
   const fixtures = await prisma.fixture.findMany({
-    where: { kickoff: { gte: start, lt: end } },
+    where: { kickoff: { gte: start, lt: end }, competition: { isActive: true } },
     include: { competition: { select: { name: true, slug: true } } },
     orderBy: { kickoff: 'asc' },
   });
@@ -104,11 +106,35 @@ router.get('/today', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
 router.get('/missing-reports', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const fixtures = await prisma.fixture.findMany({
-    where: { status: 'FINISHED', kickoff: { gte: sevenDaysAgo }, articles: { none: {} } },
+    where: { status: 'FINISHED', kickoff: { gte: sevenDaysAgo }, articles: { none: {} }, competition: { isActive: true } },
     include: { competition: { select: { name: true, slug: true } } },
     orderBy: { kickoff: 'desc' },
   });
   res.json({ fixtures });
+});
+
+// ---- Admin: upcoming fixtures still missing match details — the research
+// desk's to-do list for the week (dashboard card). Next 7 days, visible
+// competitions only, not finished, with no venue or no broadcaster set.
+router.get('/missing-info', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const now = new Date();
+  const weekAhead = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const fixtures = await prisma.fixture.findMany({
+    where: {
+      kickoff: { gte: now, lt: weekAhead },
+      status: { notIn: ['FINISHED', 'POSTPONED'] },
+      competition: { isActive: true, region: 'KENYA' },
+      OR: [{ venueId: null }, { broadcaster: null }],
+    },
+    include: { competition: { select: { name: true, slug: true } }, venue: { select: { name: true } } },
+    orderBy: { kickoff: 'asc' },
+  });
+  res.json({
+    fixtures: fixtures.map((f) => ({
+      id: f.id, homeTeam: f.homeTeam, awayTeam: f.awayTeam, kickoff: f.kickoff, competition: f.competition,
+      missing: [!f.venueId && 'venue', !f.broadcaster && 'broadcaster'].filter(Boolean),
+    })),
+  });
 });
 
 // ---- Admin: search local fixtures by team name, for the "attach fixture
@@ -141,11 +167,15 @@ router.get('/:id', async (req, res) => {
     where: { id: req.params.id },
     include: {
       competition: { include: { sport: true } },
-      homeClub: { select: { id: true, name: true, slug: true, crestUrl: true } },
+      homeClub: { select: { id: true, name: true, slug: true, crestUrl: true, venue: true } },
       awayClub: { select: { id: true, name: true, slug: true, crestUrl: true } },
+      venue: { select: { id: true, name: true, slug: true, city: true } },
     },
   });
-  if (!fixture) return res.status(404).json({ error: 'Fixture not found' });
+  // Hidden competitions (Competition.isActive false) 404 publicly, same as
+  // their competition page — editors can still open them.
+  const isEditor = ['ADMIN', 'EDITOR'].includes(req.session?.user?.role);
+  if (!fixture || (!fixture.competition.isActive && !isEditor)) return res.status(404).json({ error: 'Fixture not found' });
   // Wave 9 §8.2 — same embed-in-the-public-response pattern
   // articles.js's GET /:slug uses for canonicalEvent. Fails soft to null
   // (no mapping, network error, Data Platform down) — the match page

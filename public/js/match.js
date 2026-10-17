@@ -122,6 +122,7 @@ async function loadMatch() {
 
     ${scoreHtml}
     <p class="sub">${formatDate(fixture.kickoff)} · <span class="fixture-status ${escapeHtml(fixture.status)}">${escapeHtml(fixture.status)}</span></p>
+    ${(() => { const d = fixtureDetailParts(fixture); return d.length ? `<p class="sub fixture-details-hub">${d.map(escapeHtml).join(' · ')}</p>` : ''; })()}
     ${postponedNote}
     ${provenanceLineHtml(fixture.competition)}
 

@@ -5,12 +5,59 @@ const { requireRole } = require('../middleware/auth');
 const { fetchCanonicalStandings, fetchCanonicalCompetition, verifyCanonicalCompetition, fetchCanonicalFixture, verifyCanonicalFixture, listCanonicalFixtureCandidates } = require('../lib/canonicalData');
 const { resolveClubsForFixture, resolveClubIdForTeamName } = require('../lib/clubResolution');
 const { getOrCreateCurrentSeason } = require('../lib/seasonResolution');
+const { resolveVenue } = require('../lib/venueResolution');
 const { sendPushToFollowers } = require('../lib/push');
 
 const router = express.Router();
 
 function fmtDate(d) {
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+// Admin kickoff inputs (datetime-local, and the bulk-import format
+// "2026-10-10T15:00") carry no timezone. Parsed as-is on the server they
+// became UTC — fine on a laptop in Nairobi, 3 hours off on Railway, where
+// the container runs UTC (a 22:00 kickoff would land on the next day).
+// The newsroom enters Kenyan local times, so an offset-less value is read
+// as Africa/Nairobi (UTC+3, no DST). Values that already carry an offset
+// or "Z" pass through unchanged.
+function parseKickoff(value) {
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(value.trim())) {
+    return new Date(`${value.trim()}+03:00`);
+  }
+  return new Date(value);
+}
+
+// Fire-and-forget, same as logChange below — a push failure (or even just
+// the extra queries) must never delay or break the admin's response.
+// Wave 3's one wired trigger: a real result on a followed club or
+// competition. Sync-job-sourced results (API-fed leagues) aren't wired
+// yet — see BLUEPRINT.md's entry for why that's a deliberate, separate
+// scoping decision, not an oversight.
+function notifyFixtureResult(fixture) {
+  (async () => {
+    const [competition, clubs] = await Promise.all([
+      prisma.competition.findUnique({ where: { id: fixture.competitionId }, select: { slug: true, name: true } }),
+      prisma.club.findMany({ where: { id: { in: [fixture.homeClubId, fixture.awayClubId].filter(Boolean) } }, select: { slug: true } }),
+    ]);
+    const targets = [
+      ...(competition ? [{ entityType: 'competition', entitySlug: competition.slug }] : []),
+      ...clubs.map((c) => ({ entityType: 'club', entitySlug: c.slug })),
+    ];
+    await sendPushToFollowers(targets, {
+      title: `Full-time: ${fixture.homeTeam} ${fixture.homeScore ?? 0}-${fixture.awayScore ?? 0} ${fixture.awayTeam}`,
+      body: competition ? competition.name : 'Result posted',
+      url: `/match.html?id=${fixture.id}`,
+    });
+  })().catch((err) => console.error('[push] Fixture-result notification failed:', err.message));
+}
+
+// Optional match details (venue/round/broadcaster/source). `undefined`
+// means "not sent, leave as is"; an empty string clears the field.
+function detailText(value) {
+  if (value === undefined) return undefined;
+  const t = String(value ?? '').trim();
+  return t ? t.slice(0, 200) : null;
 }
 
 function logChange(entityType, entityId, action, summary, userName) {
@@ -22,13 +69,33 @@ function logChange(entityType, entityId, action, summary, userName) {
 
 // ---- Public: list competitions, optionally scoped to one sport (used by
 // the per-sport hub's Competitions tab, e.g. ?sport=football) ----
+// Inactive competitions (Competition.isActive — foreign club leagues
+// switched off for Kenyan-first coverage) are hidden from the public;
+// the admin page passes ?includeInactive=1 so editors can still see and
+// re-enable them.
+function isEditor(req) {
+  return ['ADMIN', 'EDITOR'].includes(req.session?.user?.role);
+}
+
 router.get('/', async (req, res) => {
+  const showInactive = req.query.includeInactive === '1' && isEditor(req);
   const competitions = await prisma.competition.findMany({
-    where: req.query.sport ? { sport: { slug: req.query.sport } } : undefined,
+    where: {
+      ...(req.query.sport ? { sport: { slug: req.query.sport } } : {}),
+      ...(showInactive ? {} : { isActive: true }),
+    },
     include: { sport: true },
     orderBy: { name: 'asc' },
   });
   res.json({ competitions });
+});
+
+// ---- Admin: show/hide a competition on the public site ----
+router.put('/:id/active', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  if (typeof req.body.isActive !== 'boolean') return res.status(400).json({ error: 'isActive must be true or false' });
+  const competition = await prisma.competition.update({ where: { id: req.params.id }, data: { isActive: req.body.isActive } });
+  await logChange('COMPETITION', competition.id, 'UPDATE', `${competition.isActive ? 'Showed' : 'Hid'} ${competition.name} on the public site`, req.session.user.name);
+  res.json({ competition });
 });
 
 // ---- Admin: recent changes across all competitions, most recent first ----
@@ -54,7 +121,7 @@ router.get('/:slug', async (req, res) => {
     where: { slug: req.params.slug },
     include: { sport: true },
   });
-  if (!competition) return res.status(404).json({ error: 'Competition not found' });
+  if (!competition || (!competition.isActive && !isEditor(req))) return res.status(404).json({ error: 'Competition not found' });
 
   const seasons = await prisma.competitionSeason.findMany({
     where: { competitionId: competition.id },
@@ -76,8 +143,9 @@ router.get('/:slug', async (req, res) => {
       where: { competitionId: competition.id, ...seasonWhere },
       orderBy: { kickoff: 'asc' },
       include: {
-        homeClub: { select: { id: true, name: true, slug: true, crestUrl: true } },
+        homeClub: { select: { id: true, name: true, slug: true, crestUrl: true, venue: true } },
         awayClub: { select: { id: true, name: true, slug: true, crestUrl: true } },
+        venue: { select: { id: true, name: true, slug: true, city: true } },
       },
     }),
   ]);
@@ -277,13 +345,14 @@ router.put('/:id/standings', requireRole('ADMIN', 'EDITOR'), async (req, res) =>
 
 // ---- Admin: add a fixture ----
 router.post('/:id/fixtures', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
-  const { homeTeam, awayTeam, kickoff, status } = req.body;
+  const { homeTeam, awayTeam, kickoff, status, venue, round, broadcaster, sourceUrl } = req.body;
   if (!homeTeam || !awayTeam || !kickoff) {
     return res.status(400).json({ error: 'homeTeam, awayTeam, and kickoff are required' });
   }
-  const [{ homeClubId, awayClubId }, season] = await Promise.all([
+  const [{ homeClubId, awayClubId }, season, venueResult] = await Promise.all([
     resolveClubsForFixture(prisma, req.params.id, homeTeam, awayTeam),
     getOrCreateCurrentSeason(prisma, req.params.id),
+    resolveVenue(prisma, venue),
   ]);
   const fixture = await prisma.fixture.create({
     data: {
@@ -293,18 +362,25 @@ router.post('/:id/fixtures', requireRole('ADMIN', 'EDITOR'), async (req, res) =>
       awayTeam,
       homeClubId,
       awayClubId,
-      kickoff: new Date(kickoff),
+      kickoff: parseKickoff(kickoff),
       status: status || 'SCHEDULED',
+      venueId: venueResult.venueId,
+      round: detailText(round) ?? null,
+      broadcaster: detailText(broadcaster) ?? null,
+      sourceUrl: detailText(sourceUrl) ?? null,
     },
   });
   await logChange('FIXTURE', fixture.id, 'CREATE', `Added fixture: ${homeTeam} vs ${awayTeam}, ${fmtDate(fixture.kickoff)}`, req.session.user.name);
-  res.status(201).json({ fixture });
+  res.status(201).json({ fixture, createdVenue: venueResult.created ? venue.trim() : null });
 });
 
 // ---- Admin: bulk-import a whole season's fixtures at once — the actual
 // "build it once" step. One line per fixture: "Home Team vs Away Team |
-// 2026-08-23T15:00". Skips blank lines; a malformed line is reported back
-// rather than silently dropped, so a typo doesn't quietly lose a fixture. ----
+// 2026-08-23T15:00", optionally followed by "| Venue | Round | Broadcaster".
+// Skips blank lines; a malformed line is reported back rather than
+// silently dropped, so a typo doesn't quietly lose a fixture. Venue names
+// not already on the list are created and listed in the response, so a
+// misspelt duplicate gets noticed. ----
 router.post('/:id/fixtures/bulk', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const { fixtures } = req.body;
   if (!Array.isArray(fixtures) || !fixtures.length) {
@@ -318,16 +394,20 @@ router.post('/:id/fixtures/bulk', requireRole('ADMIN', 'EDITOR'), async (req, re
 
   const errors = [];
   const toCreate = [];
-  fixtures.forEach((f, i) => {
+  const venueCache = await prisma.venue.findMany({ select: { id: true, name: true } });
+  const createdVenues = [];
+  for (const [i, f] of fixtures.entries()) {
     if (!f.homeTeam || !f.awayTeam || !f.kickoff) {
       errors.push(`Line ${i + 1}: missing homeTeam, awayTeam, or kickoff`);
-      return;
+      continue;
     }
-    const kickoff = new Date(f.kickoff);
+    const kickoff = parseKickoff(f.kickoff);
     if (Number.isNaN(kickoff.getTime())) {
       errors.push(`Line ${i + 1}: "${f.kickoff}" isn't a valid date`);
-      return;
+      continue;
     }
+    const { venueId, created } = await resolveVenue(prisma, f.venue, venueCache);
+    if (created) createdVenues.push(f.venue.trim());
     toCreate.push({
       competitionId: req.params.id,
       seasonId: season.id,
@@ -337,15 +417,19 @@ router.post('/:id/fixtures/bulk', requireRole('ADMIN', 'EDITOR'), async (req, re
       awayClubId: resolveClubIdForTeamName(f.awayTeam, clubs),
       kickoff,
       status: 'SCHEDULED',
+      venueId,
+      round: detailText(f.round) ?? null,
+      broadcaster: detailText(f.broadcaster) ?? null,
+      sourceUrl: detailText(f.sourceUrl) ?? null,
     });
-  });
+  }
 
   if (toCreate.length) {
     await prisma.fixture.createMany({ data: toCreate });
     await logChange('FIXTURE', req.params.id, 'BULK_IMPORT', `Bulk imported ${toCreate.length} fixture(s)`, req.session.user.name);
   }
 
-  res.status(errors.length && !toCreate.length ? 400 : 201).json({ created: toCreate.length, errors });
+  res.status(errors.length && !toCreate.length ? 400 : 201).json({ created: toCreate.length, errors, createdVenues });
 });
 
 // ---- Admin: update a fixture (score, status, reschedule) ----
@@ -358,8 +442,9 @@ router.put('/fixtures/:fixtureId', requireRole('ADMIN', 'EDITOR'), async (req, r
   const existing = await prisma.fixture.findUnique({ where: { id: req.params.fixtureId } });
   if (!existing) return res.status(404).json({ error: 'Fixture not found' });
 
-  const { homeTeam, awayTeam, kickoff, homeScore, awayScore, status } = req.body;
-  const newKickoff = kickoff ? new Date(kickoff) : existing.kickoff;
+  const { homeTeam, awayTeam, kickoff, homeScore, awayScore, status, venue, round, broadcaster, sourceUrl } = req.body;
+  const newKickoff = kickoff ? parseKickoff(kickoff) : existing.kickoff;
+  const venueResult = venue !== undefined ? await resolveVenue(prisma, venue) : null;
   const isNewlyPostponed = status === 'POSTPONED' && existing.status !== 'POSTPONED';
   const newHomeTeam = homeTeam ?? existing.homeTeam;
   const newAwayTeam = awayTeam ?? existing.awayTeam;
@@ -380,6 +465,10 @@ router.put('/fixtures/:fixtureId', requireRole('ADMIN', 'EDITOR'), async (req, r
       homeScore: homeScore !== undefined ? homeScore : existing.homeScore,
       awayScore: awayScore !== undefined ? awayScore : existing.awayScore,
       status: status ?? existing.status,
+      ...(venueResult ? { venueId: venueResult.venueId } : {}),
+      ...(detailText(round) !== undefined ? { round: detailText(round) } : {}),
+      ...(detailText(broadcaster) !== undefined ? { broadcaster: detailText(broadcaster) } : {}),
+      ...(detailText(sourceUrl) !== undefined ? { sourceUrl: detailText(sourceUrl) } : {}),
     },
   });
 
@@ -394,31 +483,103 @@ router.put('/fixtures/:fixtureId', requireRole('ADMIN', 'EDITOR'), async (req, r
   }
   await logChange('FIXTURE', fixture.id, 'UPDATE', summary, req.session.user.name);
 
-  // Fire-and-forget, same as logChange above — a push failure (or even just
-  // the extra queries below) must never delay or break this response.
-  // Wave 3's one wired trigger: a real result on a followed club or
-  // competition. Sync-job-sourced results (API-fed leagues) aren't wired
-  // yet — see BLUEPRINT.md's entry for why that's a deliberate, separate
-  // scoping decision, not an oversight.
-  if (isNewlyFinished) {
-    (async () => {
-      const [competition, clubs] = await Promise.all([
-        prisma.competition.findUnique({ where: { id: fixture.competitionId }, select: { slug: true, name: true } }),
-        prisma.club.findMany({ where: { id: { in: [fixture.homeClubId, fixture.awayClubId].filter(Boolean) } }, select: { slug: true } }),
-      ]);
-      const targets = [
-        ...(competition ? [{ entityType: 'competition', entitySlug: competition.slug }] : []),
-        ...clubs.map((c) => ({ entityType: 'club', entitySlug: c.slug })),
-      ];
-      await sendPushToFollowers(targets, {
-        title: `Full-time: ${fixture.homeTeam} ${fixture.homeScore ?? 0}-${fixture.awayScore ?? 0} ${fixture.awayTeam}`,
-        body: competition ? competition.name : 'Result posted',
-        url: `/match.html?id=${fixture.id}`,
-      });
-    })().catch((err) => console.error('[push] Fixture-result notification failed:', err.message));
-  }
+  if (isNewlyFinished) notifyFixtureResult(fixture);
 
-  res.json({ fixture });
+  res.json({ fixture, createdVenue: venueResult?.created ? String(venue).trim() : null });
+});
+
+// ---- Admin: save a whole round's results at once ----
+// Match day used to mean one Save click per fixture. This takes every
+// score from the round panel in one request and applies them in a single
+// transaction — all saved or none, so a typo can't leave a round half
+// entered. Same semantics as the single-fixture PUT above for each row:
+// marks it FINISHED, logs the result, and sends the same full-time push.
+router.put('/:id/fixtures/results', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const { results } = req.body;
+  if (!Array.isArray(results) || !results.length) {
+    return res.status(400).json({ error: 'results must be a non-empty array' });
+  }
+  const errors = [];
+  results.forEach((r, i) => {
+    const ok = (n) => Number.isInteger(n) && n >= 0 && n <= 99;
+    if (!r.fixtureId) errors.push(`Row ${i + 1}: missing fixtureId`);
+    else if (!ok(r.homeScore) || !ok(r.awayScore)) errors.push(`Row ${i + 1}: scores must be whole numbers from 0 to 99`);
+  });
+  if (errors.length) return res.status(400).json({ error: errors.join('; ') });
+
+  const ids = results.map((r) => r.fixtureId);
+  const existing = await prisma.fixture.findMany({ where: { id: { in: ids }, competitionId: req.params.id } });
+  if (existing.length !== new Set(ids).size) {
+    return res.status(400).json({ error: 'One or more fixtures were not found in this competition — reload the page and try again.' });
+  }
+  const byId = new Map(existing.map((f) => [f.id, f]));
+
+  const updated = await prisma.$transaction(results.map((r) => prisma.fixture.update({
+    where: { id: r.fixtureId },
+    data: { homeScore: r.homeScore, awayScore: r.awayScore, status: 'FINISHED' },
+  })));
+
+  for (const fixture of updated) {
+    const before = byId.get(fixture.id);
+    const isNew = before.status !== 'FINISHED';
+    const changed = before.homeScore !== fixture.homeScore || before.awayScore !== fixture.awayScore;
+    if (!isNew && !changed) continue;
+    await logChange('FIXTURE', fixture.id, 'UPDATE', `Result: ${fixture.homeTeam} ${fixture.homeScore}-${fixture.awayScore} ${fixture.awayTeam}`, req.session.user.name);
+    if (isNew) notifyFixtureResult(fixture);
+  }
+  res.json({ saved: updated.length });
+});
+
+// ---- Admin: rebuild the current season's table from its results ----
+// Standings were hand-typed, separately from results — after every round
+// someone re-entered all 18 rows. This computes them from the season's
+// FINISHED fixtures instead. Football only: 3/1/0 is football's rule;
+// rugby's bonus points and other sports' rules can't be derived from a
+// final score alone, so those keep manual entry. Explicit button, never
+// automatic — a competition's table may carry federation decisions
+// (points deductions, awarded matches) that results alone don't show.
+router.post('/:id/standings/recalculate', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const competition = await prisma.competition.findUnique({ where: { id: req.params.id }, include: { sport: true } });
+  if (!competition) return res.status(404).json({ error: 'Competition not found' });
+  if (competition.sport.slug !== 'football') {
+    return res.status(400).json({ error: `Automatic tables use football's 3/1/0 points rule — ${competition.sport.name} standings still need manual entry.` });
+  }
+  const season = await getOrCreateCurrentSeason(prisma, competition.id);
+  const fixtures = await prisma.fixture.findMany({
+    where: { competitionId: competition.id, seasonId: season.id, status: 'FINISHED', homeScore: { not: null }, awayScore: { not: null } },
+  });
+  if (!fixtures.length) return res.status(400).json({ error: 'No finished fixtures with scores in the current season yet.' });
+
+  const table = new Map();
+  const row = (name) => {
+    if (!table.has(name)) table.set(name, { teamName: name, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 });
+    return table.get(name);
+  };
+  for (const f of fixtures) {
+    const h = row(f.homeTeam); const a = row(f.awayTeam);
+    h.played++; a.played++;
+    h.goalsFor += f.homeScore; h.goalsAgainst += f.awayScore;
+    a.goalsFor += f.awayScore; a.goalsAgainst += f.homeScore;
+    if (f.homeScore > f.awayScore) { h.won++; a.lost++; h.points += 3; }
+    else if (f.homeScore < f.awayScore) { a.won++; h.lost++; a.points += 3; }
+    else { h.drawn++; a.drawn++; h.points++; a.points++; }
+  }
+  // Points, goal difference, goals scored, then name — the name only so
+  // re-running on unchanged data always gives the same order. Head-to-head
+  // tie-breaks (used by some leagues) aren't applied; editors can still
+  // adjust by hand afterwards.
+  const ranked = [...table.values()].sort((x, y) =>
+    y.points - x.points
+    || (y.goalsFor - y.goalsAgainst) - (x.goalsFor - x.goalsAgainst)
+    || y.goalsFor - x.goalsFor
+    || x.teamName.localeCompare(y.teamName));
+
+  await prisma.$transaction([
+    prisma.standingRow.deleteMany({ where: { competitionId: competition.id, seasonId: season.id } }),
+    prisma.standingRow.createMany({ data: ranked.map((r, i) => ({ ...r, competitionId: competition.id, seasonId: season.id, position: i + 1 })) }),
+  ]);
+  await logChange('COMPETITION', competition.id, 'UPDATE', `Recalculated ${competition.name} table from ${fixtures.length} result(s)`, req.session.user.name);
+  res.json({ standings: ranked.length, fromResults: fixtures.length });
 });
 
 // ---- Admin: delete a fixture ----

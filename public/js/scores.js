@@ -23,21 +23,28 @@ function standingsTableHtml(standings) {
   if (!standings.length) {
     return '<p class="empty-state">Standings haven\'t been entered for this competition yet.</p>';
   }
-  const rows = standings.map((r) => `
+  // `col-detail` columns (W/D/L/GF-GA) drop out on phones — see
+  // .standings-table in site.css. Sky Sports' mobile tables keep
+  // Pos/Team/P/GD/Pts, which is what a reader scanning a table needs.
+  const rows = standings.map((r) => {
+    const gd = r.goalsFor - r.goalsAgainst;
+    return `
     <tr>
-      <td>${r.position}</td>
-      <td>${escapeHtml(r.teamName)}</td>
+      <td class="num">${r.position}</td>
+      <td class="team">${escapeHtml(r.teamName)}</td>
       <td class="num">${r.played}</td>
-      <td class="num">${r.won}</td>
-      <td class="num">${r.drawn}</td>
-      <td class="num">${r.lost}</td>
-      <td class="num">${r.goalsFor}-${r.goalsAgainst}</td>
+      <td class="num col-detail">${r.won}</td>
+      <td class="num col-detail">${r.drawn}</td>
+      <td class="num col-detail">${r.lost}</td>
+      <td class="num col-detail">${r.goalsFor}-${r.goalsAgainst}</td>
+      <td class="num">${gd > 0 ? '+' : ''}${gd}</td>
       <td class="num"><strong>${r.points}</strong></td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
   return `
     <div class="table-wrap">
-      <table class="data-table">
-        <thead><tr><th>#</th><th>Team</th><th class="num">P</th><th class="num">W</th><th class="num">D</th><th class="num">L</th><th class="num">GF-GA</th><th class="num">Pts</th></tr></thead>
+      <table class="data-table standings-table">
+        <thead><tr><th class="num">#</th><th>Team</th><th class="num">P</th><th class="num col-detail">W</th><th class="num col-detail">D</th><th class="num col-detail">L</th><th class="num col-detail">GF-GA</th><th class="num">GD</th><th class="num">Pts</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
@@ -69,6 +76,7 @@ function fixtureRowHtml(f) {
       <span class="fixture-teams">${teamsLabel}</span>
       <span>${scoreOrTime}<span class="fixture-status ${escapeHtml(f.status)}">${escapeHtml(f.status)}</span></span>
       ${postponedNote}
+      ${(() => { const d = fixtureDetailParts(f); return d.length ? `<div class="fixture-details">${d.map(escapeHtml).join(' · ')}</div>` : ''; })()}
     </a>`;
 }
 
@@ -177,7 +185,7 @@ async function renderCompetitionsSportPanel(panelEl, sportCompetitions, detailRe
     ${kenyaCompetitions.length ? '<div data-kenya-competitions></div>' : ''}
     ${globalCompetitions.length ? `
       <div style="margin-top:${kenyaCompetitions.length ? '3rem' : '0'};">
-        ${kenyaCompetitions.length ? '<span class="section-label">Other Competitions</span>' : ''}
+        ${kenyaCompetitions.length ? '<span class="section-label">International Tournaments</span>' : ''}
         <div class="filter-row" data-global-pills></div>
         <div data-global-detail></div>
       </div>` : ''}`;

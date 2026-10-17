@@ -362,6 +362,14 @@ function renderSecondaryNav(root, scope, initialTab, defaultTabRenderer) {
 
   function openTab(key) {
     tabsEl.querySelectorAll('button').forEach((p) => p.classList.toggle('active', p.dataset.key === key));
+    // On mobile the strip scrolls horizontally — center the active tab so
+    // e.g. deep-linking into ?tab=competitions doesn't leave it off-screen.
+    // Direct scrollLeft rather than scrollIntoView, which can also nudge
+    // the page vertically.
+    const activeBtn = tabsEl.querySelector('button.active');
+    if (activeBtn && tabsEl.scrollWidth > tabsEl.clientWidth) {
+      tabsEl.scrollLeft = activeBtn.offsetLeft - tabsEl.offsetLeft - (tabsEl.clientWidth - activeBtn.offsetWidth) / 2;
+    }
     Promise.resolve(TAB_LOADERS[key](panelEl, scope)).catch((err) => {
       panelEl.innerHTML = `<div class="empty-state">Could not load this tab: ${escapeHtml(err.message)}</div>`;
     });

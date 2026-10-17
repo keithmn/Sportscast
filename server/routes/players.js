@@ -30,6 +30,7 @@ router.get('/', async (req, res) => {
     club: {
       competition: {
         region: 'KENYA',
+        isActive: true,
         ...(sport ? { sport: { slug: sport } } : {}),
         ...(competition ? { slug: competition } : {}),
       },

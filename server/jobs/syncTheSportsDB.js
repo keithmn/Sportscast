@@ -36,7 +36,9 @@ function sleep(ms) {
 //                 (see fixtureRowHtml's blank-awayTeam handling in scores.js).
 const COMPETITIONS = [
   { sportName: 'Rugby', competitionName: 'Six Nations Championship', externalId: '4714', kind: 'team' },
-  { sportName: 'Basketball', competitionName: 'EuroLeague Basketball', externalId: '4546', kind: 'team' },
+  // A foreign club competition — created inactive (Kenyan-first coverage,
+  // 2026-10-17), so it's skipped below unless an editor switches it on.
+  { sportName: 'Basketball', competitionName: 'EuroLeague Basketball', externalId: '4546', kind: 'team', isActive: false },
   { sportName: 'Boxing', competitionName: 'World Championship Boxing', externalId: '4445', kind: 'vs' },
   { sportName: 'Darts', competitionName: 'PDC Darts', externalId: '4554', kind: 'event' },
 ];
@@ -127,7 +129,7 @@ async function syncFixturesForCompetition(competition, kind) {
 }
 
 async function syncTheSportsDB() {
-  for (const { sportName, competitionName, externalId, kind } of COMPETITIONS) {
+  for (const { sportName, competitionName, externalId, kind, isActive = true } of COMPETITIONS) {
     try {
       const sport = await prisma.sport.findUnique({ where: { name: sportName } });
       if (!sport) {
@@ -148,9 +150,14 @@ async function syncTheSportsDB() {
             source: 'API',
             externalProvider: 'thesportsdb.com',
             externalId,
+            isActive,
           },
         });
         console.log(`[syncTheSportsDB] Created competition: ${competitionName}`);
+      }
+      if (!competition.isActive) {
+        console.log(`[syncTheSportsDB] Skipping ${competitionName} — hidden on the site (Competition.isActive).`);
+        continue;
       }
 
       const count = await syncFixturesForCompetition(competition, kind);

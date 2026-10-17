@@ -12,7 +12,7 @@ async function loadDashboard() {
   const cards = [];
 
   if (canManageArticles(user)) {
-    const [{ articles }, { items }, { submissions }, { sources }, { fixtures: todayFixtures }, { fixtures: missingReports }, { clips: pendingClips }] = await Promise.all([
+    const [{ articles }, { items }, { submissions }, { sources }, { fixtures: todayFixtures }, { fixtures: missingReports }, { clips: pendingClips }, { fixtures: missingInfo }] = await Promise.all([
       api('/api/articles/admin/all'),
       api('/api/monitoring?status=NEW'),
       api('/api/submissions'),
@@ -20,6 +20,7 @@ async function loadDashboard() {
       api('/api/fixtures/today'),
       api('/api/fixtures/missing-reports'),
       api('/api/episodes/clips/pending'),
+      api('/api/fixtures/missing-info'),
     ]);
 
     const failedSources = sources.filter((s) => s.isActive && s.syncStatus === 'ERROR');
@@ -98,6 +99,20 @@ async function loadDashboard() {
             <span class="card-eyebrow" style="color:var(--gold-text);">Missing reports</span>
             <h3 class="card-title">${missingReports.length} finished match${missingReports.length === 1 ? '' : 'es'} with no report yet</h3>
             <p class="card-desc">${missingReports.slice(0, 3).map((f) => `${escapeHtml(f.homeTeam)} vs ${escapeHtml(f.awayTeam)}`).join(', ')}</p>
+          </div>
+        </a>`);
+    }
+
+    // The research desk's weekly to-do list: Kenyan fixtures in the next 7
+    // days that still have no venue or broadcaster. Routine, not an alert.
+    if (missingInfo.length) {
+      const byGap = (gap) => missingInfo.filter((f) => f.missing.includes(gap)).length;
+      cards.push(`
+        <a href="/admin/competitions.html" style="display:contents;">
+          <div class="card">
+            <span class="card-eyebrow">Match details</span>
+            <h3 class="card-title">${missingInfo.length} upcoming match${missingInfo.length === 1 ? '' : 'es'} missing details</h3>
+            <p class="card-desc">${byGap('venue')} without a venue, ${byGap('broadcaster')} without a broadcaster — next 7 days. ${missingInfo.slice(0, 3).map((f) => `${escapeHtml(f.homeTeam)} vs ${escapeHtml(f.awayTeam)}`).join(', ')}</p>
           </div>
         </a>`);
     }

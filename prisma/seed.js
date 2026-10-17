@@ -273,19 +273,25 @@ async function main() {
     },
   });
 
+  // Kenyan-first coverage (2026-10-17): other countries' club leagues and
+  // club competitions stay in the data but are created inactive (hidden,
+  // not synced) — they overshadowed Kenyan football. National-team
+  // tournaments stay active. Same decision as the
+  // 20261017100000_competition_is_active migration, so a fresh database
+  // matches production.
   const globalCompetitions = [
-    { name: 'Premier League', code: 'PL' },
-    { name: 'Championship', code: 'ELC' },
-    { name: 'La Liga', code: 'PD' },
-    { name: 'Bundesliga', code: 'BL1' },
-    { name: 'Serie A', code: 'SA' },
-    { name: 'Ligue 1', code: 'FL1' },
-    { name: 'Eredivisie', code: 'DED' },
-    { name: 'Primeira Liga', code: 'PPL' },
-    { name: 'UEFA Champions League', code: 'CL', category: 'CONTINENTAL' },
+    { name: 'Premier League', code: 'PL', isActive: false },
+    { name: 'Championship', code: 'ELC', isActive: false },
+    { name: 'La Liga', code: 'PD', isActive: false },
+    { name: 'Bundesliga', code: 'BL1', isActive: false },
+    { name: 'Serie A', code: 'SA', isActive: false },
+    { name: 'Ligue 1', code: 'FL1', isActive: false },
+    { name: 'Eredivisie', code: 'DED', isActive: false },
+    { name: 'Primeira Liga', code: 'PPL', isActive: false },
+    { name: 'UEFA Champions League', code: 'CL', category: 'CONTINENTAL', isActive: false },
     { name: 'European Championship', code: 'EC', category: 'INTERNATIONAL' },
     { name: 'FIFA World Cup', code: 'WC', category: 'INTERNATIONAL' },
-    { name: 'Campeonato Brasileiro Série A', code: 'BSA' },
+    { name: 'Campeonato Brasileiro Série A', code: 'BSA', isActive: false },
   ];
   for (const c of globalCompetitions) {
     await prisma.competition.create({
@@ -298,6 +304,7 @@ async function main() {
         category: c.category || 'LEAGUE',
         externalProvider: 'football-data.org',
         externalId: c.code,
+        isActive: c.isActive ?? true,
       },
     });
   }
@@ -324,6 +331,9 @@ async function main() {
     { sport: 'Football', name: 'CAF Confederation Cup', category: 'CONTINENTAL' },
     { sport: 'Football', name: 'AFCON Qualifiers', category: 'INTERNATIONAL' },
     { sport: 'Football', name: 'World Cup Qualifiers', category: 'INTERNATIONAL' },
+    { sport: 'Football', name: 'Africa Cup of Nations', category: 'INTERNATIONAL' },
+    { sport: 'Football', name: 'CHAN', category: 'INTERNATIONAL' },
+    { sport: 'Football', name: 'CECAFA Senior Challenge Cup', category: 'INTERNATIONAL' },
     { sport: 'Rugby', name: 'Rugby Africa Cup', category: 'INTERNATIONAL' },
     { sport: 'Rugby', name: 'HSBC SVNS Kenya Leg', category: 'INTERNATIONAL' },
     { sport: 'Basketball', name: 'BAL / Road to BAL', category: 'CONTINENTAL' },
@@ -406,7 +416,7 @@ async function main() {
   console.log('Demo logins (password: underdoggs2026):');
   console.log('  admin@underdoggs.co.ke   (ADMIN)');
   console.log('  editor@underdoggs.co.ke  (EDITOR)');
-  console.log('Scores & Fixtures: KPL + NSL shells created (manual entry via /admin/competitions.html); 12 global competitions seeded for football-data.org sync (run `npm run sync:leagues`); 12 further real Kenya-relevant competition shells seeded across the Cup/Continental/International categories (no fixtures/standings yet).');
+  console.log(`Scores & Fixtures: KPL + NSL shells created (manual entry via /admin/competitions.html); ${globalCompetitions.length} global competitions seeded for football-data.org sync (${globalCompetitions.filter((c) => c.isActive === false).length} of them hidden — Kenyan-first coverage); ${realCompetitionShells.length} further real Kenya-relevant competition shells seeded across the Cup/Continental/International categories (no fixtures/standings yet).`);
 }
 
 main()

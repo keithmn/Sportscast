@@ -111,9 +111,16 @@ async function syncBallDontLie() {
         source: 'API',
         externalProvider: 'balldontlie.io',
         externalId: 'nba',
+        // A foreign club league — created hidden (Kenyan-first coverage,
+        // 2026-10-17); an editor can switch it on from the admin page.
+        isActive: false,
       },
     });
     console.log('[syncBallDontLie] Created competition: NBA');
+  }
+  if (!competition.isActive) {
+    console.log('[syncBallDontLie] Skipping NBA — hidden on the site (Competition.isActive).');
+    return;
   }
 
   try {
