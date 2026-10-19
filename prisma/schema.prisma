@@ -298,7 +298,16 @@ model Competition {
   // exists (e.g. kenyacup.co.ke) — more fragile, breaks if their HTML
   // changes; see server/jobs/syncKenyaCup.js.
   region           String              @default("KENYA") // KENYA | GLOBAL — drives Scores & Fixtures' default-open view
-  category         String              @default("LEAGUE") // LEAGUE | CUP | CONTINENTAL | INTERNATIONAL — set explicitly
+  // Jurisdictional categorization (2026-10-17) — see
+  // server/lib/competitionClassification.js for the values and the map
+  // of known competitions. jurisdiction replaces `category` below as the
+  // public grouping; `category` is kept, no longer read, so nothing is lost.
+  jurisdiction     String              @default("NATIONAL") // COUNTY | SCHOOLS | NATIONAL | REGIONAL | CONTINENTAL | GLOBAL
+  format           String              @default("LEAGUE") // LEAGUE | CUP | TOURNAMENT
+  teamType         String              @default("CLUB") // CLUB | NATIONAL_TEAM | INDIVIDUAL
+  governingBody    String? // "FKF", "CAF", "FIFA" — null when not certain
+  tier             Int? // 1 = top flight within its level (KPL 1, NSL 2, Division One 3); null for cups/tournaments
+  category         String              @default("LEAGUE") // SUPERSEDED by jurisdiction/format. LEAGUE | CUP | CONTINENTAL | INTERNATIONAL — set explicitly
   // for anything that isn't a league; the default exists for migration
   // safety, not as a real fallback editors should rely on. Orthogonal to
   // `region`: region drives Kenya-expanded-vs-Global-pill display and

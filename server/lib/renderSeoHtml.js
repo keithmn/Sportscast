@@ -18,6 +18,12 @@ const path = require('path');
 
 const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
 
+
+const SITE_URL = (process.env.SITE_URL || 'https://sportscast-production-c267.up.railway.app').replace(/\/$/, '');
+function absoluteUrl(url) {
+  return /^https?:\/\//.test(url) ? url : `${SITE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
 function escapeAttr(str) {
   return String(str ?? '')
     .replace(/&/g, '&amp;')
@@ -65,9 +71,13 @@ function renderSeoHtml(templateFilename, meta) {
   }
 
   if (meta.ogImage) {
-    const img = escapeAttr(meta.ogImage);
+    // Social crawlers (WhatsApp, X, Facebook) ignore a root-relative
+    // og:image, so make it absolute against SITE_URL. The existing tag's
+    // attributes other than content (e.g. id="og-image", which show.js
+    // sets at runtime) are kept — dropping the id crashed show.html.
+    const img = escapeAttr(absoluteUrl(meta.ogImage));
     if (/<meta property="og:image"/.test(html)) {
-      html = html.replace(/<meta property="og:image"[^>]*>/, `<meta property="og:image" content="${img}">`);
+      html = html.replace(/<meta property="og:image"[^>]*>/, (tag) => tag.replace(/content="[^"]*"/, `content="${img}"`));
     } else {
       html = html.replace('</title>', `</title>\n  <meta property="og:image" content="${img}">`);
     }

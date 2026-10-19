@@ -26,6 +26,41 @@ function readTime(body) {
   return Math.max(1, Math.round(words / 200));
 }
 
+// What a reader should see for a fixture's status. A game still marked
+// SCHEDULED three hours after kick-off has been played — its result just
+// hasn't been entered — so it reads "Result pending", never "Scheduled".
+const FIXTURE_STATUS_LABELS = { SCHEDULED: 'Scheduled', LIVE: 'Live', FINISHED: 'Full time', POSTPONED: 'Postponed' };
+function fixtureDisplayStatus(f) {
+  const overdue = (f.status === 'SCHEDULED' || f.status === 'LIVE')
+    && new Date(f.kickoff).getTime() < Date.now() - 3 * 60 * 60 * 1000;
+  if (overdue) return { key: 'PENDING', label: 'Result pending' };
+  return { key: f.status, label: FIXTURE_STATUS_LABELS[f.status] || f.status };
+}
+
+// The picture for a story card: the editor's cover image, else — for a
+// video episode — its YouTube thumbnail, so episodes never show as bare
+// text cards. Null when there's genuinely nothing to show.
+function cardImageUrl(a) {
+  if (a.coverImageUrl) return a.coverImageUrl;
+  if (a.youtubeId) return `https://i.ytimg.com/vi/${encodeURIComponent(a.youtubeId)}/hqdefault.jpg`;
+  return null;
+}
+
+// A club's crest, or — when we don't have one (most Kenyan clubs, as of
+// 2026-10) — a neutral initials badge the same size, so both sides of a
+// match line up instead of one crest beside a bare name. Never a borrowed
+// logo: crests are club trademarks and are only shown when entered.
+function teamInitials(name) {
+  const words = String(name || '').replace(/\b(FC|SC|RFC|BC|HC|United)\b/gi, '').trim().split(/\s+/).filter(Boolean);
+  return (words.length > 1 ? words[0][0] + words[1][0] : (words[0] || '?').slice(0, 2)).toUpperCase();
+}
+function crestHtml(name, crestUrl, size = 28) {
+  const style = `width:${size}px; height:${size}px;`;
+  const badge = `<span class="crest-badge" style="${style} font-size:${Math.round(size * 0.38)}px;" aria-hidden="true">${escapeHtml(teamInitials(name))}</span>`;
+  if (!crestUrl) return badge;
+  return `<img loading="lazy" src="${escapeHtml(crestUrl)}" alt="" style="${style} object-fit:contain;" onerror="this.outerHTML=this.dataset.fallback" data-fallback="${escapeHtml(badge)}">`;
+}
+
 function formatDate(dateStr) {
   if (!dateStr) return '';
   return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });

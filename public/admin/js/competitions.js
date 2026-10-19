@@ -1,4 +1,38 @@
 let allSports = [];
+// Jurisdiction / format / team-type options, from the /api/competitions
+// response (server/lib/competitionClassification.js is the one definition).
+let classificationOptions = { jurisdictions: [], formats: [], teamTypes: [] };
+
+function optionLabel(list, key) {
+  const found = list.find((o) => o.key === key);
+  return found ? found.label : key;
+}
+
+// The three selects + governing-body input, used by both the "Add a
+// Competition" form (idPrefix set, plain ids) and each competition's
+// card (data-field attributes, scoped by data-competition-id).
+function classificationFieldsHtml(values, idPrefix) {
+  const attr = (field) => (idPrefix ? `id="${idPrefix}-${field}"` : `data-classification="${field}"`);
+  const select = (field, label, options) => `
+    <div class="form-field">
+      <label${idPrefix ? ` for="${idPrefix}-${field}"` : ''}>${label}</label>
+      <select ${attr(field)}>
+        ${options.map((o) => `<option value="${o.key}" ${o.key === values[field] ? 'selected' : ''}>${escapeHtml(o.label)}</option>`).join('')}
+      </select>
+    </div>`;
+  return `
+    ${select('jurisdiction', 'Level', classificationOptions.jurisdictions)}
+    ${select('format', 'Format', classificationOptions.formats)}
+    ${select('teamType', 'Teams', classificationOptions.teamTypes)}
+    <div class="form-field" style="max-width:6rem;">
+      <label${idPrefix ? ` for="${idPrefix}-tier"` : ''}>Tier</label>
+      <input type="number" ${attr('tier')} min="1" max="20" placeholder="1" title="1 = top flight within its level; leave empty for cups and tournaments" value="${values.tier == null ? '' : values.tier}">
+    </div>
+    <div class="form-field">
+      <label${idPrefix ? ` for="${idPrefix}-governingBody"` : ''}>Governing body</label>
+      <input type="text" ${attr('governingBody')} maxlength="60" placeholder="FKF, CAF, FIFA…" value="${escapeHtml(values.governingBody || '')}">
+    </div>`;
+}
 
 function standingRowFormHtml(r = {}, listId) {
   return `
@@ -156,8 +190,13 @@ function competitionBlockHtml(competition, teamNames, seasons) {
   const listId = `teamnames-${competition.id}`;
   return `
     <div class="card" style="margin-bottom:2.5rem; cursor:default;">
-      <span class="card-eyebrow">${escapeHtml(competition.sport.name)} · ${escapeHtml(competition.category)} · ${escapeHtml(competition.source)}${competition.isActive ? '' : ' · HIDDEN'}</span>
+      <span class="card-eyebrow">${escapeHtml(competition.sport.name)} · ${escapeHtml(optionLabel(classificationOptions.jurisdictions, competition.jurisdiction))} · ${escapeHtml(competition.source)}${competition.isActive ? '' : ' · HIDDEN'}</span>
       <h3 class="card-title">${escapeHtml(competition.name)}</h3>
+      <div class="classification-row" data-competition-id="${competition.id}">
+        ${classificationFieldsHtml(competition)}
+        <button type="button" class="btn-outline-sm save-classification-btn" data-competition-id="${competition.id}">Save level</button>
+        <span class="classification-status" data-competition-id="${competition.id}" role="status"></span>
+      </div>
       <label class="checkbox-row" style="margin-top:0.5rem;">
         <input type="checkbox" class="active-toggle" data-competition-id="${competition.id}" ${competition.isActive ? 'checked' : ''}>
         <span style="font-size:0.85rem;">Show on public site (hidden competitions keep their data and stop syncing)</span>
@@ -275,7 +314,12 @@ async function loadChangeLog() {
 }
 
 async function loadCompetitions() {
-  const { competitions: all } = await api('/api/competitions?includeInactive=1');
+  const { competitions: all, classification } = await api('/api/competitions?includeInactive=1');
+  classificationOptions = classification;
+  const addFields = document.getElementById('add-competition-classification');
+  if (addFields && !addFields.children.length) {
+    addFields.innerHTML = classificationFieldsHtml({ jurisdiction: 'NATIONAL', format: 'LEAGUE', teamType: 'CLUB' }, 'competition');
+  }
   // Active competitions first, hidden ones (foreign club leagues, switched
   // off for Kenyan-first coverage) collected at the bottom.
   const competitions = [...all.filter((c) => c.isActive), ...all.filter((c) => !c.isActive)];
@@ -309,6 +353,26 @@ async function loadCompetitions() {
   wireCanonicalLinkWidgets(root, {
     endpointFor: (kind, localId) => `/api/competitions/${localId}/canonical-competition`,
     onChange: loadCompetitions,
+  });
+
+  root.querySelectorAll('.save-classification-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.competitionId;
+      const row = root.querySelector(`.classification-row[data-competition-id="${id}"]`);
+      const status = row.querySelector('.classification-status');
+      const body = {};
+      row.querySelectorAll('[data-classification]').forEach((el) => { body[el.dataset.classification] = el.value; });
+      btn.disabled = true;
+      try {
+        await api(`/api/competitions/${id}/classification`, { method: 'PUT', body: JSON.stringify(body) });
+        status.textContent = 'Saved';
+        loadChangeLog();
+      } catch (err) {
+        status.textContent = err.message;
+      } finally {
+        btn.disabled = false;
+      }
+    });
   });
 
   root.querySelectorAll('.active-toggle').forEach((checkbox) => {
@@ -551,9 +615,14 @@ async function initCompetitionsPage() {
   document.getElementById('add-competition-btn').addEventListener('click', async () => {
     const name = document.getElementById('competition-name').value.trim();
     const sportId = document.getElementById('competition-sport').value;
-    const category = document.getElementById('competition-category').value;
     if (!name || !sportId) return;
-    await api('/api/competitions', { method: 'POST', body: JSON.stringify({ name, sportId, category }) });
+    const classification = {};
+    ['jurisdiction', 'format', 'teamType', 'tier', 'governingBody'].forEach((field) => {
+      classification[field] = document.getElementById(`competition-${field}`).value;
+    });
+    await api('/api/competitions', { method: 'POST', body: JSON.stringify({ name, sportId, ...classification }) });
+    document.getElementById('competition-governingBody').value = '';
+    document.getElementById('competition-tier').value = '';
     document.getElementById('competition-name').value = '';
     loadCompetitions();
     loadChangeLog();

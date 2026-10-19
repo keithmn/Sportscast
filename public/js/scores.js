@@ -23,6 +23,18 @@ function formatDayLabel(dateStr) {
 // match (StandingRow's goalsFor/goalsAgainst hold either).
 const POINTS_SCORING_SPORTS = new Set(['basketball', 'rugby']);
 
+// Mirrors server/lib/pointsRules.js — the sports whose table points
+// follow a fixed rule from W/D/L. Used only to flag rows where the
+// official points differ (a deduction or award by the league), never to
+// change them.
+const TABLE_POINTS_RULES = { football: { win: 3, draw: 1, loss: 0 }, hockey: { win: 3, draw: 1, loss: 0 } };
+
+function pointsAdjustment(row, sportSlug) {
+  const rule = TABLE_POINTS_RULES[sportSlug];
+  if (!rule || row.played !== row.won + row.drawn + row.lost) return 0;
+  return row.points - (row.won * rule.win + row.drawn * rule.draw + row.lost * rule.loss);
+}
+
 function standingsTableHtml(standings, sportSlug) {
   if (!standings.length) {
     return '<p class="empty-state">Standings haven\'t been entered for this competition yet.</p>';
@@ -49,8 +61,14 @@ function standingsTableHtml(standings, sportSlug) {
       { head: scoredPoints ? 'PF-PA' : 'GF-GA', cls: 'num col-detail', cell: (r) => `${r.goalsFor}-${r.goalsAgainst}` },
       { head: scoredPoints ? 'PD' : 'GD', cls: 'num', cell: (r) => { const d = r.goalsFor - r.goalsAgainst; return `${d > 0 ? '+' : ''}${d}`; } },
     ] : []),
-    { head: 'Pts', cls: 'num', cell: (r) => `<strong>${r.points}</strong>` },
+    { head: 'Pts', cls: 'num', cell: (r) => `<strong>${r.points}</strong>${pointsAdjustment(r, sportSlug) ? '<sup class="pts-adj" aria-hidden="true">*</sup>' : ''}` },
   ];
+  const adjusted = standings
+    .map((r) => ({ name: r.teamName, adj: pointsAdjustment(r, sportSlug) }))
+    .filter((r) => r.adj);
+  const adjustmentNote = adjusted.length
+    ? `<p class="source-note pts-adj-note">* Points differ from the win/draw record — usually a deduction or award by the league: ${adjusted.map((r) => `${escapeHtml(r.name)} ${r.adj > 0 ? '+' : '−'}${Math.abs(r.adj)}`).join(', ')}.</p>`
+    : '';
   const th = cols.map((c) => `<th class="${c.cls === 'team' ? '' : c.cls}">${c.head}</th>`).join('');
   const rows = standings.map((r) => `<tr>${cols.map((c) => `<td class="${c.cls}">${c.cell(r)}</td>`).join('')}</tr>`).join('');
   return `
@@ -59,7 +77,8 @@ function standingsTableHtml(standings, sportSlug) {
         <thead><tr>${th}</tr></thead>
         <tbody>${rows}</tbody>
       </table>
-    </div>`;
+    </div>
+    ${adjustmentNote}`;
 }
 
 function fixtureRowHtml(f) {
@@ -86,7 +105,7 @@ function fixtureRowHtml(f) {
   return `
     <a href="/match.html?id=${encodeURIComponent(f.id)}" class="fixture-row" style="flex-wrap:wrap; text-decoration:none; color:inherit;">
       <span class="fixture-teams">${teamsLabel}</span>
-      <span>${scoreOrTime}<span class="fixture-status ${escapeHtml(f.status)}">${escapeHtml(f.status)}</span></span>
+      <span>${scoreOrTime}${(() => { const st = fixtureDisplayStatus(f); return `<span class="fixture-status ${escapeHtml(st.key)}">${escapeHtml(st.label)}</span>`; })()}</span>
       ${postponedNote}
       ${(() => { const d = fixtureDetailParts(f); return d.length ? `<div class="fixture-details">${d.map(escapeHtml).join(' · ')}</div>` : ''; })()}
     </a>`;
@@ -161,7 +180,7 @@ function competitionCardHtml(c) {
   return `
     <a href="/competition.html?slug=${encodeURIComponent(c.slug)}" style="display:contents;">
       <div class="card">
-        <span class="card-eyebrow">${escapeHtml(c.region === 'KENYA' ? 'Kenya' : 'Global')}</span>
+        <span class="card-eyebrow">${escapeHtml(competitionMetaLine(c))}</span>
         <h3 class="card-title">${escapeHtml(c.name)}</h3>
       </div>
     </a>`;
@@ -185,81 +204,190 @@ async function fetchCompetitionDetail(slug, seasonId) {
 // `detailRenderer` decides whether each competition renders fixtures,
 // standings, or both — same fetch either way, just a different view of it.
 async function renderCompetitionsSportPanel(panelEl, sportCompetitions, detailRenderer) {
-  const kenyaCompetitions = sportCompetitions.filter((c) => c.region === 'KENYA');
-  const globalCompetitions = sportCompetitions.filter((c) => c.region === 'GLOBAL');
+  const shown = withData(sportCompetitions).sort(compareMatchday);
+  const kenyaCompetitions = shown.filter((c) => c.region === 'KENYA');
+  const globalCompetitions = shown.filter((c) => c.region === 'GLOBAL');
+  if (!shown.length) {
+    panelEl.innerHTML = '<p class="empty-state">No scores or tables for this sport yet.</p>';
+    return;
+  }
 
   // Both branches are conditionally rendered — neither shows an "empty"
   // message for a branch that's structurally guaranteed to have nothing
   // (renderGroupedCompetitionsPanel always calls this with an already
   // single-region bucket, where one branch is empty by construction; an
   // "empty" message there would be pure noise, not information).
+  const kenyaWithData = kenyaCompetitions.filter((c) => c.hasData !== false);
+  const kenyaEmpty = kenyaCompetitions.filter((c) => c.hasData === false);
   panelEl.innerHTML = `
-    ${kenyaCompetitions.length ? '<div data-kenya-competitions></div>' : ''}
-    ${globalCompetitions.length ? `
-      <div style="margin-top:${kenyaCompetitions.length ? '3rem' : '0'};">
-        ${kenyaCompetitions.length ? '<span class="section-label">International Tournaments</span>' : ''}
-        <div class="filter-row" data-global-pills></div>
-        <div data-global-detail></div>
-      </div>` : ''}`;
+    ${kenyaWithData.length ? '<div data-kenya-competitions></div>' : ''}
+    ${kenyaEmpty.length ? `<div style="margin-top:${kenyaWithData.length ? '3rem' : '0'};">${notStartedListHtml(kenyaEmpty, 'More Kenyan competitions — nothing entered yet this season')}</div>` : ''}
+    ${globalCompetitions.length ? `<div style="margin-top:3rem;">${collapsedCompetitionsHtml(globalCompetitions)}</div>` : ''}`;
 
-  if (kenyaCompetitions.length) {
+  if (globalCompetitions.length) wireCollapsedCompetitions(panelEl, detailRenderer);
+
+  if (kenyaWithData.length) {
     const kenyaEl = panelEl.querySelector('[data-kenya-competitions]');
-    kenyaEl.innerHTML = kenyaCompetitions.map(() => '<div class="empty-state">Loading…</div>').join('');
-    const details = await Promise.all(kenyaCompetitions.map((c) => fetchCompetitionDetail(c.slug)));
+    kenyaEl.innerHTML = kenyaWithData.map(() => '<div class="empty-state">Loading…</div>').join('');
+    const details = await Promise.all(kenyaWithData.map((c) => fetchCompetitionDetail(c.slug)));
     kenyaEl.innerHTML = details.map(detailRenderer).join('<hr style="border-color:var(--border); margin:2.5rem 0;">');
   }
+}
 
-  if (globalCompetitions.length) {
-    const pillsEl = panelEl.querySelector('[data-global-pills]');
-    const detailEl = panelEl.querySelector('[data-global-detail]');
-    pillsEl.innerHTML = globalCompetitions
-      .map((c) => `<button class="filter-pill" data-slug="${escapeHtml(c.slug)}">${escapeHtml(c.name)}</button>`)
-      .join('');
+// Kenyan-first tables (2026-10-19): every non-Kenyan competition (Euros,
+// World Cup, Six Nations, …) sits collapsed under "Other competitions" —
+// a one-line row that loads its table only when tapped — so nothing
+// foreign competes with the KPL for the first screen.
+function collapsedCompetitionsHtml(competitions) {
+  return `
+    <span class="section-label">Other competitions</span>
+    <div class="collapsed-competitions">
+      ${competitions.map((c) => `
+        <details class="collapsed-competition" data-slug="${escapeHtml(c.slug)}">
+          <summary>
+            <span class="collapsed-competition-name">${escapeHtml(c.name)}</span>
+            <span class="collapsed-competition-meta">${escapeHtml(competitionMetaLine(c))}</span>
+          </summary>
+          <div class="collapsed-competition-body"></div>
+        </details>`).join('')}
+    </div>`;
+}
 
-    pillsEl.addEventListener('click', async (e) => {
-      const btn = e.target.closest('.filter-pill');
-      if (!btn) return;
-      pillsEl.querySelectorAll('.filter-pill').forEach((p) => p.classList.toggle('active', p === btn));
-      detailEl.innerHTML = '<div class="empty-state">Loading…</div>';
+function wireCollapsedCompetitions(rootEl, renderer) {
+  rootEl.querySelectorAll('details.collapsed-competition').forEach((el) => {
+    el.addEventListener('toggle', async () => {
+      const body = el.querySelector('.collapsed-competition-body');
+      if (!el.open || body.dataset.loaded) return;
+      body.dataset.loaded = '1';
+      body.innerHTML = '<div class="empty-state">Loading…</div>';
       try {
-        const competition = await fetchCompetitionDetail(btn.dataset.slug);
-        detailEl.innerHTML = detailRenderer(competition);
+        body.innerHTML = renderer(await fetchCompetitionDetail(el.dataset.slug));
       } catch (err) {
-        detailEl.innerHTML = `<div class="empty-state">Could not load this competition: ${escapeHtml(err.message)}</div>`;
+        delete body.dataset.loaded;
+        body.innerHTML = `<div class="empty-state">Could not load this competition: ${escapeHtml(err.message)}</div>`;
       }
     });
+  });
+}
+
+// Jurisdictional categorization (2026-10-17). Keys and labels mirror
+// JURISDICTIONS / FORMATS / TEAM_TYPES in server/lib/competitionClassification.js,
+// which also travel with every /api/competitions response. Order = tab order,
+// grassroots up.
+const JURISDICTION_ORDER = ['COUNTY', 'SCHOOLS', 'NATIONAL', 'REGIONAL', 'CONTINENTAL', 'GLOBAL'];
+const JURISDICTION_LABELS = {
+  COUNTY: 'County', SCHOOLS: 'Schools & Universities', NATIONAL: 'National',
+  REGIONAL: 'Regional', CONTINENTAL: 'Continental', GLOBAL: 'Global',
+};
+const FORMAT_ORDER = ['LEAGUE', 'CUP', 'TOURNAMENT'];
+const FORMAT_LABELS = { LEAGUE: 'League', CUP: 'Cup', TOURNAMENT: 'Tournament' };
+const TEAM_TYPE_LABELS = { CLUB: 'Clubs', NATIONAL_TEAM: 'National teams', INDIVIDUAL: 'Individuals' };
+// The level the tabs open on — the Kenyan pyramid's top flight lives here,
+// even for a sport that also has county or schools competitions.
+const DEFAULT_JURISDICTION = 'NATIONAL';
+
+// Match-day priority, for lists that mix levels (Scores page, the sport
+// hub's date strip): Kenyan first, then National → Regional → Continental
+// → Global → County → Schools, then league before cup, then tier. So the
+// KPL leads, ahead of AFCON qualifiers and the World Cup.
+const MATCHDAY_LEVEL_ORDER = ['NATIONAL', 'REGIONAL', 'CONTINENTAL', 'GLOBAL', 'COUNTY', 'SCHOOLS'];
+function matchdayRank(c) {
+  const level = MATCHDAY_LEVEL_ORDER.indexOf(c.jurisdiction);
+  return [c.region === 'KENYA' ? 0 : 1, level === -1 ? 0 : level, FORMAT_ORDER.indexOf(c.format), c.tier == null ? Infinity : c.tier];
+}
+function compareMatchday(a, b) {
+  const ra = matchdayRank(a);
+  const rb = matchdayRank(b);
+  for (let i = 0; i < ra.length; i += 1) if (ra[i] !== rb[i]) return ra[i] - rb[i];
+  return a.name.localeCompare(b.name);
+}
+
+// Fixed sport order for pages that list several sports: Kenya's biggest
+// audiences first. Sports not listed follow, alphabetically.
+const SPORT_ORDER = ['football', 'rugby', 'athletics', 'basketball', 'volleyball', 'hockey', 'boxing'];
+function sportRank(slug) {
+  const i = SPORT_ORDER.indexOf(slug);
+  return i === -1 ? SPORT_ORDER.length : i;
+}
+
+// Which competitions the public lists show (2026-10-19, revised the same
+// day): every Kenyan competition, always — an empty one is still a
+// Kenyan league readers expect to find (Division One, CHAN, CECAFA…) and
+// renders as a compact "no table yet" line, not a big empty block. A
+// non-Kenyan competition only shows once its current season has data
+// (hasData from /api/competitions). Older responses without the flag
+// keep everything.
+function withData(competitions) {
+  return competitions.filter((c) => c.region === 'KENYA' || c.hasData !== false);
+}
+
+// One line for a Kenyan competition with nothing entered this season yet.
+function notStartedListHtml(competitions, label) {
+  if (!competitions.length) return '';
+  return `
+    <div class="not-started">
+      <span class="section-label">${escapeHtml(label)}</span>
+      <div class="not-started-list">
+        ${competitions.map((c) => `
+          <a class="not-started-item" href="/competition.html?slug=${encodeURIComponent(c.slug)}">
+            <span class="not-started-name">${escapeHtml(c.name)}</span>
+            <span class="collapsed-competition-meta">${escapeHtml(competitionMetaLine(c))}</span>
+          </a>`).join('')}
+      </div>
+    </div>`;
+}
+
+// "CAF · Tournament", or "Continental · Tournament" when the governing body
+// isn't recorded.
+function competitionMetaLine(c) {
+  return [c.governingBody || JURISDICTION_LABELS[c.jurisdiction], FORMAT_LABELS[c.format]].filter(Boolean).join(' · ');
+}
+
+// Inside one level: Kenyan competitions first (KPL before the Premier
+// League if an editor ever switches that back on, AFCON before the Euros),
+// then league → cup → tournament, then down the pyramid by tier (KPL 1,
+// NSL 2, Division One 3; no tier last), then by name.
+function sortWithinLevel(items, getCompetition) {
+  const rank = (c) => [c.region === 'KENYA' ? 0 : 1, FORMAT_ORDER.indexOf(c.format), c.tier == null ? Infinity : c.tier];
+  return [...items].sort((a, b) => {
+    const ca = getCompetition(a);
+    const cb = getCompetition(b);
+    const ra = rank(ca);
+    const rb = rank(cb);
+    for (let i = 0; i < ra.length; i += 1) if (ra[i] !== rb[i]) return ra[i] - rb[i];
+    return ca.name.localeCompare(cb.name);
+  });
+}
+
+// Buckets `items` by their competition's jurisdiction, in JURISDICTION_ORDER,
+// dropping empty levels — shared by Tables, Competitions, Teams and Players.
+// A competition with an unrecognised level falls into National rather than
+// disappearing.
+function groupByJurisdiction(items, getCompetition = (c) => c) {
+  const levelOf = (i) => (JURISDICTION_ORDER.includes(getCompetition(i).jurisdiction) ? getCompetition(i).jurisdiction : DEFAULT_JURISDICTION);
+  return JURISDICTION_ORDER
+    .map((key) => ({
+      key,
+      label: JURISDICTION_LABELS[key],
+      items: sortWithinLevel(items.filter((i) => levelOf(i) === key), getCompetition),
+    }))
+    .filter((level) => level.items.length);
+}
+
+// One tab per level when a sport spans more than one; a sport with a
+// single level (darts) skips the pointless single tab.
+function renderByJurisdiction(panelEl, levels, renderLevel) {
+  if (levels.length > 1) {
+    renderCategoryToggle({
+      container: panelEl,
+      categories: levels,
+      defaultKey: DEFAULT_JURISDICTION,
+      renderItem: () => '', // unused — renderLevel does the real rendering
+      afterRender: (levelEl, level) => renderLevel(levelEl, level.items),
+    });
+  } else {
+    renderLevel(panelEl, levels[0] ? levels[0].items : []);
   }
-}
-
-const CATEGORY_ORDER = ['LEAGUE', 'CUP', 'CONTINENTAL', 'INTERNATIONAL'];
-const CATEGORY_LABELS = { LEAGUE: 'Leagues', CUP: 'Cups', CONTINENTAL: 'Continental', INTERNATIONAL: 'International' };
-const REGION_LABELS = { KENYA: 'Kenya', GLOBAL: 'Global' };
-
-// Buckets `items` into CATEGORY_ORDER groups using `getCategory(item)`,
-// dropping empty buckets — shared by the region+category grouping below
-// and by renderCompetitionCategorizedGrid (Teams/Players tabs), which only
-// needs the category level since they're already Kenya-only.
-function groupByCategory(items, getCategory) {
-  return CATEGORY_ORDER
-    .map((category) => ({ category, items: items.filter((i) => getCategory(i) === category) }))
-    .filter((c) => c.items.length);
-}
-
-// Region-first (Kenya, then Global), category-second grouping used by the
-// sport hub's Tables and Competitions tabs. Sky Sports's own category
-// names (Domestic Leagues, Europe, ...) only work as a flat list because
-// their site is implicitly England-centric — "Domestic" already means
-// English. This site needs Kenyan competitions visually separated from
-// foreign/global ones first, with category as a secondary grouping within
-// each region — otherwise KPL would render under the same heading as the
-// Premier League. A category sub-heading only appears when a region
-// actually spans more than one category, so a sport with just Kenyan
-// leagues doesn't get a pointless single-item "Leagues" heading.
-function groupCompetitionsByRegionThenCategory(sportCompetitions) {
-  return ['KENYA', 'GLOBAL']
-    .map((region) => ({ region, items: sportCompetitions.filter((c) => c.region === region) }))
-    .filter((s) => s.items.length)
-    .map((s) => ({ ...s, categories: groupByCategory(s.items, (c) => c.category) }));
 }
 
 // Compact preview — competition name + top 5 standings rows (position/team/
@@ -285,9 +413,30 @@ function miniTableCardHtml(competition) {
               </tr>`).join('')}
           </tbody>
         </table>`
-        : '<p class="empty-state">No standings yet.</p>'}
-      <a class="btn-link" href="/competition.html?slug=${encodeURIComponent(competition.slug)}">View full table →</a>
+        : latestResultsHtml(competition)}
+      <a class="btn-link" href="/competition.html?slug=${encodeURIComponent(competition.slug)}">${rows.length ? 'View full table →' : 'View competition →'}</a>
     </div>`;
+}
+
+// A cup or tournament has no table: its preview shows the latest three
+// results (or the next fixtures) instead of "No standings yet".
+function latestResultsHtml(competition) {
+  const fixtures = competition.fixtures || [];
+  const finished = fixtures.filter((f) => f.status === 'FINISHED' && f.homeScore != null).slice(-3).reverse();
+  const shown = finished.length ? finished : fixtures.filter((f) => f.status !== 'FINISHED').slice(0, 3);
+  if (!shown.length) return '<p class="empty-state">No table yet.</p>';
+  return `
+    <span class="source-note">${finished.length ? 'Latest results' : 'Next fixtures'}</span>
+    <table class="mini-table">
+      <tbody>
+        ${shown.map((f) => `
+          <tr>
+            <td>${escapeHtml(f.homeTeam)}</td>
+            <td class="num"><strong>${f.status === 'FINISHED' ? `${f.homeScore}–${f.awayScore}` : 'v'}</strong></td>
+            <td>${escapeHtml(f.awayTeam || '')}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
 }
 
 // Sky Sports-style compact grid — every competition in this (region ×
@@ -302,12 +451,9 @@ async function renderMiniTablesGrid(panelEl, sportCompetitions) {
 }
 
 // Shared by the Teams and Players tabs (subnav.js/clubs.js) — already
-// Kenya-only by the time either calls this, so only the category level
-// applies (no region split, unlike Tables above). Groups `items` by their
-// own competition first, then those competition-groups by category;
-// category-toggle.js wraps them when more than one category exists (same
-// "no pointless single-item pill" guard Tables already uses), each
-// category showing its competitions as plain headings over a card-grid of
+// Kenya-only by the time either calls this. Groups `items` by their own
+// competition, then those competition-groups by jurisdiction (one tab per
+// level), each competition a plain heading over a card-grid of
 // `cardRenderer(item)`.
 function renderCompetitionCategorizedGrid(panelEl, items, getCompetition, cardRenderer, emptyMessage) {
   if (!items.length) {
@@ -321,90 +467,74 @@ function renderCompetitionCategorizedGrid(panelEl, items, getCompetition, cardRe
     if (!byCompetition.has(competition.slug)) byCompetition.set(competition.slug, { competition, items: [] });
     byCompetition.get(competition.slug).items.push(item);
   });
-  const competitionGroups = Array.from(byCompetition.values());
-  const categories = groupByCategory(competitionGroups, (g) => g.competition.category);
+  const levels = groupByJurisdiction(Array.from(byCompetition.values()), (g) => g.competition);
 
-  function renderGroups(el, groups) {
+  renderByJurisdiction(panelEl, levels, (el, groups) => {
     el.innerHTML = groups.map(({ competition, items }) => `
       <div style="margin-bottom:2.5rem;">
         <span class="section-label">${escapeHtml(competition.name)}</span>
         <div class="card-grid">${items.map(cardRenderer).join('')}</div>
       </div>`).join('');
-  }
-
-  if (categories.length > 1) {
-    renderCategoryToggle({
-      container: panelEl,
-      categories: categories.map(({ category, items }) => ({ key: category, label: CATEGORY_LABELS[category], items })),
-      renderItem: () => '',
-      afterRender: (el, category) => renderGroups(el, category.items),
-    });
-  } else {
-    renderGroups(panelEl, categories[0] ? categories[0].items : []);
-  }
+  });
 }
 
-// Tables tab — each region (Kenya, then Global) keeps its own heading;
-// within a region, a category tab bar (category-toggle.js, the site's
-// existing shared "pick a category, see its items" component) replaces the
-// old plain subheading, but only when the region actually spans more than
-// one category (unchanged guard — a sport with just Kenyan leagues still
-// doesn't get a pointless single-item "Leagues" pill).
+// Tables tab (2026-10-19, replaces the per-level tabs here): Kenyan
+// competitions open, most important first — the lead one (the KPL for
+// football) as its full table, the rest as top-five previews — then every
+// non-Kenyan table collapsed. The Competitions tab keeps the level headings.
 async function renderGroupedCompetitionsPanel(panelEl, sportCompetitions) {
-  const sections = groupCompetitionsByRegionThenCategory(sportCompetitions);
-  if (!sections.length) {
-    panelEl.innerHTML = '<p class="empty-state">No competitions added for this sport yet.</p>';
+  const shown = withData(sportCompetitions).sort(compareMatchday);
+  if (!shown.length) {
+    panelEl.innerHTML = '<p class="empty-state">No tables for this sport yet.</p>';
     return;
   }
+  // Kenya first: Kenyan tables with data (lead one in full), then every
+  // Kenyan competition with no table yet as a compact list, then the
+  // non-Kenyan tables collapsed.
+  const kenyan = shown.filter((c) => c.region === 'KENYA' && c.hasData !== false);
+  const kenyanEmpty = shown.filter((c) => c.region === 'KENYA' && c.hasData === false);
+  const others = shown.filter((c) => c.region !== 'KENYA');
 
-  panelEl.innerHTML = sections.map((s, i) => `
-    <div style="${i > 0 ? 'margin-top:3rem;' : ''}">
-      <span class="section-label" style="font-size:1rem;">${escapeHtml(REGION_LABELS[s.region])}</span>
-      <div data-region-panel="${s.region}"></div>
-    </div>`).join('');
+  panelEl.innerHTML = `
+    ${kenyan.length ? '<div data-kenya-tables><div class="empty-state">Loading…</div></div>' : ''}
+    ${kenyanEmpty.length ? `<div style="margin-top:${kenyan.length ? '3rem' : '0'};">${notStartedListHtml(kenyanEmpty, 'More Kenyan competitions — no table yet this season')}</div>` : ''}
+    ${others.length ? `<div style="margin-top:${kenyan.length || kenyanEmpty.length ? '3rem' : '0'};">${collapsedCompetitionsHtml(others)}</div>` : ''}`;
+  if (others.length) wireCollapsedCompetitions(panelEl, (c) => `${standingsTableHtml(c.standings, c.sport && c.sport.slug)}<a class="btn-link" href="/competition.html?slug=${encodeURIComponent(c.slug)}">View competition →</a>`);
 
-  await Promise.all(sections.map(async ({ region, categories }) => {
-    const regionEl = panelEl.querySelector(`[data-region-panel="${region}"]`);
-
-    if (categories.length > 1) {
-      renderCategoryToggle({
-        container: regionEl,
-        categories: categories.map(({ category, items }) => ({ key: category, label: CATEGORY_LABELS[category], items })),
-        renderItem: () => '', // unused — afterRender does the real rendering, same pattern as this file's own sport-level toggle
-        afterRender: (toggledPanelEl, category) => {
-          renderMiniTablesGrid(toggledPanelEl, category.items).catch((err) => {
-            toggledPanelEl.innerHTML = `<p class="empty-state">Could not load tables: ${escapeHtml(err.message)}</p>`;
-          });
-        },
-      });
-    } else {
-      await renderMiniTablesGrid(regionEl, categories[0].items);
+  if (kenyan.length) {
+    const el = panelEl.querySelector('[data-kenya-tables]');
+    try {
+      const details = await Promise.all(kenyan.map((c) => fetchCompetitionDetail(c.slug)));
+      const [lead, ...rest] = details;
+      el.innerHTML = `
+        <div class="lead-table">
+          <span class="card-eyebrow">${escapeHtml(competitionMetaLine(lead))}</span>
+          <h3 class="card-title" style="margin:0.25rem 0 0.75rem;">${escapeHtml(lead.name)}</h3>
+          ${standingsTableHtml(lead.standings, lead.sport && lead.sport.slug)}
+          <a class="btn-link" href="/competition.html?slug=${encodeURIComponent(lead.slug)}">Fixtures, results &amp; more →</a>
+        </div>
+        ${rest.length ? `<div class="card-grid" style="margin-top:2.5rem;">${rest.map(miniTableCardHtml).join('')}</div>` : ''}`;
+    } catch (err) {
+      el.innerHTML = `<p class="empty-state">Could not load tables: ${escapeHtml(err.message)}</p>`;
     }
-  }));
+  }
 }
 
-// Card-grid version (Competitions tab — "browse what exists," not full
-// tables/fixtures) — synchronous, no per-competition detail fetch needed.
+// Competitions tab ("browse what exists," not full tables/fixtures) —
+// every level listed at once as a heading over its cards, so the whole
+// pyramid is visible on one screen; synchronous, no detail fetch needed.
 function renderGroupedCompetitionCards(panelEl, sportCompetitions) {
-  const sections = groupCompetitionsByRegionThenCategory(sportCompetitions);
-  if (!sections.length) {
+  const levels = groupByJurisdiction(withData(sportCompetitions));
+  if (!levels.length) {
     panelEl.innerHTML = '<p class="empty-state">No competitions added for this sport yet.</p>';
     return;
   }
 
-  panelEl.innerHTML = sections.map((s, i) => {
-    const showCategoryHeadings = s.categories.length > 1;
-    const catSections = s.categories.map(({ category, items }) => `
-      <div style="margin-top:1.5rem;">
-        ${showCategoryHeadings ? `<span class="section-label" style="font-size:0.75rem; opacity:0.75;">${escapeHtml(CATEGORY_LABELS[category])}</span>` : ''}
-        <div class="card-grid">${items.map(competitionCardHtml).join('')}</div>
-      </div>`).join('');
-    return `
-      <div style="${i > 0 ? 'margin-top:3rem;' : ''}">
-        <span class="section-label" style="font-size:1rem;">${escapeHtml(REGION_LABELS[s.region])}</span>
-        ${catSections}
-      </div>`;
-  }).join('');
+  panelEl.innerHTML = levels.map((level, i) => `
+    <div class="jurisdiction-level" data-jurisdiction="${level.key}" style="${i > 0 ? 'margin-top:3rem;' : ''}">
+      <span class="section-label" style="font-size:1rem;">${escapeHtml(level.label)}</span>
+      <div class="card-grid">${level.items.map(competitionCardHtml).join('')}</div>
+    </div>`).join('');
 }
 
 async function loadScores() {
@@ -416,12 +546,19 @@ async function loadScores() {
     return;
   }
 
+  // Only sports with something to show, in a fixed editorial order —
+  // football first. (Sorting by competition alone put basketball first:
+  // "KBF Premier League" is alphabetically ahead of "Kenyan Premier League".)
   const bySport = new Map();
-  competitions.forEach((c) => {
+  withData(competitions).sort((a, b) => sportRank(a.sport.slug) - sportRank(b.sport.slug) || compareMatchday(a, b)).forEach((c) => {
     if (!bySport.has(c.sport.slug)) bySport.set(c.sport.slug, { label: c.sport.name, competitions: [] });
     bySport.get(c.sport.slug).competitions.push(c);
   });
   const categories = Array.from(bySport, ([key, { label, competitions }]) => ({ key, label, items: competitions }));
+  if (!categories.length) {
+    root.innerHTML = '<p class="empty-state">No scores or tables have been entered yet.</p>';
+    return;
+  }
 
   renderCategoryToggle({
     container: root,

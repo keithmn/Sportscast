@@ -21,7 +21,8 @@ async function loadOverviewTab(panelEl, scope) {
     api(`/api/competitions?sport=${encodeURIComponent(scope.sportSlug)}`),
   ]);
 
-  const primary = competitions.find((c) => c.region === 'KENYA' && c.category === 'LEAGUE')
+  // The Kenyan top flight: national level, a league, lowest tier first.
+  const primary = sortWithinLevel(competitions.filter((c) => c.region === 'KENYA' && c.jurisdiction === 'NATIONAL' && c.format === 'LEAGUE'), (c) => c)[0]
     || competitions.find((c) => c.region === 'KENYA')
     || competitions[0]
     || null;

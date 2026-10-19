@@ -12,7 +12,7 @@ async function loadDashboard() {
   const cards = [];
 
   if (canManageArticles(user)) {
-    const [{ articles }, { items }, { submissions }, { sources }, { fixtures: todayFixtures }, { fixtures: missingReports }, { clips: pendingClips }, { fixtures: missingInfo }] = await Promise.all([
+    const [{ articles }, { items }, { submissions }, { sources }, { fixtures: todayFixtures }, { fixtures: missingReports }, { clips: pendingClips }, { fixtures: missingInfo }, { fixtures: overdue }, { gaps: roundGaps }] = await Promise.all([
       api('/api/articles/admin/all'),
       api('/api/monitoring?status=NEW'),
       api('/api/submissions'),
@@ -21,6 +21,8 @@ async function loadDashboard() {
       api('/api/fixtures/missing-reports'),
       api('/api/episodes/clips/pending'),
       api('/api/fixtures/missing-info'),
+      api('/api/fixtures/overdue'),
+      api('/api/fixtures/round-gaps'),
     ]);
 
     const failedSources = sources.filter((s) => s.isActive && s.syncStatus === 'ERROR');
@@ -99,6 +101,30 @@ async function loadDashboard() {
             <span class="card-eyebrow" style="color:var(--gold-text);">Missing reports</span>
             <h3 class="card-title">${missingReports.length} finished match${missingReports.length === 1 ? '' : 'es'} with no report yet</h3>
             <p class="card-desc">${missingReports.slice(0, 3).map((f) => `${escapeHtml(f.homeTeam)} vs ${escapeHtml(f.awayTeam)}`).join(', ')}</p>
+          </div>
+        </a>`);
+    }
+
+    // Results the public site is showing as "Result pending" — the most
+    // visible gap a reader can hit, so it goes before the routine cards.
+    if (overdue.length) {
+      cards.unshift(`
+        <a href="/admin/competitions.html" style="display:contents;">
+          <div class="card overdue-results-card">
+            <span class="card-eyebrow" style="color:var(--danger);">Results overdue</span>
+            <h3 class="card-title">${overdue.length} Kenyan result${overdue.length === 1 ? '' : 's'} not entered</h3>
+            <p class="card-desc">Shown publicly as "Result pending". ${overdue.slice(0, 4).map((f) => `${escapeHtml(f.homeTeam)} vs ${escapeHtml(f.awayTeam)} (${escapeHtml(f.competition.name)})`).join(', ')}${overdue.length > 4 ? '…' : ''}</p>
+          </div>
+        </a>`);
+    }
+
+    if (roundGaps.length) {
+      cards.push(`
+        <a href="/admin/competitions.html" style="display:contents;">
+          <div class="card">
+            <span class="card-eyebrow">Fixture gaps</span>
+            <h3 class="card-title">${roundGaps.length} round${roundGaps.length === 1 ? '' : 's'} with a team missing</h3>
+            <p class="card-desc">${roundGaps.slice(0, 3).map((g) => `${escapeHtml(g.competition.name)} ${escapeHtml(g.round)}: ${g.missing.map(escapeHtml).join(', ')}`).join(' · ')}</p>
           </div>
         </a>`);
     }

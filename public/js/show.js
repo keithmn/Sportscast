@@ -14,7 +14,7 @@ function dbEpisodeRowHtml(ep) {
   return `
     <a href="/article.html?slug=${encodeURIComponent(a.slug)}" style="display:contents;">
       <article class="story">
-        ${a.coverImageUrl ? `<img loading="lazy" class="story-thumb" src="${escapeHtml(a.coverImageUrl)}" alt="">` : ''}
+        ${cardImageUrl(a) ? `<img loading="lazy" class="story-thumb" src="${escapeHtml(cardImageUrl(a))}" alt="">` : ''}
         <span class="story-cat">${escapeHtml(metaParts.join(' · ') || 'Episode')}</span>
         <h3 class="story-hl">${escapeHtml(a.title)}</h3>
         <p class="story-desc">${escapeHtml(a.dek)}</p>
@@ -36,7 +36,7 @@ async function renderFromDb(show) {
     const photo = document.getElementById('show-header-photo');
     photo.src = show.coverImageUrl;
     photo.style.display = 'block';
-    document.getElementById('og-image').setAttribute('content', show.coverImageUrl);
+    document.getElementById('og-image')?.setAttribute('content', show.coverImageUrl);
   }
 
   const root = document.getElementById('show-root');

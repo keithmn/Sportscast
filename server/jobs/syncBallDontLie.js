@@ -12,6 +12,7 @@
 // data, exactly like TheSportsDB's 'team'-kind events.
 
 const prisma = require('../db');
+const { classificationFor } = require('../lib/competitionClassification');
 const { resolveClubIdForTeamName } = require('../lib/clubResolution');
 const { getOrCreateCurrentSeason } = require('../lib/seasonResolution');
 
@@ -107,6 +108,7 @@ async function syncBallDontLie() {
         name: 'NBA',
         slug: require('../utils/slugify').slugify('NBA'),
         sportId: sport.id,
+        ...classificationFor('nba'),
         region: 'GLOBAL',
         source: 'API',
         externalProvider: 'balldontlie.io',

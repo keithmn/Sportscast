@@ -72,7 +72,7 @@ function canonicalRosterHtml(club) {
 function simpleHeaderHtml(club) {
   return `
     <div class="article-header" style="max-width:900px; display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap;">
-      ${club.crestUrl ? `<img loading="lazy" src="${escapeHtml(club.crestUrl)}" alt="" style="width:72px; height:72px; object-fit:contain;" onerror="this.remove()">` : ''}
+      ${crestHtml(club.name, club.crestUrl, 72)}
       <div>
         <span class="card-eyebrow">${escapeHtml(club.competition.sport.name)} · ${escapeHtml(club.competition.name)}</span>
         <h1 class="page-title" style="font-size:2rem;">${escapeHtml(club.name)}</h1>

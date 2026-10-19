@@ -36,7 +36,7 @@ router.get('/', async (req, res) => {
       kickoff: { gte: start, lt: end },
     },
     include: {
-      competition: { select: { id: true, name: true, slug: true, category: true, region: true } },
+      competition: { select: { id: true, name: true, slug: true, category: true, jurisdiction: true, format: true, tier: true, region: true } },
       homeClub: { select: { id: true, name: true, slug: true, crestUrl: true, venue: true } },
       awayClub: { select: { id: true, name: true, slug: true, crestUrl: true } },
       venue: { select: { id: true, name: true, slug: true, city: true } },
@@ -45,6 +45,25 @@ router.get('/', async (req, res) => {
   });
 
   res.json({ fixtures });
+});
+
+// ---- Public: the nearest days either side of `date` that have fixtures
+// for this sport — lets the date-strip Scores tab turn "nothing on today"
+// into "last results Sat 17 Oct / next fixtures Tue 20 Oct" instead of a
+// dead end. Dates are Nairobi calendar days, like the route above. ----
+router.get('/nearest', async (req, res) => {
+  const { sport, date } = req.query;
+  if (!sport || !/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return res.status(400).json({ error: 'sport and date (YYYY-MM-DD) are required' });
+  const { start, end } = eatDayWindow(date);
+  if (Number.isNaN(start.getTime())) return res.status(400).json({ error: 'invalid date' });
+  const where = { competition: { sport: { slug: sport }, isActive: true } };
+  const [before, after] = await Promise.all([
+    prisma.fixture.findFirst({ where: { ...where, kickoff: { lt: start } }, orderBy: { kickoff: 'desc' }, select: { kickoff: true } }),
+    prisma.fixture.findFirst({ where: { ...where, kickoff: { gte: end } }, orderBy: { kickoff: 'asc' }, select: { kickoff: true } }),
+  ]);
+  // Nairobi is UTC+3 year-round (no DST), so shifting by 3h gives the EAT calendar day.
+  const eatDay = (d) => (d ? new Date(d.kickoff.getTime() + 3 * 60 * 60 * 1000).toISOString().slice(0, 10) : null);
+  res.json({ previous: eatDay(before), next: eatDay(after) });
 });
 
 // ---- Public: a small cross-sport "what's on" list for the homepage teaser
@@ -60,22 +79,30 @@ router.get('/upcoming', async (req, res) => {
   // just before "now"), without letting months-old backlog dominate this
   // teaser. That backlog still lives on the full Scores & Fixtures page.
   const since = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  // Only the next three weeks — with little on, an open-ended list padded
+  // the homepage with a Six Nations game four months away. Kenyan
+  // competitions come first, each group soonest first.
+  const until = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000);
 
-  const fixtures = await prisma.fixture.findMany({
+  const candidates = await prisma.fixture.findMany({
     where: {
       status: { not: 'FINISHED' },
-      kickoff: { gte: since },
+      kickoff: { gte: since, lte: until },
       competition: { sport: { isActive: true }, isActive: true },
     },
     include: {
-      competition: { select: { id: true, name: true, slug: true, category: true, region: true, sport: { select: { name: true, slug: true } } } },
+      competition: { select: { id: true, name: true, slug: true, category: true, jurisdiction: true, format: true, tier: true, region: true, sport: { select: { name: true, slug: true } } } },
       homeClub: { select: { id: true, name: true, slug: true, crestUrl: true, venue: true } },
       awayClub: { select: { id: true, name: true, slug: true, crestUrl: true } },
       venue: { select: { id: true, name: true, slug: true, city: true } },
     },
     orderBy: { kickoff: 'asc' },
-    take: limit,
+    take: 100,
   });
+  const fixtures = [
+    ...candidates.filter((f) => f.competition.region === 'KENYA'),
+    ...candidates.filter((f) => f.competition.region !== 'KENYA'),
+  ].slice(0, limit);
 
   res.json({ fixtures });
 });
@@ -116,6 +143,55 @@ router.get('/missing-reports', requireRole('ADMIN', 'EDITOR'), async (req, res) 
 // ---- Admin: upcoming fixtures still missing match details — the research
 // desk's to-do list for the week (dashboard card). Next 7 days, visible
 // competitions only, not finished, with no venue or no broadcaster set.
+// ---- Admin: Kenyan results overdue — kicked off more than 3 hours ago
+// (last 30 days) and still not FINISHED or POSTPONED. The dashboard's
+// "enter these results" list; the public pages show these as "Result
+// pending" until then. ----
+router.get('/overdue', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const now = Date.now();
+  const fixtures = await prisma.fixture.findMany({
+    where: {
+      status: { in: ['SCHEDULED', 'LIVE'] },
+      kickoff: { lt: new Date(now - 3 * 60 * 60 * 1000), gte: new Date(now - 30 * 24 * 60 * 60 * 1000) },
+      competition: { region: 'KENYA', isActive: true },
+    },
+    include: { competition: { select: { id: true, name: true, slug: true } } },
+    orderBy: { kickoff: 'asc' },
+  });
+  res.json({ fixtures });
+});
+
+// ---- Admin: rounds with a team missing — for each Kenyan league's
+// current season, any round (e.g. "Matchweek 2") where a team in the
+// table has no fixture. Catches a fixture that was never entered, which
+// otherwise just silently isn't there. ----
+router.get('/round-gaps', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const seasons = await prisma.competitionSeason.findMany({
+    where: { isCurrent: true, competition: { region: 'KENYA', isActive: true, format: 'LEAGUE' } },
+    include: {
+      competition: { select: { id: true, name: true, slug: true } },
+      standings: { select: { teamName: true } },
+      fixtures: { where: { round: { not: null } }, select: { round: true, homeTeam: true, awayTeam: true } },
+    },
+  });
+  const gaps = [];
+  for (const season of seasons) {
+    const teams = season.standings.map((r) => r.teamName);
+    if (!teams.length) continue;
+    const rounds = new Map();
+    season.fixtures.forEach((f) => {
+      if (!rounds.has(f.round)) rounds.set(f.round, new Set());
+      rounds.get(f.round).add(f.homeTeam).add(f.awayTeam);
+    });
+    for (const [round, playing] of rounds) {
+      const missing = teams.filter((t) => !playing.has(t));
+      // An odd-sized league always has one team resting; only flag more.
+      if (missing.length > teams.length % 2) gaps.push({ competition: season.competition, round, missing });
+    }
+  }
+  res.json({ gaps });
+});
+
 router.get('/missing-info', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const now = new Date();
   const weekAhead = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);

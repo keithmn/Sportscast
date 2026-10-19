@@ -36,7 +36,7 @@ test.describe('Match Hub', () => {
     await expect(page.locator('#match-root')).toContainText('3');
     await expect(page.locator('#match-root')).toContainText('2');
     await expect(page.locator('#match-root')).toContainText('Kenyan Premier League');
-    await expect(page.locator('#match-root')).toContainText('FINISHED');
+    await expect(page.locator('#match-root')).toContainText('Full time');
 
     await page.request.delete(`/api/competitions/fixtures/${fixture.id}`);
   });

@@ -15,15 +15,24 @@ async function loadArticle() {
   }
 
   document.title = `${article.title} — The Sportscast`;
-  if (article.coverImageUrl) document.getElementById('og-image').setAttribute('content', article.coverImageUrl);
+  if (article.coverImageUrl) document.getElementById('og-image')?.setAttribute('content', article.coverImageUrl);
 
   const bodyHtml = article.body
     .split(/\n{2,}/)
     .map((para) => `<p>${escapeHtml(para)}</p>`)
     .join('');
 
+  // Click-to-play: YouTube's player is ~4MB of scripts, which used to
+  // download on every episode page before anyone pressed play — heavy on
+  // Kenyan mobile data. Show the thumbnail (~30KB) and swap in the real
+  // player only on tap.
   const videoHtml = article.contentType === 'VIDEO_POST' && article.youtubeId
-    ? `<div class="video-embed"><iframe src="https://www.youtube.com/embed/${encodeURIComponent(article.youtubeId)}" title="${escapeHtml(article.title)}" allowfullscreen></iframe></div>`
+    ? `<div class="video-embed">
+        <button type="button" class="video-facade" data-youtube-id="${escapeHtml(article.youtubeId)}" data-title="${escapeHtml(article.title)}" aria-label="Play video: ${escapeHtml(article.title)}">
+          <img loading="lazy" src="https://i.ytimg.com/vi/${encodeURIComponent(article.youtubeId)}/hqdefault.jpg" alt="">
+          <span class="video-facade-play" aria-hidden="true"></span>
+        </button>
+      </div>`
     : '';
 
   const coverHtml = !videoHtml && article.coverImageUrl
@@ -37,6 +46,17 @@ async function loadArticle() {
   const canonicalEventHtml = ce
     ? `<p class="source-note">Related to: ${escapeHtml(ce.competitionName || ce.teamName || ce.athleteName || ce.title)}${ce.competitionName || ce.teamName || ce.athleteName ? ` — ${escapeHtml(ce.title)}` : ''}</p>`
     : '';
+
+  root.addEventListener('click', (e) => {
+    const facade = e.target.closest('.video-facade');
+    if (!facade) return;
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(facade.dataset.youtubeId)}?autoplay=1`;
+    iframe.title = facade.dataset.title;
+    iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
+    iframe.allowFullscreen = true;
+    facade.replaceWith(iframe);
+  });
 
   root.innerHTML = `
     <div class="article-header">

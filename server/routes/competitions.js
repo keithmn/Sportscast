@@ -7,6 +7,7 @@ const { resolveClubsForFixture, resolveClubIdForTeamName } = require('../lib/clu
 const { getOrCreateCurrentSeason } = require('../lib/seasonResolution');
 const { resolveVenue } = require('../lib/venueResolution');
 const { pointsRuleFor, computeTable } = require('../lib/pointsRules');
+const { JURISDICTIONS, FORMATS, TEAM_TYPES, classificationFor, parseClassification } = require('../lib/competitionClassification');
 const { sendPushToFollowers } = require('../lib/push');
 
 const router = express.Router();
@@ -85,7 +86,25 @@ router.get('/', async (req, res) => {
     include: { sport: true },
     orderBy: { name: 'asc' },
   });
-  res.json({ competitions });
+  // hasData: does the current season have any standings or fixtures? The
+  // public pages hide empty shells (Division One zones, CAF, SVNS before
+  // anything is entered) instead of showing "Standings haven't been
+  // entered" — the competition page itself stays reachable by URL.
+  const seasons = await prisma.competitionSeason.findMany({
+    where: { isCurrent: true, competitionId: { in: competitions.map((c) => c.id) } },
+    select: { id: true, competitionId: true },
+  });
+  const seasonIds = seasons.map((s) => s.id);
+  const [standingSeasons, fixtureSeasons] = await Promise.all([
+    prisma.standingRow.groupBy({ by: ['seasonId'], where: { seasonId: { in: seasonIds } } }),
+    prisma.fixture.groupBy({ by: ['seasonId'], where: { seasonId: { in: seasonIds } } }),
+  ]);
+  const withData = new Set([...standingSeasons, ...fixtureSeasons].map((r) => r.seasonId));
+  const competitionsWithData = new Set(seasons.filter((s) => withData.has(s.id)).map((s) => s.competitionId));
+  competitions.forEach((c) => { c.hasData = competitionsWithData.has(c.id); });
+  // The level/format/team-type labels travel with the list so the public
+  // pages and the admin share one definition (competitionClassification.js).
+  res.json({ competitions, classification: { jurisdictions: JURISDICTIONS, formats: FORMATS, teamTypes: TEAM_TYPES } });
 });
 
 // ---- Admin: show/hide a competition on the public site ----
@@ -93,6 +112,20 @@ router.put('/:id/active', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   if (typeof req.body.isActive !== 'boolean') return res.status(400).json({ error: 'isActive must be true or false' });
   const competition = await prisma.competition.update({ where: { id: req.params.id }, data: { isActive: req.body.isActive } });
   await logChange('COMPETITION', competition.id, 'UPDATE', `${competition.isActive ? 'Showed' : 'Hid'} ${competition.name} on the public site`, req.session.user.name);
+  res.json({ competition });
+});
+
+// ---- Admin: change a competition's jurisdiction / format / team type /
+// governing body ----
+router.put('/:id/classification', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const { data, error } = parseClassification(req.body || {});
+  if (error) return res.status(400).json({ error });
+  if (!Object.keys(data).length) return res.status(400).json({ error: 'Nothing to change' });
+  const existing = await prisma.competition.findUnique({ where: { id: req.params.id } });
+  if (!existing) return res.status(404).json({ error: 'Competition not found' });
+  const competition = await prisma.competition.update({ where: { id: existing.id }, data });
+  const level = JURISDICTIONS.find((j) => j.key === competition.jurisdiction).label;
+  await logChange('COMPETITION', competition.id, 'UPDATE', `Classified "${competition.name}" as ${level} · ${competition.format} · ${competition.teamType}${competition.tier ? ` · tier ${competition.tier}` : ''}${competition.governingBody ? ` (${competition.governingBody})` : ''}`, req.session.user.name);
   res.json({ competition });
 });
 
@@ -273,16 +306,18 @@ router.post('/:id/seasons', requireRole('ADMIN', 'EDITOR'), async (req, res) => 
 });
 
 // ---- Admin: create a competition ----
-const VALID_CATEGORIES = ['LEAGUE', 'CUP', 'CONTINENTAL', 'INTERNATIONAL'];
-
+// Takes jurisdiction/format/teamType/governingBody (competitionClassification.js);
+// a name the site already knows (e.g. re-adding "CHAN") is classified from
+// the known map when the editor leaves the fields out. The superseded
+// `category` field is no longer written — the schema default fills it.
 router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
-  const { name, sportId, source, category } = req.body;
+  const { name, sportId, source } = req.body;
   if (!name || !sportId) return res.status(400).json({ error: 'name and sportId are required' });
-  if (category !== undefined && !VALID_CATEGORIES.includes(category)) {
-    return res.status(400).json({ error: `category must be one of: ${VALID_CATEGORIES.join(', ')}` });
-  }
+  const { data: classification, error } = parseClassification(req.body);
+  if (error) return res.status(400).json({ error });
+  const slug = slugify(name);
   const competition = await prisma.competition.create({
-    data: { name, slug: slugify(name), sportId, source: source === 'API' ? 'API' : 'MANUAL', category: category || 'LEAGUE' },
+    data: { name, slug, sportId, source: source === 'API' ? 'API' : 'MANUAL', ...classificationFor(slug), ...classification },
   });
   await logChange('COMPETITION', competition.id, 'CREATE', `Added competition "${competition.name}"`, req.session.user.name);
   res.status(201).json({ competition });

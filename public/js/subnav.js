@@ -20,7 +20,7 @@ function articleCardHtml(a) {
   return `
     <a href="/article.html?slug=${encodeURIComponent(a.slug)}" style="display:contents;">
       <article class="story">
-        ${a.coverImageUrl ? `<img loading="lazy" class="story-thumb" src="${escapeHtml(a.coverImageUrl)}" alt="">` : ''}
+        ${cardImageUrl(a) ? `<img loading="lazy" class="story-thumb" src="${escapeHtml(cardImageUrl(a))}" alt="">` : ''}
         <span class="story-cat">${escapeHtml(a.contentType === 'VIDEO_POST' ? (a.videoSeries || 'Podcast') : a.sport.name)}</span>
         <h3 class="story-hl">${escapeHtml(a.title)}</h3>
         <p class="story-desc">${escapeHtml(a.dek)}</p>
@@ -211,13 +211,34 @@ async function loadScoresTab(panelEl, scope) {
     });
   }
 
+  // Kenya first, like the Tables tab: Kenyan competitions' games open,
+  // every other competition's games collapsed under "Other competitions"
+  // (a tap opens them — already loaded, so no extra request). Picking one
+  // competition in the filter shows it open regardless.
   function renderFixturesList(groups) {
     const visible = selectedCompetitionSlug ? groups.filter((g) => g.competition.slug === selectedCompetitionSlug) : groups;
-    listEl.innerHTML = visible.map((g) => `
-      <div style="margin-bottom:2rem;">
-        <span class="section-label">${escapeHtml(g.competition.name)}</span>
-        ${g.fixtures.map(fixtureRowHtml).join('')}
-      </div>`).join('');
+    const open = selectedCompetitionSlug ? visible : visible.filter((g) => g.competition.region === 'KENYA');
+    const collapsed = selectedCompetitionSlug ? [] : visible.filter((g) => g.competition.region !== 'KENYA');
+    listEl.innerHTML = `
+      ${open.map((g) => `
+        <div style="margin-bottom:2rem;">
+          <span class="section-label">${escapeHtml(g.competition.name)}</span>
+          ${g.fixtures.map(fixtureRowHtml).join('')}
+        </div>`).join('')}
+      ${collapsed.length ? `
+        <div style="margin-top:${open.length ? '1rem' : '0'};">
+          <span class="section-label">Other competitions</span>
+          <div class="collapsed-competitions">
+            ${collapsed.map((g) => `
+              <details class="collapsed-competition">
+                <summary>
+                  <span class="collapsed-competition-name">${escapeHtml(g.competition.name)}</span>
+                  <span class="collapsed-competition-meta">${g.fixtures.length} game${g.fixtures.length === 1 ? '' : 's'}</span>
+                </summary>
+                <div class="collapsed-competition-body">${g.fixtures.map(fixtureRowHtml).join('')}</div>
+              </details>`).join('')}
+          </div>
+        </div>` : ''}`;
   }
 
   async function loadFixtures() {
@@ -226,7 +247,21 @@ async function loadScoresTab(panelEl, scope) {
     const { fixtures } = await api(`/api/fixtures?sport=${encodeURIComponent(sportSlug)}&date=${encodeURIComponent(selectedDate)}`);
 
     if (!fixtures.length) {
-      listEl.innerHTML = `<p class="empty-state">No fixtures scheduled for this sport on ${escapeHtml(formatDayLabel(selectedDate))}.</p>`;
+      // Not a dead end: offer the nearest days that do have games.
+      const { previous, next } = await api(`/api/fixtures/nearest?sport=${encodeURIComponent(sportSlug)}&date=${encodeURIComponent(selectedDate)}`).catch(() => ({}));
+      const jumps = [
+        previous ? `<button class="btn-outline-sm" data-jump-date="${previous}">← Results: ${escapeHtml(formatDayLabel(previous))}</button>` : '',
+        next ? `<button class="btn-outline-sm" data-jump-date="${next}">Fixtures: ${escapeHtml(formatDayLabel(next))} →</button>` : '',
+      ].join('');
+      listEl.innerHTML = `
+        <p class="empty-state">No games on ${escapeHtml(formatDayLabel(selectedDate))}.</p>
+        ${jumps ? `<div class="filter-row nearest-jumps">${jumps}</div>` : ''}`;
+      listEl.querySelectorAll('[data-jump-date]').forEach((btn) => btn.addEventListener('click', () => {
+        selectedDate = btn.dataset.jumpDate;
+        selectedCompetitionSlug = null;
+        renderStrip();
+        loadFixtures();
+      }));
       return;
     }
 
@@ -235,7 +270,7 @@ async function loadScoresTab(panelEl, scope) {
       if (!byCompetition.has(f.competition.slug)) byCompetition.set(f.competition.slug, { competition: f.competition, fixtures: [] });
       byCompetition.get(f.competition.slug).fixtures.push(f);
     });
-    const groups = Array.from(byCompetition.values());
+    const groups = Array.from(byCompetition.values()).sort((a, b) => compareMatchday(a.competition, b.competition));
 
     if (groups.length > 1) {
       filterEl.innerHTML = `

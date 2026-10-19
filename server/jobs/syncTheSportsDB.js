@@ -17,6 +17,7 @@
 // per competition (see COMPETITIONS config below).
 
 const prisma = require('../db');
+const { classificationFor } = require('../lib/competitionClassification');
 const { resolveClubIdForTeamName } = require('../lib/clubResolution');
 const { getOrCreateCurrentSeason } = require('../lib/seasonResolution');
 
@@ -146,6 +147,7 @@ async function syncTheSportsDB() {
             name: competitionName,
             slug: require('../utils/slugify').slugify(competitionName),
             sportId: sport.id,
+            ...classificationFor(require('../utils/slugify').slugify(competitionName)),
             region: 'GLOBAL',
             source: 'API',
             externalProvider: 'thesportsdb.com',

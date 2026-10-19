@@ -17,23 +17,27 @@
 // reuse; a real addition, not something to bolt on as a fake here.
 
 function teamSideHtml(name, club) {
-  if (!club) return `<span class="fixture-teams">${escapeHtml(name)}</span>`;
+  if (!club) return `<span style="display:flex; align-items:center; gap:0.5rem;">${crestHtml(name, null, 28)}<span class="fixture-teams">${escapeHtml(name)}</span></span>`;
   return `
     <a href="/club.html?slug=${encodeURIComponent(club.slug)}" style="display:flex; align-items:center; gap:0.5rem; text-decoration:none; color:inherit;">
-      ${club.crestUrl ? `<img loading="lazy" src="${escapeHtml(club.crestUrl)}" alt="" style="width:28px; height:28px; object-fit:contain;" onerror="this.remove()">` : ''}
+      ${crestHtml(name, club.crestUrl, 28)}
       <span class="fixture-teams">${escapeHtml(name)}</span>
     </a>`;
 }
 
-// Real, not fabricated: Competition.source (MANUAL/API/SCRAPED) plus
-// externalProvider, the same fields club.js's own "Wikidata · synced…"
-// tag already surfaces for API-sourced clubs — same idea, applied here.
-function provenanceLineHtml(competition) {
-  if (competition.source === 'API') {
-    return `<p class="source-note">Source: ${escapeHtml(competition.externalProvider || 'external provider')} (synced)</p>`;
+// Real, not fabricated. A fixture's own sourceUrl (the official page or
+// report the result was confirmed from — results desk, match-day tools)
+// wins and is linked; otherwise the competition's sourcing. Wording is
+// deliberately plain ("Data:"), never "scraped" — that described how an
+// importer worked, not anything a reader needs.
+function provenanceLineHtml(competition, fixture) {
+  if (fixture && fixture.sourceUrl) {
+    let host = '';
+    try { host = new URL(fixture.sourceUrl).hostname.replace(/^www\./, ''); } catch { host = ''; }
+    if (host) return `<p class="source-note">Source: <a href="${escapeHtml(fixture.sourceUrl)}" rel="noopener nofollow" target="_blank">${escapeHtml(host)}</a></p>`;
   }
-  if (competition.source === 'SCRAPED') {
-    return `<p class="source-note">Source: scraped from ${escapeHtml(competition.externalProvider || 'a public source')}</p>`;
+  if (competition.source === 'API' || competition.source === 'SCRAPED') {
+    return `<p class="source-note">Data: ${escapeHtml(competition.externalProvider || 'public sources')}</p>`;
   }
   return `<p class="source-note">Source: entered by The Sportscast newsroom</p>`;
 }
@@ -102,7 +106,7 @@ async function loadMatch() {
   const scoreHtml = (canonicalHasScore || fixture.status === 'FINISHED') && hasRealScore
     ? `<p style="font-size:2rem; font-weight:800; margin:1rem 0;">${displayHomeScore ?? 0} – ${displayAwayScore ?? 0}</p>
        ${canonicalHasScore ? '<p class="source-note">Verified via the Underdawgs Sports Data platform</p>' : ''}`
-    : `<p class="empty-state">${fixture.status === 'POSTPONED' ? 'Postponed' : 'No result yet'}</p>`;
+    : `<p class="empty-state">${fixture.status === 'POSTPONED' ? 'Postponed' : fixtureDisplayStatus(fixture).key === 'PENDING' ? 'Result pending — we\'re confirming the score' : 'Not started yet'}</p>`;
 
   const postponedNote = fixture.status === 'POSTPONED' && fixture.originalKickoff
     ? `<p class="source-note">Was ${formatDate(fixture.originalKickoff)} — now ${formatDate(fixture.kickoff)}</p>`
@@ -121,10 +125,10 @@ async function loadMatch() {
     </div>
 
     ${scoreHtml}
-    <p class="sub">${formatDate(fixture.kickoff)} · <span class="fixture-status ${escapeHtml(fixture.status)}">${escapeHtml(fixture.status)}</span></p>
+    <p class="sub">${formatDate(fixture.kickoff)} · ${(() => { const st = fixtureDisplayStatus(fixture); return `<span class="fixture-status ${escapeHtml(st.key)}">${escapeHtml(st.label)}</span>`; })()}</p>
     ${(() => { const d = fixtureDetailParts(fixture); return d.length ? `<p class="sub fixture-details-hub">${d.map(escapeHtml).join(' · ')}</p>` : ''; })()}
     ${postponedNote}
-    ${provenanceLineHtml(fixture.competition)}
+    ${provenanceLineHtml(fixture.competition, fixture)}
 
     <div style="margin-top:2rem;" id="match-report-root"></div>
 

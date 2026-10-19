@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
+const { KNOWN: KNOWN_COMPETITIONS } = require('../server/lib/competitionClassification');
 const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
@@ -178,6 +179,10 @@ async function main() {
         authorId: authors['The Sportscast Newsroom'].id,
         status: 'PUBLISHED',
         contentType: 'VIDEO_POST',
+        // Placeholder: aqz-KE-bpKQ is Blender's "Big Buck Bunny" sample
+        // video, and these runtimes/guests are invented — test fixtures, not
+        // real episodes. Never let a real database publish them (the demo
+        // database had them unpublished 2026-10-19).
         youtubeId: 'aqz-KE-bpKQ',
         videoSeries: 'The Sportscast',
         episodeLabel: ep.episodeLabel,
@@ -349,6 +354,13 @@ async function main() {
         category: c.category,
       },
     });
+  }
+
+  // Jurisdiction / format / team type for every competition created above
+  // (server/lib/competitionClassification.js — the same map the
+  // 20261017180000_competition_jurisdiction migration applied).
+  for (const [slug, [jurisdiction, format, teamType, governingBody, tier = null]] of Object.entries(KNOWN_COMPETITIONS)) {
+    await prisma.competition.updateMany({ where: { slug }, data: { jurisdiction, format, teamType, governingBody, tier } });
   }
 
   // ---------------- Shop: KPL teams + kits ----------------

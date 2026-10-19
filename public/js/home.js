@@ -46,7 +46,7 @@ function topStoryCardHtml(a, isLg) {
   return `
     <a href="/article.html?slug=${encodeURIComponent(a.slug)}" style="display:contents;">
       <article class="story${isLg ? ' story--lg' : ''}">
-        ${a.coverImageUrl ? `<img loading="lazy" class="story-thumb" src="${escapeHtml(a.coverImageUrl)}" alt="">` : ''}
+        ${cardImageUrl(a) ? `<img loading="lazy" class="story-thumb" src="${escapeHtml(cardImageUrl(a))}" alt="">` : ''}
         <span class="story-cat">${escapeHtml(a.sport.name)}</span>
         <h3 class="story-hl">${escapeHtml(a.title)}</h3>
         <p class="story-desc">${escapeHtml(a.dek)}</p>
@@ -95,7 +95,7 @@ async function loadNewsStrip() {
 
   list.innerHTML = articles.map((a) => `
     <a href="/article.html?slug=${encodeURIComponent(a.slug)}" class="archive-item">
-      ${a.coverImageUrl ? `<img loading="lazy" class="archive-item-thumb" src="${escapeHtml(a.coverImageUrl)}" alt="">` : ''}
+      ${cardImageUrl(a) ? `<img loading="lazy" class="archive-item-thumb" src="${escapeHtml(cardImageUrl(a))}" alt="">` : ''}
       <span class="archive-item-content">
         <span class="archive-item-main">
           <span class="archive-item-cat">${escapeHtml(a.sport.name)}</span>
@@ -165,7 +165,7 @@ function watchCardHtml(ep) {
   return `
     <a href="/article.html?slug=${encodeURIComponent(a.slug)}" style="display:contents;">
       <article class="story">
-        ${a.coverImageUrl ? `<img loading="lazy" class="story-thumb" src="${escapeHtml(a.coverImageUrl)}" alt="">` : ''}
+        ${cardImageUrl(a) ? `<img loading="lazy" class="story-thumb" src="${escapeHtml(cardImageUrl(a))}" alt="">` : ''}
         <span class="story-cat">${escapeHtml(metaParts.join(' · ') || 'Episode')}</span>
         <h3 class="story-hl">${escapeHtml(a.title)}</h3>
         <p class="story-desc">${escapeHtml(a.dek)}</p>
@@ -206,7 +206,8 @@ async function loadLocalSection() {
   const section = document.getElementById('local-section');
   const list = document.getElementById('local-list');
   const { competitions } = await api('/api/competitions');
-  const kenyan = competitions.filter((c) => c.region === 'KENYA');
+  // KPL first; empty shells left off (same rules as the Scores pages).
+  const kenyan = withData(competitions.filter((c) => c.region === 'KENYA')).sort(compareMatchday);
 
   if (!kenyan.length) { section.style.display = 'none'; return; }
 
