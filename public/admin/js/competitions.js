@@ -620,7 +620,15 @@ async function initCompetitionsPage() {
     ['jurisdiction', 'format', 'teamType', 'tier', 'governingBody'].forEach((field) => {
       classification[field] = document.getElementById(`competition-${field}`).value;
     });
-    await api('/api/competitions', { method: 'POST', body: JSON.stringify({ name, sportId, ...classification }) });
+    // A near-identical name ("Kenya Premier league" beside "Kenyan Premier
+    // League") is refused once; the editor confirms if it really is new.
+    try {
+      await api('/api/competitions', { method: 'POST', body: JSON.stringify({ name, sportId, ...classification }) });
+    } catch (err) {
+      if (!/^Already on the site/.test(err.message)) { alert(err.message); return; }
+      if (!confirm(`${err.message}\n\nTo enter results, use the Results page instead.\n\nAdd "${name}" as a new competition anyway?`)) return;
+      await api('/api/competitions', { method: 'POST', body: JSON.stringify({ name, sportId, ...classification, confirmNew: true }) });
+    }
     document.getElementById('competition-governingBody').value = '';
     document.getElementById('competition-tier').value = '';
     document.getElementById('competition-name').value = '';

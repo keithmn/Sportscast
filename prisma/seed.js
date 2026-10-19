@@ -343,13 +343,26 @@ async function main() {
     { sport: 'Rugby', name: 'HSBC SVNS Kenya Leg', category: 'INTERNATIONAL' },
     { sport: 'Basketball', name: 'BAL / Road to BAL', category: 'CONTINENTAL' },
   ];
+  // Kenyan leagues outside football (2026-10-19). These used to exist only
+  // where someone had added them by hand, so a fresh database had no Kenya
+  // Cup, KBF, KHU or boxing league to enter results into. The
+  // 20261019150000_kenyan_league_shells migration adds the same rows to
+  // existing databases. Kenya Cup's standings sync (syncKenyaCup.js) finds
+  // it by name and sport.
+  realCompetitionShells.push(
+    { sport: 'Rugby', name: 'Kenya Cup', category: 'LEAGUE', source: 'SCRAPED', externalProvider: 'kenyacup.co.ke' },
+    { sport: 'Basketball', name: 'KBF Premier League', category: 'LEAGUE' },
+    { sport: 'Hockey', name: 'KHU Premier League', category: 'LEAGUE' },
+    { sport: 'Boxing', name: 'National Boxing League', category: 'LEAGUE' },
+  );
   for (const c of realCompetitionShells) {
     await prisma.competition.create({
       data: {
         name: c.name,
         slug: slugify(c.name),
         sportId: sports[c.sport].id,
-        source: 'MANUAL',
+        source: c.source || 'MANUAL',
+        externalProvider: c.externalProvider || null,
         region: 'KENYA',
         category: c.category,
       },

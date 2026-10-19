@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Results — The Sportscast Newsroom</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&family=Nunito:wght@400;600;700;900&family=Anton&display=swap" rel="stylesheet">
+  <link rel="icon" href="/brand/favicon/favicon-32.png" sizes="32x32">
+  <link rel="icon" href="/brand/favicon/favicon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="/brand/favicon/favicon-180.png">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="admin-sidebar">
+      <div class="nav-logo" style="margin-bottom:2rem;">
+        <div><img src="/brand/logo/lockup-lower-black.png" alt="The Sportscast" style="height:26px; width:auto; display:block;"><span style="font-family:'Nunito',sans-serif; font-size:0.7rem; color:var(--text-secondary); display:block; margin-top:0.35rem;">Newsroom</span></div>
+      </div>
+      <a href="/admin/dashboard.html">Dashboard</a>
+      <a href="/admin/results.html" class="active">Results</a>
+      <a href="/admin/articles.html">Articles</a>
+      <a href="/admin/competitions.html">Competitions</a>
+      <a href="/admin/clubs.html">Clubs &amp; Players</a>
+      <a href="/admin/submissions.html">Submissions</a>
+      <a href="/admin/monitoring.html">Monitoring</a>
+      <a href="/admin/watch.html">X Watch</a>
+      <a href="/admin/sources.html">Sources</a>
+      <a href="/admin/sports.html">Sports</a>
+      <a href="/index.html">View Site</a>
+      <a href="#" id="logout-link">Log Out</a>
+    </aside>
+    <main class="admin-main">
+      <div class="admin-topbar">
+        <h1 class="page-title" style="font-size:1.75rem;">Results</h1>
+        <span id="whoami" class="page-sub"></span>
+      </div>
+      <div id="access-denied" class="form-error" style="display:none;">You don't have permission to view this.</div>
+      <div id="results-app" style="display:none;">
+        <div class="form-field results-source">
+          <label for="source-url">Where are these scores from? <span class="hint">(optional link — FKF, KRU, a match report; shown on the match page)</span></label>
+          <input type="url" id="source-url" placeholder="https://footballkenya.org/…" inputmode="url" autocomplete="off">
+        </div>
+
+        <section class="results-section" id="waiting-section">
+          <h2 class="results-heading">Waiting for a result</h2>
+          <p class="results-help">Kenyan games that kicked off more than 3 hours ago with no score. The site shows them as "Result pending" until you save.</p>
+          <div id="waiting-list"><p class="empty-state">Loading…</p></div>
+        </section>
+
+        <section class="results-section">
+          <h2 class="results-heading">Enter results by competition</h2>
+          <div class="form-field">
+            <label for="competition-select">Competition</label>
+            <select id="competition-select"><option value="">Choose a competition…</option></select>
+          </div>
+          <div id="competition-panel"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="results-savebar" id="savebar" hidden>
+    <span id="savebar-count"></span>
+    <button type="button" class="btn-red" id="savebar-btn">Save results</button>
+  </div>
+
+  <style>
+    .results-source { max-width: 640px; margin-bottom: 2rem; }
+    .results-source .hint, .results-help { color: var(--text-secondary); font-size: 0.82rem; font-weight: 400; }
+    .results-section { margin-bottom: 3rem; }
+    .results-heading { font-size: 1.15rem; margin: 0 0 0.35rem; }
+    .results-help { margin: 0 0 1rem; }
+    .results-comp-label { display: block; margin: 1.25rem 0 0.25rem; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold-text); }
+    .result-row { display: grid; grid-template-columns: minmax(0, 1fr) 3.5rem 0.75rem 3.5rem minmax(0, 1fr) 9rem 9.5rem; gap: 0.5rem; align-items: center; padding: 0.55rem 0; border-bottom: 1px solid var(--border); }
+    .result-row input[type=number], .add-game-row input, .result-row select { background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-primary); border-radius: var(--radius); }
+    .result-row input[type=number]:focus, .add-game-row input:focus, .result-row select:focus { border-color: var(--brand-gold); outline: none; }
+    .add-game-row input { padding: 0.5rem 0.55rem; font-size: 0.95rem; }
+    .result-row .team { font-weight: 600; font-size: 0.95rem; overflow-wrap: anywhere; }
+    .result-row .team.home { text-align: right; }
+    .result-row input[type=number] { width: 100%; text-align: center; font-size: 1.1rem; font-weight: 700; padding: 0.45rem 0; }
+    .result-row .dash { text-align: center; color: var(--text-secondary); }
+    .result-row .when { font-size: 0.78rem; color: var(--text-secondary); }
+    .result-row select { font-size: 0.82rem; padding: 0.3rem; }
+    .result-row.changed { background: var(--bg-surface); }
+    .result-row.done .team { color: var(--text-secondary); }
+    .round-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 1rem 0; }
+    .round-chips button { font-size: 0.8rem; padding: 0.35rem 0.7rem; border: 1px solid var(--border); background: none; color: var(--text-secondary); cursor: pointer; }
+    .round-chips button.active { border-color: var(--text-primary); color: var(--text-primary); font-weight: 700; }
+    .panel-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1rem; align-items: center; }
+    .results-note { font-size: 0.85rem; margin-top: 0.5rem; }
+    .results-note.ok { color: var(--success); }
+    .add-games { margin-top: 2rem; padding: 1rem; border: 1px dashed var(--border); }
+    .add-game-row { display: grid; grid-template-columns: minmax(0, 1.3fr) 3.5rem 3.5rem minmax(0, 1.3fr) 9rem 6rem minmax(0, 1fr) minmax(0, 1fr); gap: 0.5rem; align-items: end; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+    .add-game-row label { font-size: 0.7rem; color: var(--text-secondary); display: block; margin-bottom: 0.15rem; }
+    .add-game-row input { width: 100%; }
+    .add-game-row input[type=number] { text-align: center; font-weight: 700; }
+    .results-savebar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: flex; gap: 1rem; align-items: center; justify-content: flex-end; padding: 0.75rem var(--px) calc(0.75rem + env(safe-area-inset-bottom, 0px)); background: var(--bg-elevated); border-top: 1px solid var(--border); font-size: 0.9rem; }
+    .results-savebar[hidden] { display: none; }
+    @media (max-width: 760px) {
+      .result-row { grid-template-columns: minmax(0, 1fr) 3.25rem 0.6rem 3.25rem minmax(0, 1fr); row-gap: 0.3rem; }
+      .result-row .when { grid-column: 1 / 3; }
+      .result-row .row-status { grid-column: 3 / 6; justify-self: end; }
+      .add-game-row { grid-template-columns: 1fr 1fr; }
+      .add-game-row .wide { grid-column: 1 / 3; }
+      .results-savebar { justify-content: space-between; }
+    }
+  </style>
+  <script src="/js/site.js"></script>
+  <script src="/js/scores.js"></script>
+  <script src="/admin/js/guard.js"></script>
+  <script src="/admin/js/results.js"></script>
+</body>
+</html>

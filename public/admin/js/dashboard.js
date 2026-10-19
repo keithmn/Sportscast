@@ -109,7 +109,7 @@ async function loadDashboard() {
     // visible gap a reader can hit, so it goes before the routine cards.
     if (overdue.length) {
       cards.unshift(`
-        <a href="/admin/competitions.html" style="display:contents;">
+        <a href="/admin/results.html" style="display:contents;">
           <div class="card overdue-results-card">
             <span class="card-eyebrow" style="color:var(--danger);">Results overdue</span>
             <h3 class="card-title">${overdue.length} Kenyan result${overdue.length === 1 ? '' : 's'} not entered</h3>

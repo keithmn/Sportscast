@@ -560,6 +560,16 @@ table.data-table th.num { text-align: center; }
 .admin-sidebar a { display: block; padding: 0.6rem 0.75rem; font-size: var(--text-small); color: var(--text-secondary); border-left: 3px solid transparent; }
 .admin-sidebar a:hover, .admin-sidebar a.active { color: var(--text-primary); border-left-color: var(--brand-gold); background: var(--bg-elevated); }
 .admin-main { flex: 1; padding: 2rem var(--px); max-width: 1100px; }
+/* Phones (2026-10-19): the sidebar becomes a scrolling strip of links above
+   the page instead of a 220px column squeezing it. */
+@media (max-width: 760px) {
+  .admin-shell { flex-direction: column; }
+  .admin-sidebar { width: auto; display: flex; gap: 0.25rem; overflow-x: auto; padding: 0.5rem; border-right: none; border-bottom: 1px solid var(--border); -webkit-overflow-scrolling: touch; }
+  .admin-sidebar .nav-logo { display: none; }
+  .admin-sidebar a { flex-shrink: 0; white-space: nowrap; border-left: none; border-bottom: 3px solid transparent; padding: 0.5rem 0.7rem; }
+  .admin-sidebar a:hover, .admin-sidebar a.active { border-bottom-color: var(--brand-gold); }
+  .admin-main { padding: 1.25rem var(--px) 6rem; }
+}
 .admin-topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
 .status-badge { font-size: var(--text-micro); text-transform: uppercase; letter-spacing: 0.06em; padding: 0.2rem 0.6rem; border: 1px solid var(--border); }
 .status-badge.published { color: var(--success); border-color: var(--success); }

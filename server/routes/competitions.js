@@ -62,6 +62,15 @@ function detailText(value) {
   return t ? t.slice(0, 200) : null;
 }
 
+// An optional source link from an editor: '' or missing means none; it
+// must be a plain http(s) URL, since the public match page links it.
+function sourceUrlOrError(value) {
+  if (value === undefined || value === null || String(value).trim() === '') return null;
+  const url = String(value).trim();
+  if (!/^https?:\/\/[^\s]+$/i.test(url) || url.length > 500) return new Error('The source link must be a full web address starting with http:// or https://');
+  return url;
+}
+
 function logChange(entityType, entityId, action, summary, userName) {
   return prisma.changeLog.create({ data: { entityType, entityId, action, summary, userName } }).catch((err) => {
     // A logging failure should never block the real mutation it's describing.
@@ -305,6 +314,23 @@ router.post('/:id/seasons', requireRole('ADMIN', 'EDITOR'), async (req, res) => 
   res.status(201).json({ season });
 });
 
+// True when two squashed names differ by at most one or two letters
+// (kenyapremierleague / kenyanpremierleague), scaled to their length.
+function nearlySame(a, b) {
+  if (a === b) return true;
+  const limit = Math.max(a.length, b.length) >= 12 ? 2 : 1;
+  if (Math.abs(a.length - b.length) > limit) return false;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i += 1) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j += 1) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prev = cur;
+  }
+  return prev[b.length] <= limit;
+}
+
 // ---- Admin: create a competition ----
 // Takes jurisdiction/format/teamType/governingBody (competitionClassification.js);
 // a name the site already knows (e.g. re-adding "CHAN") is classified from
@@ -316,6 +342,17 @@ router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const { data: classification, error } = parseClassification(req.body);
   if (error) return res.status(400).json({ error });
   const slug = slugify(name);
+  // "Kenya Premier league" next to "Kenyan Premier League" is almost
+  // always the same competition added twice. Refuse a near-identical name
+  // unless the editor confirms it really is a different competition.
+  if (!req.body.confirmNew) {
+    const squash = (n) => String(n).toLowerCase().replace(/[^a-z0-9]/g, '');
+    const all = await prisma.competition.findMany({ select: { name: true, slug: true } });
+    const similar = all.filter((c) => c.slug === slug || nearlySame(squash(c.name), squash(name)));
+    if (similar.length) {
+      return res.status(409).json({ error: `Already on the site: ${similar.map((c) => c.name).join(', ')}. Add it anyway only if it's a different competition.`, similar });
+    }
+  }
   const competition = await prisma.competition.create({
     data: { name, slug, sportId, source: source === 'API' ? 'API' : 'MANUAL', ...classificationFor(slug), ...classification },
   });
@@ -547,22 +584,119 @@ router.put('/fixtures/:fixtureId', requireRole('ADMIN', 'EDITOR'), async (req, r
   res.json({ fixture, createdVenue: venueResult?.created ? String(venue).trim() : null });
 });
 
+// ---- Admin: add games straight from the Results page ----
+// For a result (or fixture) that isn't in the system yet — a game the
+// fixture list missed, or a whole round typed in after the fact. Each game:
+// { homeTeam, awayTeam, kickoff ('YYYY-MM-DDTHH:MM', Nairobi time),
+// homeScore?, awayScore?, round?, venue? } — both scores make it a
+// finished result (followers get the full-time push), neither makes it a
+// fixture. Every game is checked before any is created, and a game that
+// already exists (same teams, same Nairobi day) is refused so it can't be
+// entered twice — its score goes in the round list instead.
+router.post('/:id/games', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const { games } = req.body;
+  if (!Array.isArray(games) || !games.length) return res.status(400).json({ error: 'Add at least one game' });
+  if (games.length > 40) return res.status(400).json({ error: 'At most 40 games at a time' });
+  const sourceUrl = sourceUrlOrError(req.body.sourceUrl);
+  if (sourceUrl instanceof Error) return res.status(400).json({ error: sourceUrl.message });
+  const competition = await prisma.competition.findUnique({ where: { id: req.params.id } });
+  if (!competition) return res.status(404).json({ error: 'Competition not found' });
+
+  const ok = (n) => Number.isInteger(n) && n >= 0 && n <= 999;
+  const nairobiDay = (d) => new Date(d.getTime() + 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const errors = [];
+  const clean = games.map((g, i) => {
+    const row = `Game ${i + 1}`;
+    const homeTeam = String(g.homeTeam || '').trim();
+    const awayTeam = String(g.awayTeam || '').trim();
+    const kickoff = parseKickoff(g.kickoff);
+    const hasHome = g.homeScore !== undefined && g.homeScore !== null && g.homeScore !== '';
+    const hasAway = g.awayScore !== undefined && g.awayScore !== null && g.awayScore !== '';
+    const homeScore = hasHome ? Number(g.homeScore) : null;
+    const awayScore = hasAway ? Number(g.awayScore) : null;
+    if (!homeTeam || !awayTeam) errors.push(`${row}: both teams are needed`);
+    else if (homeTeam.toLowerCase() === awayTeam.toLowerCase()) errors.push(`${row}: a team can't play itself`);
+    if (Number.isNaN(kickoff.getTime())) errors.push(`${row}: the date and time aren't valid`);
+    if (hasHome !== hasAway) errors.push(`${row}: enter both scores, or neither for a fixture`);
+    else if (hasHome && (!ok(homeScore) || !ok(awayScore))) errors.push(`${row}: scores must be whole numbers from 0 to 999`);
+    return { homeTeam, awayTeam, kickoff, homeScore, awayScore, round: g.round, venue: g.venue };
+  });
+  if (!errors.length) {
+    const seen = new Set();
+    const season = await getOrCreateCurrentSeason(prisma, competition.id);
+    const existing = await prisma.fixture.findMany({ where: { competitionId: competition.id, seasonId: season.id }, select: { homeTeam: true, awayTeam: true, kickoff: true } });
+    const key = (h, a, d) => `${h.toLowerCase()}|${a.toLowerCase()}|${nairobiDay(d)}`;
+    const existingKeys = new Set(existing.map((f) => key(f.homeTeam, f.awayTeam, f.kickoff)));
+    clean.forEach((g, i) => {
+      if (Number.isNaN(g.kickoff.getTime())) return;
+      const k = key(g.homeTeam, g.awayTeam, g.kickoff);
+      if (existingKeys.has(k)) errors.push(`Game ${i + 1}: ${g.homeTeam} v ${g.awayTeam} on that day is already in the fixture list — enter its score there`);
+      else if (seen.has(k)) errors.push(`Game ${i + 1}: the same game appears twice`);
+      seen.add(k);
+    });
+  }
+  if (errors.length) return res.status(400).json({ error: errors.join('; ') });
+
+  const season = await getOrCreateCurrentSeason(prisma, competition.id);
+  // resolveVenue's cache is the venue list itself (it appends new ones),
+  // so a misspelt venue typed twice in one save is created once.
+  const venueCache = await prisma.venue.findMany({ select: { id: true, name: true } });
+  const created = [];
+  for (const g of clean) {
+    const [{ homeClubId, awayClubId }, venueResult] = await Promise.all([
+      resolveClubsForFixture(prisma, competition.id, g.homeTeam, g.awayTeam),
+      resolveVenue(prisma, g.venue, venueCache),
+    ]);
+    const finished = g.homeScore !== null;
+    const fixture = await prisma.fixture.create({
+      data: {
+        competitionId: competition.id,
+        seasonId: season.id,
+        homeTeam: g.homeTeam,
+        awayTeam: g.awayTeam,
+        homeClubId,
+        awayClubId,
+        kickoff: g.kickoff,
+        status: finished ? 'FINISHED' : 'SCHEDULED',
+        homeScore: g.homeScore,
+        awayScore: g.awayScore,
+        venueId: venueResult.venueId,
+        round: detailText(g.round) ?? null,
+        sourceUrl: finished ? sourceUrl : null,
+      },
+    });
+    await logChange('FIXTURE', fixture.id, 'CREATE', finished
+      ? `Added result: ${g.homeTeam} ${g.homeScore}-${g.awayScore} ${g.awayTeam}, ${fmtDate(g.kickoff)}`
+      : `Added fixture: ${g.homeTeam} vs ${g.awayTeam}, ${fmtDate(g.kickoff)}`, req.session.user.name);
+    if (finished) notifyFixtureResult(fixture);
+    created.push(fixture);
+  }
+  res.status(201).json({ created: created.length, fixtures: created });
+});
+
 // ---- Admin: save a whole round's results at once ----
 // Match day used to mean one Save click per fixture. This takes every
 // score from the round panel in one request and applies them in a single
 // transaction — all saved or none, so a typo can't leave a round half
 // entered. Same semantics as the single-fixture PUT above for each row:
 // marks it FINISHED, logs the result, and sends the same full-time push.
+// A row may instead be { fixtureId, status: 'POSTPONED' } (no scores).
+// An optional top-level sourceUrl — the official page or report the
+// scores were confirmed from — is stored on every finished row, and the
+// public match page links it.
 router.put('/:id/fixtures/results', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const { results } = req.body;
   if (!Array.isArray(results) || !results.length) {
     return res.status(400).json({ error: 'results must be a non-empty array' });
   }
+  const sourceUrl = sourceUrlOrError(req.body.sourceUrl);
+  if (sourceUrl instanceof Error) return res.status(400).json({ error: sourceUrl.message });
   const errors = [];
   results.forEach((r, i) => {
     const ok = (n) => Number.isInteger(n) && n >= 0 && n <= 999;
     if (!r.fixtureId) errors.push(`Row ${i + 1}: missing fixtureId`);
-    else if (!ok(r.homeScore) || !ok(r.awayScore)) errors.push(`Row ${i + 1}: scores must be whole numbers from 0 to 999`);
+    else if (r.status !== undefined && !['FINISHED', 'POSTPONED'].includes(r.status)) errors.push(`Row ${i + 1}: status must be FINISHED or POSTPONED`);
+    else if (r.status !== 'POSTPONED' && (!ok(r.homeScore) || !ok(r.awayScore))) errors.push(`Row ${i + 1}: scores must be whole numbers from 0 to 999`);
   });
   // The same fixture twice in one save would update it twice, log it twice
   // and send followers two full-time notifications (possibly with
@@ -583,11 +717,17 @@ router.put('/:id/fixtures/results', requireRole('ADMIN', 'EDITOR'), async (req, 
 
   const updated = await prisma.$transaction(results.map((r) => prisma.fixture.update({
     where: { id: r.fixtureId },
-    data: { homeScore: r.homeScore, awayScore: r.awayScore, status: 'FINISHED' },
+    data: r.status === 'POSTPONED'
+      ? { status: 'POSTPONED', homeScore: null, awayScore: null, originalKickoff: byId.get(r.fixtureId).originalKickoff || byId.get(r.fixtureId).kickoff }
+      : { homeScore: r.homeScore, awayScore: r.awayScore, status: 'FINISHED', ...(sourceUrl ? { sourceUrl } : {}) },
   })));
 
   for (const fixture of updated) {
     const before = byId.get(fixture.id);
+    if (fixture.status === 'POSTPONED') {
+      if (before.status !== 'POSTPONED') await logChange('FIXTURE', fixture.id, 'UPDATE', `Postponed: ${fixture.homeTeam} vs ${fixture.awayTeam}`, req.session.user.name);
+      continue;
+    }
     const isNew = before.status !== 'FINISHED';
     const changed = before.homeScore !== fixture.homeScore || before.awayScore !== fixture.awayScore;
     if (!isNew && !changed) continue;
