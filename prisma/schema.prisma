@@ -835,3 +835,47 @@ model Venue {
   fixtures  Fixture[]
   createdAt DateTime  @default(now())
 }
+
+// X watch (2026-10-19) — an internal-only dashboard of posts from
+// journalists' X accounts we follow for fast match updates (e.g. Kevin
+// Teya), compared with our own fixtures. Filled by scripts/x-watch/watch.js
+// running on an editor's own machine and logged-in browser, at a human
+// pace, stopping on any login wall/challenge/rate limit (never working
+// around one). Nothing here is ever public, and a post is a lead for an
+// editor, never a source the results desk accepts on its own. See
+// scripts/x-watch/README.md.
+model WatchedAccount {
+  id            String        @id @default(cuid())
+  handle        String        @unique // without "@", lowercase
+  displayName   String?
+  isActive      Boolean       @default(true)
+  lastCheckedAt DateTime?
+  lastStatus    String? // OK | BLOCKED | ERROR — set by the watcher
+  lastError     String?
+  posts         WatchedPost[]
+  createdAt     DateTime      @default(now())
+}
+
+model WatchedPost {
+  id        String         @id @default(cuid())
+  accountId String
+  account   WatchedAccount @relation(fields: [accountId], references: [id])
+  postId    String         @unique // X's numeric status id
+  url       String
+  text      String
+  postedAt  DateTime?
+  isRepost  Boolean        @default(false)
+  fetchedAt DateTime       @default(now())
+  kind      String // RESULT | LIVE | LINEUP | FIXTURE | TRANSFER | INJURY | NEWS — server/lib/postParser.js
+  parsedBy  String         @default("PATTERN") // PATTERN | AI
+  // JSON array of the scores found in the post:
+  // [{ homeTeam, awayTeam, homeScore, awayScore, status, minute }]. The
+  // comparison with our fixtures is worked out when the dashboard loads, so
+  // it's always against the current database.
+  items     String         @default("[]")
+  aiNote    String?
+  status    String         @default("NEW") // NEW | DONE | DISMISSED
+  updatedAt DateTime       @updatedAt
+
+  @@index([accountId, postedAt])
+}

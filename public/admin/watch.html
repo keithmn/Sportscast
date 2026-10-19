@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>X Watch — The Sportscast Newsroom</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&family=Nunito:wght@400;600;700;900&family=Anton&display=swap" rel="stylesheet">
+  <link rel="icon" href="/brand/favicon/favicon-32.png" sizes="32x32">
+  <link rel="icon" href="/brand/favicon/favicon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="/brand/favicon/favicon-180.png">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="admin-sidebar">
+      <div class="nav-logo" style="margin-bottom:2rem;">
+        <div><img src="/brand/logo/lockup-lower-black.png" alt="The Sportscast" style="height:26px; width:auto; display:block;"><span style="font-family:'Nunito',sans-serif; font-size:0.7rem; color:var(--text-secondary); display:block; margin-top:0.35rem;">Newsroom</span></div>
+      </div>
+      <a href="/admin/dashboard.html">Dashboard</a>
+      <a href="/admin/articles.html">Articles</a>
+      <a href="/admin/competitions.html">Competitions</a>
+      <a href="/admin/clubs.html">Clubs &amp; Players</a>
+      <a href="/admin/submissions.html">Submissions</a>
+      <a href="/admin/monitoring.html">Monitoring</a>
+      <a href="/admin/watch.html" class="active">X Watch</a>
+      <a href="/admin/sources.html">Sources</a>
+      <a href="/admin/sports.html">Sports</a>
+      <a href="/index.html">View Site</a>
+      <a href="#" id="logout-link">Log Out</a>
+    </aside>
+    <main class="admin-main">
+      <div class="admin-topbar">
+        <h1 class="page-title" style="font-size:1.75rem;">X Watch</h1>
+        <span id="whoami" class="page-sub"></span>
+      </div>
+      <p class="page-sub" style="margin-bottom:1.5rem;">
+        Match updates posted by the journalists we follow on X, checked against our own fixtures. A post here is a
+        <strong>lead</strong>, not a source: confirm the score with the federation or a second outlet in the
+        results desk before entering it. Internal only — nothing on this page is public.
+      </p>
+      <div id="access-denied" class="form-error" style="display:none;">You don't have permission to view this.</div>
+      <div id="watch-app" style="display:none;">
+        <div id="watcher-banner"></div>
+
+        <section class="watch-accounts">
+          <span class="section-label">Accounts we watch</span>
+          <div id="accounts-list"></div>
+          <div class="form-row" style="align-items:flex-end; margin-top:0.75rem;">
+            <div class="form-field">
+              <label for="new-handle">X handle</label>
+              <input type="text" id="new-handle" placeholder="@handle" autocomplete="off">
+            </div>
+            <div class="form-field">
+              <label for="new-display-name">Name</label>
+              <input type="text" id="new-display-name" placeholder="Kevin Teya">
+            </div>
+            <button type="button" class="btn-outline-sm" id="add-account-btn">Add account</button>
+          </div>
+          <p class="form-error" id="account-error" style="display:none;"></p>
+        </section>
+
+        <div class="form-row" style="margin:2rem 0 1rem; align-items:flex-end;">
+          <div class="form-field">
+            <label for="view-filter">Show</label>
+            <select id="view-filter">
+              <option value="attention">Needs attention</option>
+              <option value="NEW">All new</option>
+              <option value="DONE">Done</option>
+              <option value="DISMISSED">Dismissed</option>
+              <option value="all">Everything</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="kind-filter">Type</label>
+            <select id="kind-filter">
+              <option value="">All types</option>
+              <option value="RESULT">Results</option>
+              <option value="LIVE">Live scores</option>
+              <option value="LINEUP">Line-ups</option>
+              <option value="FIXTURE">Fixtures</option>
+              <option value="TRANSFER">Transfers</option>
+              <option value="INJURY">Injuries</option>
+              <option value="NEWS">Other news</option>
+            </select>
+          </div>
+          <button type="button" class="btn-outline-sm" id="refresh-btn">Refresh</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table watch-table">
+            <thead><tr><th>Posted</th><th>Type</th><th>Match</th><th>Their score</th><th>On our site?</th><th>Post</th><th></th></tr></thead>
+            <tbody id="watch-tbody"><tr><td colspan="7" class="empty-state">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <style>
+    .watch-banner { padding: 0.75rem 1rem; border: 1px solid var(--danger); color: var(--danger); margin-bottom: 1.5rem; }
+    .watch-banner.ok { border-color: var(--border); color: var(--text-secondary); }
+    .watch-account { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; padding: 0.6rem 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    .watch-account .handle { font-weight: 700; }
+    .watch-account .meta { color: var(--text-secondary); font-size: 0.8rem; }
+    .verdict { display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 0.15rem 0.45rem; border: 1px solid var(--border); }
+    .verdict.DIFFERS { color: var(--danger); border-color: var(--danger); }
+    .verdict.NOT_ENTERED { color: var(--gold-text); border-color: var(--gold-text); }
+    .verdict.NO_FIXTURE { color: var(--gold-text); border-style: dashed; border-color: var(--gold-text); }
+    .verdict.MATCHES { color: var(--success); border-color: var(--success); }
+    .watch-text { max-width: 340px; font-size: 0.82rem; color: var(--text-secondary); white-space: pre-line; }
+    .watch-table td { vertical-align: top; }
+    .watch-table td:nth-child(3) { min-width: 15rem; }
+    .watch-table td:nth-child(5) { min-width: 13rem; }
+    .watch-actions { display: flex; flex-direction: column; gap: 0.4rem; }
+  </style>
+  <script src="/js/site.js"></script>
+  <script src="/admin/js/guard.js"></script>
+  <script src="/admin/js/watch.js"></script>
+</body>
+</html>

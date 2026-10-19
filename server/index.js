@@ -37,6 +37,7 @@ const clubRoutes = require('./routes/clubs');
 const playerRoutes = require('./routes/players');
 const sourceRoutes = require('./routes/sources');
 const monitoringRoutes = require('./routes/monitoring');
+const watchRoutes = require('./routes/watch');
 const showRoutes = require('./routes/shows');
 const followRoutes = require('./routes/follows');
 const pushRoutes = require('./routes/push');
@@ -192,6 +193,7 @@ app.use('/api/clubs', clubRoutes);
 app.use('/api/players', playerRoutes);
 app.use('/api/sources', sourceRoutes);
 app.use('/api/monitoring', monitoringRoutes);
+app.use('/api/watch', watchRoutes); // X watch — internal only, see routes/watch.js
 app.use('/api/shows', showRoutes);
 app.use('/api/follows', followRoutes);
 app.use('/api/push', pushRoutes);
