@@ -189,13 +189,23 @@ async function saveAll() {
   btn.textContent = 'Saving…';
   const saved = [];
   const failed = [];
+  const queued = [];
   for (const [competitionId, results] of byCompetition) {
     const name = competitionById.get(competitionId)?.name || 'Competition';
     const send = (confirm) => fetch(`/api/competitions/${competitionId}/fixtures/results`, {
       method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ results, sourceUrl, corrections: correctionReasons, confirm }),
     }).then(async (r) => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) }));
-    let out = await send(false);
+    let out;
+    try {
+      out = await send(false);
+    } catch (networkError) {
+      // No signal (at a ground with poor coverage): keep the save on this
+      // phone and send it when the connection comes back.
+      queueOffline({ competitionId, name, body: { results, sourceUrl, corrections: correctionReasons } });
+      queued.push(name);
+      continue;
+    }
     // Unusual scores: show the warnings, save only if the editor agrees.
     if (out.status === 409 && out.data.needsConfirm) {
       if (confirm(`Please check before saving ${name}:\n\n• ${out.data.warnings.join('\n• ')}\n\nSave anyway?`)) out = await send(true);
@@ -214,6 +224,11 @@ async function saveAll() {
     return;
   }
   if (failed.length) alert(`Not saved:\n${failed.join('\n')}`);
+  if (queued.length) {
+    // Keep what's on screen (it's what was queued) and say what happens next.
+    renderOfflineBanner();
+    return;
+  }
   await Promise.all([loadWaiting(), panelCompetition ? openCompetition(panelCompetition.slug, panelRound) : null]);
   showSavedNote(saved);
 }
@@ -251,6 +266,63 @@ async function rebuildTable(competitionId, button) {
   } catch (err) {
     button.disabled = false;
     alert(err.message);
+  }
+}
+
+// ---------- no signal: saves queued on this phone (2026-10-20) ----------
+const QUEUE_KEY = 'sc-results-offline-queue';
+
+function readQueue() {
+  try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch { return []; }
+}
+function writeQueue(queue) {
+  try { localStorage.setItem(QUEUE_KEY, JSON.stringify(queue)); } catch { /* storage full or blocked */ }
+}
+function queueOffline(entry) {
+  writeQueue([...readQueue(), { ...entry, at: Date.now() }]);
+}
+
+function renderOfflineBanner(message) {
+  const queue = readQueue();
+  let el = document.getElementById('offline-banner');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'offline-banner';
+    el.className = 'offline-banner';
+    el.setAttribute('role', 'status');
+    document.getElementById('results-app').prepend(el);
+  }
+  el.hidden = !queue.length && !message;
+  el.innerHTML = message || `<strong>No connection — ${queue.length} save${queue.length === 1 ? '' : 's'} kept on this phone</strong> (${queue.map((q) => escapeHtml(q.name)).join(', ')}). They're sent as soon as you're back online; keep this page open or come back to it.`;
+}
+
+// Sends queued saves, oldest first. A save the server questions (unusual
+// score) is asked about now; one it refuses is shown and dropped.
+async function flushOfflineQueue() {
+  const queue = readQueue();
+  if (!queue.length || !navigator.onLine) return;
+  const remaining = [];
+  const sent = [];
+  for (const entry of queue) {
+    const send = (confirmIt) => fetch(`/api/competitions/${entry.competitionId}/fixtures/results`, {
+      method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...entry.body, confirm: confirmIt }),
+    }).then(async (r) => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) }));
+    let out;
+    try { out = await send(false); } catch { remaining.push(entry); continue; }
+    if (out.status === 409 && out.data.needsConfirm) {
+      out = confirm(`Sending saved results for ${entry.name}:\n\n• ${out.data.warnings.join('\n• ')}\n\nSave anyway?`) ? await send(true) : { ok: false, data: { error: 'not sent — check the scores' } };
+    }
+    if (out.ok) sent.push(entry.name);
+    else if (out.status === 401) remaining.push(entry); // logged out: keep it until they sign in again
+    else alert(`Saved results for ${entry.name} were not accepted: ${out.data.error || out.status}`);
+  }
+  writeQueue(remaining);
+  if (sent.length) {
+    renderOfflineBanner(`<strong>Back online — sent results for ${sent.map(escapeHtml).join(', ')}.</strong>`);
+    await Promise.all([loadWaiting(), panelCompetition ? openCompetition(panelCompetition.slug, panelRound) : null]);
+  } else {
+    renderOfflineBanner();
   }
 }
 
@@ -373,6 +445,18 @@ function renderPanel() {
       <div id="round-rows">${inRound.map((f) => scoreRowHtml(f, c.id)).join('')}</div>` : '<p class="empty-state">No games entered for this season yet — add them below.</p>'}
     <div class="panel-actions">${tableNote}</div>
 
+    ${isCorrespondent() ? '' : `
+    <details class="add-games import-sheet">
+      <summary class="section-label">Import from a spreadsheet</summary>
+      <p class="results-help">Paste rows from the federation's sheet (Google Sheets or Excel — copy the cells, paste here). Columns: <code>Date, Home, Home score, Away score, Away</code>, optionally <code>Round, Venue, Time</code>; a header row is fine. Dates like 18/10/2026, 2026-10-18 or 18 Oct. "Check" shows what would happen to each row before anything changes.</p>
+      <textarea id="sheet-text" rows="6" class="sheet-text" placeholder="18/10/2026	Gor Mahia	2	1	AFC Leopards	Matchweek 2"></textarea>
+      <div class="panel-actions">
+        <button type="button" class="btn-outline-sm" id="sheet-check">Check</button>
+        <button type="button" class="btn-red" id="sheet-import" hidden>Import</button>
+      </div>
+      <div id="sheet-plan"></div>
+    </details>`}
+
     <div class="add-games">
       <span class="section-label">Add games</span>
       <p class="results-help">A result or fixture that isn't listed above — fill in both scores for a result, leave them empty for a fixture. Times are Nairobi time.</p>
@@ -446,6 +530,83 @@ async function addGames() {
   }
 }
 
+// ---------- import from a spreadsheet ----------
+const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+function sheetDate(value) {
+  const v = String(value || '').trim();
+  let m = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  m = v.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/); // Kenyan order: day/month/year
+  if (m) return `${m[3].length === 2 ? `20${m[3]}` : m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  m = v.match(/(\d{1,2})\s+([A-Za-z]{3})[a-z]*\.?(?:\s+(\d{4}))?/);
+  if (m && MONTHS[m[2].toLowerCase()]) {
+    const year = m[3] || String(new Date().getFullYear());
+    return `${year}-${String(MONTHS[m[2].toLowerCase()]).padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  }
+  return '';
+}
+
+function parseSheet(text) {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) return [];
+  const split = (l) => (l.includes('\t') ? l.split('\t') : l.split(',')).map((c) => c.trim());
+  let cols = ['date', 'home', 'homeScore', 'awayScore', 'away', 'round', 'venue', 'time'];
+  const head = split(lines[0]).map((h) => h.toLowerCase());
+  if (head.some((h) => /home|away|date/.test(h))) {
+    // Named columns, any order.
+    cols = head.map((h) => (/home.*(score|goal|pts)|^hs$/.test(h) ? 'homeScore'
+      : /away.*(score|goal|pts)|^as$/.test(h) ? 'awayScore'
+        : /home/.test(h) ? 'home' : /away/.test(h) ? 'away' : /date/.test(h) ? 'date'
+          : /time|ko/.test(h) ? 'time' : /round|week|md/.test(h) ? 'round' : /venue|ground|stadium/.test(h) ? 'venue' : null));
+    lines.shift();
+  }
+  return lines.map((l) => {
+    const cells = split(l);
+    const row = {};
+    cols.forEach((key, i) => { if (key && cells[i] !== undefined && cells[i] !== '') row[key] = cells[i]; });
+    row.date = sheetDate(row.date);
+    return row;
+  });
+}
+
+const SHEET_ACTIONS = {
+  RESULT: ['Result filled in', 'ok'], NEW_RESULT: ['New game with result', 'ok'], NEW_FIXTURE: ['New fixture', 'ok'],
+  SAME: ['Already right — skipped', 'skip'], CONFLICT: ['Conflict — not changed', 'warn'], BAD: ["Couldn't read this row", 'warn'],
+};
+
+async function runSheet(dryRun) {
+  const c = panelCompetition;
+  const rows = parseSheet(document.getElementById('sheet-text').value);
+  const planEl = document.getElementById('sheet-plan');
+  if (!rows.length) { planEl.innerHTML = '<p class="form-error">Paste some rows first.</p>'; return; }
+  try {
+    const { plan, counts } = await api(`/api/competitions/${c.id}/import-results`, {
+      method: 'POST', body: JSON.stringify({ rows, dryRun, sourceUrl: document.getElementById('source-url').value.trim() }),
+    });
+    const changes = (counts.RESULT || 0) + (counts.NEW_RESULT || 0) + (counts.NEW_FIXTURE || 0);
+    const planHtml = `
+      <p class="results-help">${dryRun ? 'If you import:' : 'Imported:'} ${Object.entries(counts).map(([k, v]) => `${v} ${SHEET_ACTIONS[k][0].toLowerCase()}`).join(' · ')}</p>
+      <div class="sheet-plan-list">${plan.map((p) => `
+        <div class="sheet-row ${SHEET_ACTIONS[p.action][1]}">
+          <span>Row ${p.line}: ${escapeHtml(p.home || '?')} ${p.homeScore != null ? `${p.homeScore}–${p.awayScore}` : 'v'} ${escapeHtml(p.away || '?')} ${p.date ? `· ${escapeHtml(p.date)}` : ''}</span>
+          <strong>${SHEET_ACTIONS[p.action][0]}</strong>${p.note ? `<span class="results-help">${escapeHtml(p.note)}</span>` : ''}
+        </div>`).join('')}</div>`;
+    if (!dryRun) {
+      // Refresh the lists first, then show what was imported (the refresh redraws this panel).
+      await Promise.all([openCompetition(c.slug, panelRound), loadWaiting()]);
+      document.querySelector('.import-sheet').open = true;
+      document.getElementById('sheet-plan').innerHTML = planHtml;
+      return;
+    }
+    planEl.innerHTML = planHtml;
+    const importBtn = document.getElementById('sheet-import');
+    importBtn.hidden = !changes;
+    importBtn.textContent = `Import ${changes} change${changes === 1 ? '' : 's'}`;
+  } catch (err) {
+    planEl.innerHTML = `<p class="form-error">${escapeHtml(err.message)}</p>`;
+  }
+}
+
 // ---------- page ----------
 
 function competitionOptionsHtml(waitingCounts) {
@@ -514,6 +675,8 @@ async function initResultsPage() {
       return;
     }
     if (e.target.closest('#add-games-btn')) addGames();
+    if (e.target.id === 'sheet-check') runSheet(true);
+    if (e.target.id === 'sheet-import') runSheet(false);
   });
   select.addEventListener('change', () => openCompetition(select.value));
   document.getElementById('savebar-btn').addEventListener('click', saveAll);
@@ -522,6 +685,9 @@ async function initResultsPage() {
   });
 
   await loadWaiting();
+  window.addEventListener('online', flushOfflineQueue);
+  renderOfflineBanner();
+  flushOfflineQueue();
   // Open the competition from ?competition=slug, else the last one used, else the one with most waiting.
   let start = new URLSearchParams(location.search).get('competition');
   if (!start) { try { start = localStorage.getItem(LAST_COMPETITION_KEY); } catch { start = null; } }

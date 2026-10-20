@@ -101,6 +101,75 @@ test.describe('Results page', () => {
     await visitor.close();
   });
 
+  test('with no signal a save is kept on the phone and sent when the connection returns', async ({ page, context }) => {
+    const kickoff = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+    const { fixture } = await page.request.post(`/api/competitions/${kpl.id}/fixtures`, { data: { homeTeam: `Offline Home ${Date.now()}`, awayTeam: 'Offline Away', kickoff } }).then((r) => r.json());
+    try {
+      await page.goto('/admin/results.html');
+      const row = page.locator(`#waiting-list .result-row[data-fixture-id="${fixture.id}"]`);
+      await expect(row).toBeVisible();
+      await row.locator('[data-score="home"]').fill('3');
+      await row.locator('[data-score="away"]').fill('0');
+      await context.setOffline(true);
+      await page.click('#savebar-btn');
+      await expect(page.locator('#offline-banner')).toContainText('kept on this phone');
+      expect((await page.request.get(`/api/fixtures/${fixture.id}`).then((r) => r.json())).fixture.status).not.toBe('FINISHED');
+
+      await context.setOffline(false);
+      await expect(page.locator('#offline-banner')).toContainText('Back online — sent results', { timeout: 10000 });
+      const after = (await page.request.get(`/api/fixtures/${fixture.id}`).then((r) => r.json())).fixture;
+      expect([after.status, after.homeScore, after.awayScore]).toEqual(['FINISHED', 3, 0]);
+    } finally {
+      await context.setOffline(false);
+      await page.request.delete(`/api/competitions/fixtures/${fixture.id}`);
+    }
+  });
+
+  test("a federation's results sheet is checked row by row, then imported — conflicts are never overwritten", async ({ page }) => {
+    const stamp = Date.now();
+    const day = new Date(Date.now() - 2 * 86400000);
+    const iso = day.toISOString().slice(0, 10);
+    const dmy = `${String(day.getUTCDate()).padStart(2, '0')}/${String(day.getUTCMonth() + 1).padStart(2, '0')}/${day.getUTCFullYear()}`;
+    const make = (h, a) => page.request.post(`/api/competitions/${kpl.id}/fixtures`, { data: { homeTeam: `${h} ${stamp}`, awayTeam: `${a} ${stamp}`, kickoff: `${iso}T15:00` } }).then((r) => r.json()).then((b) => b.fixture);
+    const due = await make('Sheet Due', 'Sheet Opp');
+    const right = await make('Sheet Right', 'Sheet Opp2');
+    const clash = await make('Sheet Clash', 'Sheet Opp3');
+    await page.request.put(`/api/competitions/${kpl.id}/fixtures/results`, { data: { results: [{ fixtureId: right.id, homeScore: 1, awayScore: 0 }, { fixtureId: clash.id, homeScore: 2, awayScore: 2 }] } });
+    const sheet = [
+      'Date\tHome\tHome score\tAway score\tAway\tRound',
+      `${dmy}\tSheet Due ${stamp}\t3\t1\tSheet Opp ${stamp}\tMatchweek 2`,
+      `${dmy}\tSheet Right ${stamp}\t1\t0\tSheet Opp2 ${stamp}\tMatchweek 2`,
+      `${dmy}\tSheet Clash ${stamp}\t0\t1\tSheet Opp3 ${stamp}\tMatchweek 2`,
+      `${dmy}\tSheet New ${stamp}\t2\t0\tSheet NewOpp ${stamp}\tMatchweek 2`,
+      `${dmy}\tSheet Fixture ${stamp}\t\t\tSheet FixOpp ${stamp}\tMatchweek 3`,
+      'nonsense row',
+    ].join('\n');
+    try {
+      await page.goto('/admin/results.html?competition=kenyan-premier-league');
+      await page.locator('.import-sheet summary').click();
+      await page.fill('#sheet-text', sheet);
+      await page.click('#sheet-check');
+      const planList = page.locator('#sheet-plan');
+      await expect(planList).toContainText('Result filled in');
+      await expect(planList).toContainText('Already right — skipped');
+      await expect(planList).toContainText('Conflict — not changed');
+      await expect(planList).toContainText('New game with result');
+      await expect(planList).toContainText('New fixture');
+      await expect(planList).toContainText("Couldn't read this row");
+      await expect(page.locator('#sheet-import')).toHaveText('Import 3 changes');
+      expect((await page.request.get(`/api/fixtures/${due.id}`).then((r) => r.json())).fixture.status).not.toBe('FINISHED'); // the check changed nothing
+
+      await page.click('#sheet-import');
+      await expect(page.locator('#sheet-plan')).toContainText('Imported:');
+      const get = async (id) => (await page.request.get(`/api/fixtures/${id}`).then((r) => r.json())).fixture;
+      expect(await get(due.id)).toMatchObject({ status: 'FINISHED', homeScore: 3, awayScore: 1 });
+      expect(await get(clash.id)).toMatchObject({ homeScore: 2, awayScore: 2 }); // conflict left alone
+    } finally {
+      const { competition } = await page.request.get('/api/competitions/kenyan-premier-league').then((r) => r.json());
+      for (const f of competition.fixtures.filter((x) => String(x.homeTeam).includes(String(stamp)))) await page.request.delete(`/api/competitions/fixtures/${f.id}`);
+    }
+  });
+
   test('a near-duplicate competition name is refused unless confirmed', async ({ page }) => {
     const { sports } = await page.request.get('/api/sports').then((r) => r.json());
     const football = sports.find((s) => s.name === 'Football');

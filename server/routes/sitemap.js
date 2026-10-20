@@ -3,10 +3,11 @@
 // static top-level pages plus every real, publicly-reachable entity page
 // this app has dedicated SEO metadata for (server/routes/seoPages.js):
 // Article, Show, Competition, Club, Sport. Deliberately excludes Player
-// and Fixture/Match — same reasoning the sibling Data Platform repo's
-// own sitemap used: high-cardinality, still reachable via internal links
-// from the pages that ARE listed, not worth the crawl-budget cost of
-// enumerating every one individually. `<lastmod>` is only emitted where
+// — high-cardinality, still reachable via internal links from the pages
+// that ARE listed. Match pages were excluded for the same reason until
+// 2026-10-20; now only Kenyan games from the last 60 days and the next 30
+// are listed (they carry SportsEvent structured data), not every synced
+// foreign fixture. `<lastmod>` is only emitted where
 // the model actually has an `updatedAt` column (Article, Show) — omitted
 // elsewhere rather than fabricated from `createdAt` or left out entirely
 // wrong, matching this repo's "unknown is valid" discipline extended to
@@ -36,12 +37,18 @@ function urlEntry(loc, lastmod) {
 
 router.get('/sitemap.xml', async (req, res) => {
   try {
-    const [articles, shows, competitions, clubs, sports] = await Promise.all([
+    const now = Date.now();
+    const [articles, shows, competitions, clubs, sports, fixtures] = await Promise.all([
       prisma.article.findMany({ where: { status: 'PUBLISHED' }, select: { slug: true, updatedAt: true } }),
       prisma.show.findMany({ where: { isActive: true }, select: { slug: true, updatedAt: true } }),
       prisma.competition.findMany({ where: { isActive: true }, select: { slug: true } }),
       prisma.club.findMany({ where: { competition: { isActive: true } }, select: { slug: true } }),
       prisma.sport.findMany({ select: { slug: true } }),
+      // Kenyan matches from the last 60 days and the next 30 (2026-10-20).
+      prisma.fixture.findMany({
+        where: { competition: { isActive: true, region: 'KENYA' }, kickoff: { gte: new Date(now - 60 * 86400000), lte: new Date(now + 30 * 86400000) } },
+        select: { id: true, updatedAt: true },
+      }),
     ]);
 
     const entries = [
@@ -51,6 +58,7 @@ router.get('/sitemap.xml', async (req, res) => {
       ...competitions.map((c) => urlEntry(`${SITE_URL}/competition.html?slug=${encodeURIComponent(c.slug)}`)),
       ...clubs.map((c) => urlEntry(`${SITE_URL}/club.html?slug=${encodeURIComponent(c.slug)}`)),
       ...sports.map((s) => urlEntry(`${SITE_URL}/sport.html?sport=${encodeURIComponent(s.slug)}`)),
+      ...fixtures.map((f) => urlEntry(`${SITE_URL}/match.html?id=${encodeURIComponent(f.id)}`, f.updatedAt)),
     ];
 
     res.type('application/xml').send(

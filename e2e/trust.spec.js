@@ -68,6 +68,23 @@ test.describe('Trust and rights', () => {
     }
   });
 
+  test('match pages carry a real title and schema.org SportsEvent data, and are in the sitemap', async ({ page, request }) => {
+    const { competitions } = await page.request.get('/api/competitions').then((r) => r.json());
+    const kpl = competitions.find((c) => c.slug === 'kenyan-premier-league');
+    const stamp = Date.now();
+    const { fixture } = await page.request.post(`/api/competitions/${kpl.id}/fixtures`, { data: { homeTeam: `Schema Home ${stamp}`, awayTeam: `Schema Away ${stamp}`, kickoff: new Date(Date.now() - 5 * 3600000).toISOString(), venue: `Schema Ground ${stamp}` } }).then((r) => r.json());
+    try {
+      await page.request.put(`/api/competitions/${kpl.id}/fixtures/results`, { data: { results: [{ fixtureId: fixture.id, homeScore: 3, awayScore: 1 }] } });
+      const html = await request.get(`/match.html?id=${fixture.id}`).then((r) => r.text());
+      expect(html).toContain(`<title>Schema Home ${stamp} 3–1 Schema Away ${stamp} — Kenyan Premier League — The Sportscast</title>`);
+      const ld = JSON.parse(html.match(/<script type="application\/ld\+json">(.*?)<\/script>/)[1]);
+      expect(ld).toMatchObject({ '@type': 'SportsEvent', homeTeam: { name: `Schema Home ${stamp}` }, location: { name: `Schema Ground ${stamp}` } });
+      expect(await request.get('/sitemap.xml').then((r) => r.text())).toContain(`match.html?id=${fixture.id}`);
+    } finally {
+      await page.request.delete(`/api/competitions/fixtures/${fixture.id}`);
+    }
+  });
+
   test('the coverage report measures results, freshness and details per competition', async ({ page }) => {
     const { rows } = await page.request.get('/api/competitions/admin/coverage?days=30').then((r) => r.json());
     expect(Array.isArray(rows)).toBe(true);

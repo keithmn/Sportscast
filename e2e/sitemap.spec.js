@@ -24,9 +24,12 @@ test.describe('sitemap.xml and robots.txt', () => {
     // Articles have a real updatedAt — lastmod should be present for them.
     expect(xml).toMatch(new RegExp(`article\\.html\\?slug=${articles[0].slug}</loc>\\s*<lastmod>\\d{4}-\\d{2}-\\d{2}</lastmod>`));
 
-    // Deliberately excluded — high-cardinality, per the file's own comment.
+    // Players stay out (high-cardinality). Match pages are in since
+    // 2026-10-20, but only Kenyan games from the last 60 days and the next
+    // 30 — not every synced foreign fixture.
     expect(xml).not.toContain('/player.html');
-    expect(xml).not.toContain('/match.html');
+    const matchUrls = xml.match(/\/match\.html\?id=/g) || [];
+    expect(matchUrls.length).toBeLessThan(500);
   });
 
   test('robots.txt disallows admin/api and points at the real sitemap', async ({ request }) => {

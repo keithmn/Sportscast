@@ -71,13 +71,22 @@ router.get('/player.html', async (req, res, next) => {
   }
 });
 
+const SITE_URL = (process.env.SITE_URL || 'https://sportscast-production-c267.up.railway.app').replace(/\/$/, '');
+const EVENT_STATUS = {
+  SCHEDULED: 'https://schema.org/EventScheduled',
+  LIVE: 'https://schema.org/EventScheduled',
+  FINISHED: 'https://schema.org/EventScheduled',
+  POSTPONED: 'https://schema.org/EventPostponed',
+  ABANDONED: 'https://schema.org/EventCancelled',
+};
+
 router.get('/competition.html', async (req, res, next) => {
   const slug = req.query.slug;
   if (!slug) return next();
   try {
     const competition = await prisma.competition.findUnique({
       where: { slug },
-      select: { name: true, category: true, isActive: true, sport: { select: { name: true } } },
+      select: { name: true, category: true, isActive: true, governingBody: true, sport: { select: { name: true } } },
     });
     if (!competition || !competition.isActive) return next();
     res.type('html').send(renderSeoHtml('competition.html', {
@@ -85,9 +94,64 @@ router.get('/competition.html', async (req, res, next) => {
       description: `Standings, fixtures, and results for ${competition.name} (${competition.sport.name}) on ${SITE_NAME}.`,
       ogImage: DEFAULT_OG_IMAGE,
       indexable: true,
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@type': 'SportsOrganization',
+        name: competition.name,
+        sport: competition.sport.name,
+        url: `${SITE_URL}/competition.html?slug=${encodeURIComponent(slug)}`,
+        ...(competition.governingBody ? { parentOrganization: { '@type': 'SportsOrganization', name: competition.governingBody } } : {}),
+      },
     }));
   } catch (err) {
     console.error('[seoPages] competition.html failed, falling back to static:', err.message);
+    next();
+  }
+});
+
+// Match pages (2026-10-20): a real title ("Gor Mahia 2–1 AFC Leopards —
+// Kenyan Premier League") and schema.org SportsEvent data. Only confirmed
+// results put a score in the title; a provisional one is described as
+// such.
+router.get('/match.html', async (req, res, next) => {
+  const id = req.query.id;
+  if (!id) return next();
+  try {
+    const f = await prisma.fixture.findUnique({
+      where: { id },
+      select: {
+        homeTeam: true, awayTeam: true, kickoff: true, status: true, homeScore: true, awayScore: true, resultProvisional: true,
+        venue: { select: { name: true, city: true } },
+        competition: { select: { name: true, slug: true, isActive: true, sport: { select: { name: true } } } },
+      },
+    });
+    if (!f || !f.competition.isActive) return next();
+    const final = f.status === 'FINISHED' && f.homeScore != null && !f.resultProvisional;
+    const teams = f.awayTeam ? `${f.homeTeam} ${final ? `${f.homeScore}–${f.awayScore}` : 'v'} ${f.awayTeam}` : f.homeTeam;
+    const when = f.kickoff.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Nairobi' });
+    res.type('html').send(renderSeoHtml('match.html', {
+      title: `${teams} — ${f.competition.name} — ${SITE_NAME}`,
+      description: `${teams}, ${f.competition.name}, ${when}${f.venue ? ` at ${f.venue.name}` : ''}.${final ? ' Full-time result.' : f.status === 'POSTPONED' ? ' Postponed.' : ''}`,
+      ogImage: DEFAULT_OG_IMAGE,
+      indexable: true,
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@type': 'SportsEvent',
+        name: f.awayTeam ? `${f.homeTeam} v ${f.awayTeam}` : f.homeTeam,
+        sport: f.competition.sport.name,
+        startDate: f.kickoff.toISOString(),
+        eventStatus: EVENT_STATUS[f.status] || EVENT_STATUS.SCHEDULED,
+        eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+        url: `${SITE_URL}/match.html?id=${encodeURIComponent(id)}`,
+        superEvent: { '@type': 'SportsEvent', name: f.competition.name, url: `${SITE_URL}/competition.html?slug=${encodeURIComponent(f.competition.slug)}` },
+        ...(f.venue ? { location: { '@type': 'Place', name: f.venue.name, ...(f.venue.city ? { address: f.venue.city } : {}) } } : {}),
+        homeTeam: { '@type': 'SportsTeam', name: f.homeTeam },
+        ...(f.awayTeam ? { awayTeam: { '@type': 'SportsTeam', name: f.awayTeam } } : {}),
+        ...(final ? { description: `Full time: ${f.homeTeam} ${f.homeScore}–${f.awayScore} ${f.awayTeam}` } : {}),
+      },
+    }));
+  } catch (err) {
+    console.error('[seoPages] match.html failed, falling back to static:', err.message);
     next();
   }
 });

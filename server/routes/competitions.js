@@ -894,6 +894,82 @@ router.post('/:id/games', requireResultsAccess, async (req, res) => {
   res.status(201).json({ created: created.length, fixtures: created });
 });
 
+// ---- Admin: import results from a federation's spreadsheet ----
+// Rows pasted from Google Sheets/Excel (the Results page parses them):
+// { date: 'YYYY-MM-DD', time?: 'HH:MM', home, away, homeScore?, awayScore?,
+//   round?, venue? }. Each row is matched to this season's fixture with the
+// same two teams (club names and aliases understood) within a day of the
+// date, then: fills in the result, adds a missing game, skips one already
+// right, or reports a CONFLICT — a published score is never overwritten
+// here; an editor corrects it on the Results page with a reason.
+// dryRun: true returns the plan without writing anything.
+router.post('/:id/import-results', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const { rows, dryRun } = req.body;
+  if (!Array.isArray(rows) || !rows.length) return res.status(400).json({ error: 'Paste at least one row' });
+  if (rows.length > 300) return res.status(400).json({ error: 'At most 300 rows at a time' });
+  const sourceUrl = sourceUrlOrError(req.body.sourceUrl);
+  if (sourceUrl instanceof Error) return res.status(400).json({ error: sourceUrl.message });
+  const competition = await prisma.competition.findUnique({ where: { id: req.params.id }, include: { sport: true } });
+  if (!competition) return res.status(404).json({ error: 'Competition not found' });
+  const season = await getOrCreateCurrentSeason(prisma, competition.id);
+  const fixtures = await prisma.fixture.findMany({ where: { competitionId: competition.id, seasonId: season.id } });
+  const { sameTeam } = require('../lib/watchMatching');
+  const DAY = 86400000;
+
+  const plan = rows.map((row, i) => {
+    const line = i + 1;
+    const home = String(row.home || '').trim();
+    const away = String(row.away || '').trim();
+    const hasScore = row.homeScore !== undefined && row.homeScore !== null && row.homeScore !== '' && row.awayScore !== undefined && row.awayScore !== null && row.awayScore !== '';
+    const homeScore = hasScore ? Number(row.homeScore) : null;
+    const awayScore = hasScore ? Number(row.awayScore) : null;
+    const kickoff = /^\d{4}-\d{2}-\d{2}$/.test(String(row.date || '')) ? parseKickoff(`${row.date}T${/^\d{1,2}:\d{2}$/.test(String(row.time || '')) ? String(row.time).padStart(5, '0') : '15:00'}`) : null;
+    if (!home || !away || !kickoff || Number.isNaN(kickoff.getTime())) return { line, action: 'BAD', note: 'Needs a date, a home team and an away team' };
+    if (hasScore && (!isScore(homeScore) || !isScore(awayScore))) return { line, action: 'BAD', note: 'Scores must be whole numbers' };
+    const near = fixtures.filter((f) => Math.abs(f.kickoff.getTime() - kickoff.getTime()) <= 1.5 * DAY);
+    let fixture = near.find((f) => sameTeam(f.homeTeam, home) && sameTeam(f.awayTeam, away));
+    let swapped = false;
+    if (!fixture) { fixture = near.find((f) => sameTeam(f.homeTeam, away) && sameTeam(f.awayTeam, home)); swapped = Boolean(fixture); }
+    const base = { line, home, away, date: row.date, homeScore, awayScore };
+    if (!fixture) return { ...base, action: hasScore ? 'NEW_RESULT' : 'NEW_FIXTURE', kickoff, round: row.round, venue: row.venue };
+    const [h, a] = swapped ? [awayScore, homeScore] : [homeScore, awayScore];
+    const match = { ...base, fixtureId: fixture.id, fixture: `${fixture.homeTeam} v ${fixture.awayTeam}` };
+    if (!hasScore) return { ...match, action: 'SAME', note: 'Already in the fixture list' };
+    if (fixture.status === 'FINISHED' && !fixture.resultProvisional) {
+      return fixture.homeScore === h && fixture.awayScore === a
+        ? { ...match, action: 'SAME', note: 'Result already on the site' }
+        : { ...match, action: 'CONFLICT', note: `The site has ${fixture.homeScore}–${fixture.awayScore}; the sheet says ${h}–${a}. Not changed — correct it on the Results page if the sheet is right.` };
+    }
+    return { ...match, action: 'RESULT', homeScore: h, awayScore: a };
+  });
+  const counts = plan.reduce((acc, p) => ({ ...acc, [p.action]: (acc[p.action] || 0) + 1 }), {});
+  if (dryRun) return res.json({ plan, counts });
+
+  const who = req.session.user.name;
+  const venueCache = await prisma.venue.findMany({ select: { id: true, name: true } });
+  for (const p of plan) {
+    if (p.action === 'RESULT') {
+      const f = await prisma.fixture.update({ where: { id: p.fixtureId }, data: { homeScore: p.homeScore, awayScore: p.awayScore, status: 'FINISHED', resultProvisional: false, ...(sourceUrl ? { sourceUrl } : {}) } });
+      await logChange('FIXTURE', f.id, 'UPDATE', `Result (imported): ${f.homeTeam} ${f.homeScore}-${f.awayScore} ${f.awayTeam}`, who);
+      notifyFixtureResult(f);
+    } else if (p.action === 'NEW_RESULT' || p.action === 'NEW_FIXTURE') {
+      const [{ homeClubId, awayClubId }, venueResult] = await Promise.all([resolveClubsForFixture(prisma, competition.id, p.home, p.away), resolveVenue(prisma, p.venue, venueCache)]);
+      const finished = p.action === 'NEW_RESULT';
+      const f = await prisma.fixture.create({
+        data: {
+          competitionId: competition.id, seasonId: season.id, homeTeam: p.home, awayTeam: p.away, homeClubId, awayClubId, kickoff: p.kickoff,
+          status: finished ? 'FINISHED' : 'SCHEDULED', homeScore: p.homeScore, awayScore: p.awayScore,
+          venueId: venueResult.venueId, round: detailText(p.round) ?? null, sourceUrl: finished ? sourceUrl : null,
+        },
+      });
+      await logChange('FIXTURE', f.id, 'CREATE', finished ? `Added result (imported): ${f.homeTeam} ${f.homeScore}-${f.awayScore} ${f.awayTeam}` : `Added fixture (imported): ${f.homeTeam} vs ${f.awayTeam}`, who);
+      if (finished) notifyFixtureResult(f);
+    }
+  }
+  await logChange('COMPETITION', competition.id, 'BULK_IMPORT', `Imported a results sheet: ${Object.entries(counts).map(([k, v]) => `${v} ${k.toLowerCase().replace('_', ' ')}`).join(', ')}`, who);
+  res.json({ plan, counts });
+});
+
 // ---- Admin: save a whole round's results at once ----
 // Match day used to mean one Save click per fixture. This takes every
 // score from the round panel in one request and applies them in a single

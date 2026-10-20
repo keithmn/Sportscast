@@ -83,6 +83,14 @@ function renderSeoHtml(templateFilename, meta) {
     }
   }
 
+  // Structured data (2026-10-20): schema.org JSON-LD so search engines can
+  // read a match's teams, date, venue and status. "<" is escaped so the
+  // JSON can never close the script tag early.
+  if (meta.jsonLd) {
+    const json = JSON.stringify(meta.jsonLd).replace(/</g, '\\u003c');
+    html = html.replace('</head>', `  <script type="application/ld+json">${json}</script>\n</head>`);
+  }
+
   // Only ever removes noindex — never adds it. A page this function was
   // never called for (or called with indexable left false/omitted) keeps
   // whatever the static file already says, which for the entity pages
