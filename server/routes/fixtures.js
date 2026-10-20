@@ -133,8 +133,10 @@ router.get('/today', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
 router.get('/missing-reports', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const fixtures = await prisma.fixture.findMany({
-    where: { status: 'FINISHED', kickoff: { gte: sevenDaysAgo }, articles: { none: {} }, competition: { isActive: true } },
-    include: { competition: { select: { name: true, slug: true } } },
+    // Kenyan games only — a finished World Cup or darts game isn't one
+    // this newsroom writes a report for.
+    where: { status: 'FINISHED', resultProvisional: false, kickoff: { gte: sevenDaysAgo }, articles: { none: {} }, competition: { isActive: true, region: 'KENYA' } },
+    include: { competition: { select: { id: true, name: true, slug: true } } },
     orderBy: { kickoff: 'desc' },
   });
   res.json({ fixtures });
@@ -173,7 +175,8 @@ router.get('/round-gaps', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
     include: {
       competition: { select: { id: true, name: true, slug: true } },
       standings: { select: { teamName: true } },
-      fixtures: { where: { round: { not: null } }, select: { round: true, homeTeam: true, awayTeam: true } },
+      // Rounds still relevant: within the last 45 days or still to come.
+      fixtures: { where: { round: { not: null }, kickoff: { gte: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000) } }, select: { round: true, homeTeam: true, awayTeam: true } },
     },
   });
   const gaps = [];
@@ -186,6 +189,9 @@ router.get('/round-gaps', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
       rounds.get(f.round).add(f.homeTeam).add(f.awayTeam);
     });
     for (const [round, playing] of rounds) {
+      // Knockout rounds of a league (play-offs, semis, final) only ever
+      // involve some teams — not a gap.
+      if (/final|semi|quarter|play-?off|knock-?out|\b(qf|sf)\b|promotion|relegation/i.test(round)) continue;
       const missing = teams.filter((t) => !playing.has(t));
       // An odd-sized league always has one team resting; only flag more.
       if (missing.length > teams.length % 2) gaps.push({ competition: season.competition, round, missing });

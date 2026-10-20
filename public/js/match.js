@@ -90,7 +90,7 @@ async function loadMatch() {
   document.title = `${fixture.homeTeam}${fixture.awayTeam ? ` vs ${fixture.awayTeam}` : ''} — The Sportscast`;
   setEditorLinks([
     { href: `/admin/results.html?competition=${encodeURIComponent(fixture.competition.slug)}`, label: fixture.status === 'FINISHED' ? 'Correct this result' : 'Enter this result' },
-    { href: '/admin/competitions.html', label: 'Venue & broadcaster' },
+    { href: `/admin/competitions.html?competition=${encodeURIComponent(fixture.competition.slug)}&tab=fixtures&fixture=${encodeURIComponent(fixture.id)}`, label: 'Date, venue & broadcaster' },
   ]);
 
   // Prefer the canonical Data Platform score once one exists there — it's

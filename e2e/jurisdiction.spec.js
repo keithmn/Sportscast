@@ -164,15 +164,15 @@ test.describe('Competition jurisdiction levels', () => {
       await expect(levels.first()).toHaveAttribute('data-jurisdiction', 'COUNTY');
       await expect(levels.nth(1)).toHaveAttribute('data-jurisdiction', 'NATIONAL');
 
-      // Change it from the admin card.
-      await page.goto('/admin/competitions.html');
-      const row = page.locator(`.classification-row[data-competition-id="${competition.id}"]`);
+      // Change it from the competition's Settings tab.
+      await page.goto(`/admin/competitions.html?competition=${competition.slug}&tab=settings`);
+      const row = page.locator('.comp-settings');
       await expect(row.locator('[data-classification="jurisdiction"]')).toHaveValue('COUNTY', { timeout: 15000 });
       await row.locator('[data-classification="jurisdiction"]').selectOption('SCHOOLS');
       await row.locator('[data-classification="governingBody"]').fill('');
       await row.locator('[data-classification="tier"]').fill('2');
-      await row.locator('.save-classification-btn').click();
-      await expect(row.locator('.classification-status')).toHaveText('Saved');
+      await page.click('#set-save');
+      await expect(page.locator('#set-msg')).toHaveText('Settings saved');
       const { competitions } = await page.request.get('/api/competitions?sport=football').then((r) => r.json());
       expect(competitions.find((c) => c.id === competition.id)).toMatchObject({ jurisdiction: 'SCHOOLS', tier: 2, governingBody: null });
     } finally {

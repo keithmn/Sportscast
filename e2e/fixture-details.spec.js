@@ -108,14 +108,15 @@ test.describe('Fixture match details (venue, round, broadcaster)', () => {
       data: { homeTeam: `Row Home ${stamp}`, awayTeam: `Row Away ${stamp}`, kickoff: '2026-12-01T15:00', venue: `Row Ground ${stamp}` },
     }).then((r) => r.json());
 
-    await page.goto('/admin/competitions.html');
-    const row = page.locator(`.fixture-admin-row[data-fixture-id="${fixture.id}"]`);
-    await expect(row.locator('[data-field="venue"]')).toHaveValue(`Row Ground ${stamp}`, { timeout: 15000 });
+    await page.goto(`/admin/competitions.html?competition=kenyan-premier-league&tab=fixtures&fixture=${fixture.id}`);
+    const row = page.locator(`.fx-card[data-fixture-id="${fixture.id}"]`);
+    await expect(row.locator('[data-f="venue"]')).toHaveValue(`Row Ground ${stamp}`, { timeout: 15000 });
     await expect(page.locator(`#venue-options option[value="Row Ground ${stamp}"]`)).toBeAttached();
 
-    await row.locator('[data-field="round"]').fill('Matchweek 3');
-    await row.locator('[data-field="broadcaster"]').fill('KBC');
-    await row.locator('.save-fixture-btn').click();
+    await row.locator('[data-f="round"]').fill('Matchweek 3');
+    await row.locator('[data-f="broadcaster"]').fill('KBC');
+    await row.locator('.fx-save').click();
+    await expect(page.locator(`#fx-${fixture.id} .inline-msg`)).toHaveText('Saved');
     await expect.poll(async () => {
       const { competition } = await page.request.get('/api/competitions/kenyan-premier-league').then((r) => r.json());
       const f = competition.fixtures.find((x) => x.id === fixture.id);

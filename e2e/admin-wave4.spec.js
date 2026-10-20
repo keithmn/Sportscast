@@ -16,11 +16,24 @@ test.describe('Admin — Wave 4 (dashboard, scheduling, match reports, image upl
     await page.waitForURL('**/admin/dashboard.html');
   });
 
-  test('the dashboard shows Fixtures/Production/Publishing buckets', async ({ page }) => {
-    await page.goto('/admin/dashboard.html');
-    await expect(page.locator('.card-eyebrow', { hasText: 'Fixtures' })).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('.card-eyebrow', { hasText: 'Production' })).toBeVisible();
-    await expect(page.locator('.card-eyebrow', { hasText: 'Publishing' })).toBeVisible();
+  // Rebuilt 2026-10-20 as a "what needs me now" list (was section buckets):
+  // an overdue Kenyan result comes first and links to its competition's
+  // results, not to a page of every competition.
+  test('the dashboard lists what needs doing, overdue results first, each linking to the exact place', async ({ page }) => {
+    const { competitions } = await page.request.get('/api/competitions').then((r) => r.json());
+    const kpl = competitions.find((c) => c.slug === 'kenyan-premier-league');
+    const stamp = Date.now();
+    const { fixture } = await page.request.post(`/api/competitions/${kpl.id}/fixtures`, { data: { homeTeam: `Late ${stamp}`, awayTeam: `Later ${stamp}`, kickoff: new Date(Date.now() - 5 * 3600000).toISOString() } }).then((r) => r.json());
+    try {
+      await page.goto('/admin/dashboard.html');
+      const first = page.locator('#dashboard-root .todo-group').first();
+      await expect(first).toContainText('overdue', { timeout: 10000 });
+      const link = first.locator('a', { hasText: `Late ${stamp}` });
+      await expect(link).toHaveAttribute('href', '/admin/results.html?competition=kenyan-premier-league');
+      await expect(page.locator('#system')).toBeVisible();
+    } finally {
+      await page.request.delete(`/api/competitions/fixtures/${fixture.id}`);
+    }
   });
 
   test('scheduling a story requires a date, hides it from the public feed, and it publishes for real once due', async ({ page }) => {

@@ -41,7 +41,11 @@ router.get('/details', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
     jobs: latest.map((j) => ({ ...j, startedAt: new Date(j.startedAt), finishedAt: j.finishedAt ? new Date(j.finishedAt) : null })),
     failures,
     lastBackup,
-    backupOverdue: backupAgeHours === null || backupAgeHours > BACKUP_STALE_HOURS,
+    // No backup yet only counts once the server has been up long enough
+    // for the nightly one to have run (a fresh deploy isn't "broken").
+    backupOverdue: backupAgeHours === null
+      ? (Date.now() - started.getTime()) / 3600000 > BACKUP_STALE_HOURS
+      : backupAgeHours > BACKUP_STALE_HOURS,
   });
 });
 

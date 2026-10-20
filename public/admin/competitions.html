@@ -11,6 +11,43 @@
   <link rel="apple-touch-icon" href="/brand/favicon/favicon-180.png">
   <link rel="stylesheet" href="/css/site.css">
   <style>
+    .comp-picker { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; align-items: flex-end; margin-bottom: 0.5rem; }
+    .comp-picker .form-field { flex: 1 1 18rem; max-width: 32rem; }
+    .comp-head { margin: 1.75rem 0 0.75rem; display: grid; gap: 0.2rem; }
+    .comp-title { font-size: 1.5rem; margin: 0; }
+    .comp-tabs { display: flex; gap: 0.25rem; overflow-x: auto; border-bottom: 1px solid var(--border); margin-bottom: 1.25rem; }
+    .comp-tabs button { flex-shrink: 0; background: none; border: none; border-bottom: 3px solid transparent; padding: 0.6rem 0.9rem; font-weight: 700; color: var(--text-secondary); cursor: pointer; }
+    .comp-tabs button.active { color: var(--text-primary); border-bottom-color: var(--brand-gold); }
+    .round-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 1rem; }
+    .round-chips button { font-size: 0.8rem; padding: 0.35rem 0.7rem; border: 1px solid var(--border); background: none; color: var(--text-secondary); cursor: pointer; }
+    .round-chips button.active { border-color: var(--text-primary); color: var(--text-primary); font-weight: 700; }
+    .fx-card { border: 1px solid var(--border); padding: 0.85rem; margin-bottom: 0.75rem; display: grid; gap: 0.6rem; background: var(--bg-surface); }
+    .fx-card.focus { border-color: var(--brand-gold); box-shadow: 0 0 0 2px var(--brand-gold); }
+    .fx-top, .fx-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.6rem; align-items: end; }
+    .fx-teams { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 0.5rem; align-items: center; }
+    .fx-card input, .fx-card select, .st-row input, .bulk-text, .comp-settings input, .comp-settings select, .season-box input { width: 100%; padding: 0.5rem 0.55rem; background: var(--bg-page, var(--bg-surface)); border: 1px solid var(--border); color: var(--text-primary); font-size: 0.95rem; border-radius: var(--radius); }
+    .fx-field { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.75rem; color: var(--text-secondary); }
+    .fx-final { font-size: 0.85rem; }
+    .fx-unlinked { font-size: 0.78rem; color: var(--gold-text); }
+    .fx-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-top: 0.4rem; }
+    .fx-delete { color: var(--danger); border-color: var(--danger); margin-left: auto; }
+    .inline-msg { font-size: 0.85rem; }
+    .canonical-fixture-panel button { display: block; width: 100%; text-align: left; margin-top: 0.25rem; padding: 0.4rem; border: 1px solid var(--border); background: none; color: inherit; cursor: pointer; font-size: 0.8rem; }
+    .comp-section { margin-top: 1.5rem; }
+    .comp-section summary, .comp-add summary { cursor: pointer; font-weight: 700; padding: 0.4rem 0; }
+    .comp-add { margin-top: 3rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+    .bulk-text { font-family: ui-monospace, monospace; font-size: 0.82rem; }
+    .table-source { font-size: 0.85rem; padding: 0.6rem 0.8rem; border-left: 3px solid var(--gold-text); background: var(--bg-surface); margin: 0 0 1rem; }
+    .st-grid { overflow-x: auto; }
+    .st-row { display: grid; grid-template-columns: minmax(9rem, 2.5fr) repeat(7, minmax(2.6rem, 1fr)) 2rem; gap: 0.3rem; align-items: center; margin-bottom: 0.3rem; min-width: 34rem; }
+    .st-head span { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-secondary); text-align: center; }
+    .st-head span:first-child { text-align: left; }
+    .st-row input[type=number] { text-align: center; padding: 0.45rem 0.2rem; }
+    .st-remove { background: none; border: none; color: var(--text-secondary); cursor: pointer; }
+    .comp-settings { display: grid; gap: 1rem; max-width: 760px; }
+    .comp-section-box { border: 1px solid var(--border); padding: 0.9rem; display: grid; gap: 0.5rem; }
+    .history-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1rem; padding: 0.6rem 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    @media (max-width: 760px) { .fx-delete { margin-left: 0; } }
     .row-grid { display: grid; grid-template-columns: 2fr repeat(7, 1fr) auto; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
     .row-grid input { width: 100%; }
     .row-grid .remove-row { color: var(--danger); cursor: pointer; font-size: 0.85rem; }
@@ -50,33 +87,40 @@
       <p class="page-sub" style="margin-bottom:2rem;">Kenyan competitions (KPL, NSL) are entered here by hand — global competitions sync automatically from football-data.org and shouldn't be hand-edited. Add a competition below to get started.</p>
       <div id="access-denied" class="form-error" style="display:none;">You don't have permission to manage this.</div>
       <div id="competitions-app" style="display:none;">
-        <div id="new-competition-form" class="form-grid" style="max-width:480px; margin-bottom:3rem;">
-          <span class="section-label">Add a Competition</span>
-          <div class="form-row">
-            <div class="form-field">
-              <label for="competition-name">Competition name</label>
-              <input type="text" id="competition-name" placeholder="Kenyan Premier League">
-            </div>
-            <div class="form-field">
-              <label for="competition-sport">Sport</label>
-              <select id="competition-sport"></select>
-            </div>
+        <div class="comp-picker">
+          <div class="form-field">
+            <label for="comp-select">Competition</label>
+            <select id="comp-select"><option value="">Choose a competition…</option></select>
           </div>
-          <div class="form-row" id="add-competition-classification"></div>
-          <button type="button" class="btn-red" id="add-competition-btn" style="width:fit-content;">Add Competition</button>
+          <label class="checkbox-row"><input type="checkbox" id="show-hidden"> <span>Include hidden competitions</span></label>
         </div>
+        <p class="hint-inline">To enter or correct scores, use <a href="/admin/results.html">Results</a>. This page is for everything else about a competition: its fixtures, table, seasons and settings.</p>
 
-        <div id="competitions-root"></div>
+        <div id="comp-panel"></div>
 
-        <div style="margin-top:3rem; padding-top:2rem; border-top:1px solid var(--border);">
-          <span class="section-label">Recent Changes</span>
-          <div id="changelog-root"><p class="empty-state">Loading…</p></div>
-        </div>
+        <details class="comp-add" id="new-competition-form">
+          <summary>Add a competition</summary>
+          <div class="form-grid" style="max-width:520px; margin-top:1rem;">
+            <div class="form-row">
+              <div class="form-field">
+                <label for="competition-name">Competition name</label>
+                <input type="text" id="competition-name" placeholder="FKF Women's Premier League">
+              </div>
+              <div class="form-field">
+                <label for="competition-sport">Sport</label>
+                <select id="competition-sport"></select>
+              </div>
+            </div>
+            <div class="form-row" id="add-competition-classification"></div>
+            <button type="button" class="btn-red" id="add-competition-btn" style="width:fit-content;">Add competition</button>
+          </div>
+        </details>
       </div>
     </main>
   </div>
 
   <script src="/js/site.js"></script>
+  <script src="/js/scores.js"></script>
   <script src="/js/canonicalLinkWidget.js"></script>
   <script src="/admin/js/nav.js"></script>
   <script src="/admin/js/guard.js"></script>

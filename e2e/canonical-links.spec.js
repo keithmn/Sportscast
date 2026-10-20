@@ -23,12 +23,13 @@ test.describe('Canonical links — Club/Player pickers', () => {
     const playerRes = await page.request.post(`/api/clubs/${club.id}/players`, { data: { name: 'E2E Canonical Player' } });
     const { player } = await playerRes.json();
 
-    await page.goto('/admin/clubs.html');
+    await page.goto(`/admin/clubs.html?club=${club.slug}`);
     const teamWidget = page.locator(`.canonical-link-widget[data-kind="team"][data-local-id="${club.id}"]`);
     await expect(teamWidget).toBeVisible();
     await teamWidget.locator('.canonical-search-input').fill('zzz-no-such-team-zzz');
     await expect(teamWidget.locator('.canonical-results')).toContainText('No matches found.', { timeout: 5000 });
 
+    await page.locator(`.person-row[data-id="${player.id}"] summary`).click(); // each player's row opens on tap
     const athleteWidget = page.locator(`.canonical-link-widget[data-kind="athlete"][data-local-id="${player.id}"]`);
     await expect(athleteWidget).toBeVisible();
     await athleteWidget.locator('.canonical-search-input').fill('zzz-no-such-athlete-zzz');
@@ -50,7 +51,7 @@ test.describe('Canonical links — Club/Player pickers', () => {
     });
     const { competition } = await compRes.json();
 
-    await page.goto('/admin/competitions.html');
+    await page.goto(`/admin/competitions.html?competition=${competition.slug}&tab=settings`);
     const widget = page.locator(`.canonical-link-widget[data-kind="competition"][data-local-id="${competition.id}"]`);
     await expect(widget).toBeVisible();
     await widget.locator('.canonical-search-input').fill('zzz-no-such-competition-zzz');

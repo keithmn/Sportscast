@@ -11,6 +11,40 @@
   <link rel="apple-touch-icon" href="/brand/favicon/favicon-180.png">
   <link rel="stylesheet" href="/css/site.css">
   <style>
+    .comp-picker { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; align-items: flex-end; margin: 1rem 0 0.75rem; }
+    .comp-picker .form-field { flex: 1 1 18rem; max-width: 32rem; }
+    .club-list { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-bottom: 1.5rem; }
+    .club-chip { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.35rem 0.6rem; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-primary); cursor: pointer; font-size: 0.88rem; }
+    .club-chip.active { border-color: var(--brand-gold); box-shadow: 0 0 0 1px var(--brand-gold); }
+    .chip-note { font-size: 0.68rem; color: var(--gold-text); }
+    .club-editor { display: grid; gap: 1.25rem; }
+    .club-head { display: flex; gap: 0.9rem; align-items: center; }
+    .comp-title { font-size: 1.4rem; margin: 0; }
+    .club-section { border-top: 1px solid var(--border); padding-top: 1rem; display: grid; gap: 0.6rem; }
+    .club-section h3 { font-size: 1rem; margin: 0; }
+    .club-section .form-row { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: flex-end; }
+    .fx-field { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.75rem; color: var(--text-secondary); flex: 1 1 12rem; }
+    .club-editor input, .club-editor select, .unlinked-box input { width: 100%; padding: 0.5rem 0.55rem; background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-primary); font-size: 0.95rem; border-radius: var(--radius); }
+    .crest-row { align-items: center !important; }
+    .alias-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .alias-chip { display: inline-flex; gap: 0.35rem; align-items: center; padding: 0.25rem 0.5rem; border: 1px solid var(--border); font-size: 0.85rem; }
+    .alias-chip button { background: none; border: none; color: var(--text-secondary); cursor: pointer; }
+    .fx-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+    .fx-actions input { max-width: 16rem; }
+    .person-row { border: 1px solid var(--border); padding: 0.5rem 0.7rem; margin-bottom: 0.4rem; background: var(--bg-surface); }
+    .person-row summary { cursor: pointer; font-weight: 600; }
+    .person-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0.5rem; margin: 0.6rem 0; }
+    .table-source { font-size: 0.85rem; padding: 0.6rem 0.8rem; border-left: 3px solid var(--gold-text); background: var(--bg-surface); margin: 0; }
+    .hint-inline { font-size: 0.8rem; color: var(--text-secondary); }
+    .inline-msg { font-size: 0.85rem; }
+    .danger { color: var(--danger) !important; border-color: var(--danger) !important; }
+    .unlinked-box { border: 1px solid var(--gold-text); padding: 0.75rem 1rem; margin-bottom: 1rem; }
+    .unlinked-box summary { cursor: pointer; font-weight: 700; }
+    .unlinked-row { display: grid; gap: 0.4rem; padding: 0.6rem 0; border-bottom: 1px solid var(--border); }
+    .unlinked-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .comp-add { margin-top: 3rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+    .comp-add summary { cursor: pointer; font-weight: 700; }
+
     .player-row-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 0.6fr 2fr auto; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
     .staff-row-grid { display: grid; grid-template-columns: 2fr 1.4fr 1fr 2fr auto; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
     .sponsor-row-grid { display: grid; grid-template-columns: 2fr 2fr 2fr auto; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
@@ -31,43 +65,36 @@
       </p>
       <div id="access-denied" class="form-error" style="display:none;">You don't have permission to manage this.</div>
       <div id="clubs-app" style="display:none;">
-        <div id="new-club-form" class="form-grid" style="max-width:520px; margin-bottom:3rem;">
-          <span class="section-label">Add a Club</span>
-          <div class="form-row">
-            <div class="form-field">
-              <label for="club-name">Club name</label>
-              <input type="text" id="club-name" placeholder="Gor Mahia FC">
-            </div>
-            <div class="form-field">
-              <label for="club-competition">Competition</label>
-              <select id="club-competition"></select>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-field">
-              <label for="club-crest">Crest URL (optional)</label>
-              <input type="text" id="club-crest" placeholder="/images/clubs/gor-mahia.jpg">
-            </div>
-            <div class="form-field">
-              <label for="club-venue">Home venue (optional)</label>
-              <input type="text" id="club-venue" placeholder="Moi International Stadium">
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-field">
-              <label for="club-owner">Owner (optional)</label>
-              <input type="text" id="club-owner" placeholder="Chairman / holding group">
-            </div>
-          </div>
-          <button type="button" class="btn-red" id="add-club-btn" style="width:fit-content;">Add Club</button>
-        </div>
+        <details class="unlinked-box" id="unlinked-section" hidden>
+          <summary>Names to link · <span id="unlinked-count"></span></summary>
+          <p class="hint-inline">Team names in Kenyan fixtures that aren't linked to a club yet — so those games show no crest or club page. Pick the club each one means, or add it as a new club.</p>
+          <div id="unlinked-list"></div>
+        </details>
 
-        <div id="clubs-root"></div>
+        <div class="comp-picker">
+          <div class="form-field">
+            <label for="club-comp-select">Competition</label>
+            <select id="club-comp-select"></select>
+          </div>
+        </div>
+        <div id="club-list" class="club-list"></div>
+        <div id="club-panel"></div>
+
+        <details class="comp-add" id="new-club-form">
+          <summary>Add a club</summary>
+          <div class="form-row" style="margin-top:0.75rem;">
+            <div class="form-field"><label for="club-name">Club name</label><input type="text" id="club-name" placeholder="Gor Mahia"></div>
+            <div class="form-field"><label for="club-competition">Competition</label><select id="club-competition"></select></div>
+          </div>
+          <button type="button" class="btn-red" id="add-club-btn" style="width:fit-content; margin-top:0.75rem;">Add club</button>
+          <p class="hint-inline">Then add its crest, ground and squad from its page here.</p>
+        </details>
       </div>
     </main>
   </div>
 
   <script src="/js/site.js"></script>
+  <script src="/js/scores.js"></script>
   <script src="/js/canonicalLinkWidget.js"></script>
   <script src="/admin/js/nav.js"></script>
   <script src="/admin/js/guard.js"></script>

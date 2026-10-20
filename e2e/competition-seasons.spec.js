@@ -42,12 +42,11 @@ test.describe('Competition seasons', () => {
     // Start a new season through the real admin UI, not the API directly —
     // this is the one actual admin workflow being verified here.
     page.once('dialog', (dialog) => dialog.accept());
-    await page.goto('/admin/competitions.html');
-    const card = page.locator('.card', { has: page.locator(`text=${competition.name}`) });
-    await card.locator('.new-season-label').fill('Season Two');
-    await card.locator('.start-season-btn').click();
-    // loadCompetitions() re-renders after the write; the current season's name is an editable box since 2026-10-19.
-    await expect(card.locator('.season-edit-row .season-label').first()).toHaveValue('Season Two', { timeout: 10000 });
+    await page.goto(`/admin/competitions.html?competition=${competition.slug}&tab=season`);
+    await page.fill('#new-season-label', 'Season Two');
+    await page.click('#start-season-btn');
+    // The Season tab re-renders after the write; the current season's name is an editable box.
+    await expect(page.locator('.season-edit-row .season-label').first()).toHaveValue('Season Two', { timeout: 10000 });
 
     detail = await page.request.get(`/api/competitions/${competition.slug}`).then((r) => r.json());
     expect(detail.competition.seasons).toHaveLength(2);

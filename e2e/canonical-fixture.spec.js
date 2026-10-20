@@ -36,13 +36,14 @@ test.describe('Canonical Fixture/Match linking', () => {
     expect((await candidatesRes.json()).candidates).toEqual([]);
 
     // And through the real admin UI.
-    await page.goto(`/admin/competitions.html`);
-    const row = page.locator(`.fixture-admin-row[data-fixture-id="${fixture.id}"]`);
+    // Deep link straight to the fixture's card (Competitions page, 2026-10-20).
+    await page.goto(`/admin/competitions.html?competition=${competition.slug}&tab=fixtures&fixture=${fixture.id}`);
+    const row = page.locator(`.fx-card[data-fixture-id="${fixture.id}"]`);
     await expect(row).toBeVisible({ timeout: 10000 });
-    await row.locator('.canonical-fixture-toggle-btn').click();
+    await row.locator('.fx-canonical').click();
     const panel = row.locator('.canonical-fixture-panel');
     await expect(panel).toContainText('Not linked.');
-    await expect(panel).toContainText('No candidates found');
+    await expect(panel).toContainText('No candidates');
 
     await page.request.delete(`/api/competitions/fixtures/${fixture.id}`);
   });

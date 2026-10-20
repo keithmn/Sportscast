@@ -92,7 +92,7 @@ async function loadPlayer() {
 
   const { player } = await api(`/api/clubs/players/${encodeURIComponent(slug)}`);
   document.title = `${player.name} — The Sportscast`;
-  setEditorLinks([{ href: '/admin/clubs.html', label: 'Edit player' }]);
+  setEditorLinks([{ href: player.club ? `/admin/clubs.html?club=${encodeURIComponent(player.club.slug)}` : '/admin/clubs.html', label: 'Edit player' }]);
 
   const metaParts = [
     player.position,

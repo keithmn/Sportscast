@@ -47,13 +47,16 @@ function buildUploadsRouter(uploadsDir) {
       return res.status(400).json({ error: 'No image file provided (or its type isn\'t JPEG/PNG/WebP).' });
     }
 
-    const filename = `${crypto.randomUUID()}.jpg`;
+    // ?keep=transparent (club crests, sponsor logos): a PNG/WebP keeps its
+    // transparency as a small PNG instead of becoming a JPEG on a solid
+    // background.
+    const transparent = req.query.keep === 'transparent' && req.file.mimetype !== 'image/jpeg';
+    const filename = `${crypto.randomUUID()}.${transparent ? 'png' : 'jpg'}`;
     try {
-      await sharp(req.file.buffer)
+      const image = sharp(req.file.buffer)
         .rotate() // applies EXIF orientation before resizing — a sideways phone photo would otherwise stay sideways
-        .resize({ width: MAX_WIDTH, withoutEnlargement: true })
-        .jpeg({ quality: 82 })
-        .toFile(path.join(uploadsDir, filename));
+        .resize({ width: transparent ? 512 : MAX_WIDTH, withoutEnlargement: true });
+      await (transparent ? image.png({ compressionLevel: 9 }) : image.jpeg({ quality: 82 })).toFile(path.join(uploadsDir, filename));
     } catch (err) {
       console.error('[uploads] Failed to process image:', err.message);
       return res.status(422).json({ error: 'Could not process that image — it may be corrupted.' });

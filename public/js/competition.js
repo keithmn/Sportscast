@@ -24,7 +24,8 @@ async function loadCompetitionPage() {
   document.title = `${competition.name} — The Sportscast`;
   setEditorLinks([
     { href: `/admin/results.html?competition=${encodeURIComponent(competition.slug)}`, label: 'Enter results' },
-    { href: '/admin/competitions.html', label: 'Table & settings' },
+    { href: `/admin/competitions.html?competition=${encodeURIComponent(competition.slug)}&tab=table`, label: 'Table' },
+    { href: `/admin/competitions.html?competition=${encodeURIComponent(competition.slug)}&tab=fixtures`, label: 'Fixtures' },
   ]);
 
   root.innerHTML = `

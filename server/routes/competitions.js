@@ -153,12 +153,36 @@ router.put('/:id/classification', requireRole('ADMIN', 'EDITOR'), async (req, re
 });
 
 // ---- Admin: recent changes across all competitions, most recent first ----
+// ?competition=<id> narrows it to one competition: its own entries plus
+// its fixtures' (ChangeLog keys fixture entries by fixture id).
 router.get('/changelog', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
-  const entries = await prisma.changeLog.findMany({
-    orderBy: { createdAt: 'desc' },
-    take: 50,
-  });
+  let where = {};
+  if (req.query.competition) {
+    const fixtureIds = (await prisma.fixture.findMany({ where: { competitionId: String(req.query.competition) }, select: { id: true } })).map((f) => f.id);
+    where = { OR: [{ entityId: String(req.query.competition) }, { entityType: 'FIXTURE', entityId: { in: fixtureIds } }] };
+  }
+  const entries = await prisma.changeLog.findMany({ where, orderBy: { createdAt: 'desc' }, take: req.query.competition ? 100 : 50 });
   res.json({ entries });
+});
+
+// ---- Admin: rename a competition or set whether it's Kenyan ----
+// The slug (and so every link and follow) stays the same on a rename.
+router.put('/:id/details', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const existing = await prisma.competition.findUnique({ where: { id: req.params.id } });
+  if (!existing) return res.status(404).json({ error: 'Competition not found' });
+  const data = {};
+  if (req.body.name !== undefined) {
+    const name = String(req.body.name).trim();
+    if (!name) return res.status(400).json({ error: 'A competition needs a name' });
+    data.name = name;
+  }
+  if (req.body.region !== undefined) {
+    if (!['KENYA', 'GLOBAL'].includes(req.body.region)) return res.status(400).json({ error: 'region must be KENYA or GLOBAL' });
+    data.region = req.body.region;
+  }
+  const competition = await prisma.competition.update({ where: { id: existing.id }, data });
+  await logChange('COMPETITION', competition.id, 'UPDATE', `Details: ${existing.name !== competition.name ? `renamed "${existing.name}" → "${competition.name}"` : ''}${existing.region !== competition.region ? ` ${competition.region === 'KENYA' ? 'marked Kenyan' : 'marked international'}` : ''}`.trim(), req.session.user.name);
+  res.json({ competition });
 });
 
 // ---- Public: single competition with standings + fixtures ----
