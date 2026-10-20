@@ -29,12 +29,24 @@ function readTime(body) {
 // What a reader should see for a fixture's status. A game still marked
 // SCHEDULED three hours after kick-off has been played — its result just
 // hasn't been entered — so it reads "Result pending", never "Scheduled".
-const FIXTURE_STATUS_LABELS = { SCHEDULED: 'Scheduled', LIVE: 'Live', FINISHED: 'Full time', POSTPONED: 'Postponed' };
+const FIXTURE_STATUS_LABELS = { SCHEDULED: 'Scheduled', LIVE: 'Live', FINISHED: 'Full time', POSTPONED: 'Postponed', ABANDONED: 'Abandoned' };
 function fixtureDisplayStatus(f) {
   const overdue = (f.status === 'SCHEDULED' || f.status === 'LIVE')
     && new Date(f.kickoff).getTime() < Date.now() - 3 * 60 * 60 * 1000;
   if (overdue) return { key: 'PENDING', label: 'Result pending' };
+  // A correspondent's score an editor hasn't confirmed yet.
+  if (f.status === 'FINISHED' && f.resultProvisional) return { key: 'PROVISIONAL', label: 'Provisional' };
   return { key: f.status, label: FIXTURE_STATUS_LABELS[f.status] || f.status };
+}
+
+// How a result was decided, after the score (mirrors outcomeSuffix in
+// server/lib/resultRules.js): "(4–3 pens)", "a.e.t.", "(awarded)".
+function outcomeText(f) {
+  if (f.decidedBy === 'PENALTIES' && f.homePenalties != null) return `(${f.homePenalties}–${f.awayPenalties} pens)`;
+  if (f.decidedBy === 'EXTRA_TIME') return 'a.e.t.';
+  if (f.decidedBy === 'AWARDED') return '(awarded)';
+  if (f.decidedBy === 'WALKOVER') return '(walkover)';
+  return '';
 }
 
 // The picture for a story card: the editor's cover image, else — for a

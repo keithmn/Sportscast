@@ -12,7 +12,7 @@ async function loadDashboard() {
   const cards = [];
 
   if (canManageArticles(user)) {
-    const [{ articles }, { items }, { submissions }, { sources }, { fixtures: todayFixtures }, { fixtures: missingReports }, { clips: pendingClips }, { fixtures: missingInfo }, { fixtures: overdue }, { gaps: roundGaps }, health] = await Promise.all([
+    const [{ articles }, { items }, { submissions }, { sources }, { fixtures: todayFixtures }, { fixtures: missingReports }, { clips: pendingClips }, { fixtures: missingInfo }, { fixtures: overdue }, { gaps: roundGaps }, health, { fixtures: provisional }, { corrections: pendingCorrections }] = await Promise.all([
       api('/api/articles/admin/all'),
       api('/api/monitoring?status=NEW'),
       api('/api/submissions'),
@@ -24,7 +24,22 @@ async function loadDashboard() {
       api('/api/fixtures/overdue'),
       api('/api/fixtures/round-gaps'),
       api('/api/health/details').catch(() => null),
+      api('/api/fixtures/provisional').catch(() => ({ fixtures: [] })),
+      api('/api/competitions/corrections/pending').catch(() => ({ corrections: [] })),
     ]);
+
+    // Things only an editor can finish: correspondents' scores to confirm,
+    // and other editors' corrections to approve.
+    if (provisional.length || pendingCorrections.length) {
+      alertCards.push(`
+        <a href="/admin/results.html" style="display:contents;">
+          <div class="card" style="border-left-color:var(--gold-text);">
+            <span class="card-eyebrow">To confirm</span>
+            <h3 class="card-title">${[provisional.length ? `${provisional.length} provisional result${provisional.length === 1 ? '' : 's'}` : '', pendingCorrections.length ? `${pendingCorrections.length} correction${pendingCorrections.length === 1 ? '' : 's'} to approve` : ''].filter(Boolean).join(' · ')}</h3>
+            <p class="card-desc">${escapeHtml(provisional.slice(0, 3).map((f) => `${f.homeTeam} ${f.homeScore}–${f.awayScore} ${f.awayTeam}`).join(', '))}</p>
+          </div>
+        </a>`);
+    }
 
     // System: scheduled jobs and backups (server/routes/health.js). Red and
     // first when a job failed in the last day or the backup is overdue;

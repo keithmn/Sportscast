@@ -45,6 +45,7 @@ const monitoringRoutes = require('./routes/monitoring');
 const watchRoutes = require('./routes/watch');
 const healthRoutes = require('./routes/health');
 const { backupDatabase } = require('./jobs/backupDatabase');
+const { rolloverSeasons } = require('./jobs/rolloverSeasons');
 const showRoutes = require('./routes/shows');
 const followRoutes = require('./routes/follows');
 const pushRoutes = require('./routes/push');
@@ -333,4 +334,11 @@ cron.schedule(CLEANUP_RAW_RECORDINGS_CRON, () => {
 const BACKUP_CRON = process.env.BACKUP_CRON || '30 23 * * *';
 cron.schedule(BACKUP_CRON, () => {
   runJob('backupDatabase', () => backupDatabase());
+});
+
+// Season handover (server/jobs/rolloverSeasons.js): planned seasons start
+// on their date. 21:05 UTC is 00:05 in Nairobi.
+const SEASON_ROLLOVER_CRON = process.env.SEASON_ROLLOVER_CRON || '5 21 * * *';
+cron.schedule(SEASON_ROLLOVER_CRON, () => {
+  runJob('rolloverSeasons', () => rolloverSeasons());
 });

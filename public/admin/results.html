@@ -26,6 +26,20 @@
           <input type="url" id="source-url" placeholder="https://footballkenya.org/…" inputmode="url" autocomplete="off">
         </div>
 
+        <p class="results-note" id="correspondent-note" hidden>You're entering results as a correspondent: they appear on the site as <strong>provisional</strong> until an editor confirms them, and followers are told once they're confirmed.</p>
+
+        <section class="results-section" id="pending-corrections-section" hidden>
+          <h2 class="results-heading">Corrections waiting for approval</h2>
+          <p class="results-help">Another editor changed these published results. The site keeps the old score until one of you (not the person who made the change) approves.</p>
+          <div id="pending-corrections"></div>
+        </section>
+
+        <section class="results-section" id="provisional-section" hidden>
+          <h2 class="results-heading">Confirm provisional results</h2>
+          <p class="results-help">Scores sent in by correspondents. Check each against a second source, correct it if needed, then Save to confirm — that publishes it as final and tells followers.</p>
+          <div id="provisional-list"></div>
+        </section>
+
         <section class="results-section" id="waiting-section">
           <h2 class="results-heading">Waiting for a result</h2>
           <p class="results-help">Kenyan games that kicked off more than 3 hours ago with no score. The site shows them as "Result pending" until you save.</p>
@@ -67,6 +81,13 @@
     .result-row .when { font-size: 0.78rem; color: var(--text-secondary); }
     .result-row select { font-size: 0.82rem; padding: 0.3rem; }
     .result-row.changed { background: var(--bg-surface); }
+    .row-more { grid-column: 1 / -1; font-size: 0.8rem; color: var(--text-secondary); }
+    .row-more summary { cursor: pointer; padding: 0.15rem 0; }
+    .row-more-body { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; align-items: center; padding: 0.4rem 0; }
+    .row-more-body select, .row-more-body input { font-size: 0.9rem; padding: 0.35rem; background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-primary); }
+    .row-pens input { width: 3.25rem; text-align: center; }
+    .row-note-label { flex: 1 1 14rem; display: flex; flex-direction: column; gap: 0.2rem; }
+    .result-row[data-provisional] { border-left: 3px dotted var(--gold-text); padding-left: 0.4rem; }
     .result-row .new-date { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-secondary); justify-content: flex-end; }
     .result-row .new-date input { font-size: 0.9rem; padding: 0.35rem; background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-primary); }
     .result-row.done .team { color: var(--text-secondary); }

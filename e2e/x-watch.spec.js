@@ -66,7 +66,8 @@ test.describe('X watch dashboard', () => {
       posts = await load();
       expect(byId(1).verdict).toBe('MATCHES');
       // A different score: flagged.
-      await page.request.put(`/api/competitions/${kpl.id}/fixtures/results`, { data: { results: [{ fixtureId: fixture.id, homeScore: 1, awayScore: 1 }] } });
+      // Changing a published result is a correction and needs a reason (2026-10-19).
+      await page.request.put(`/api/competitions/${kpl.id}/fixtures/results`, { data: { results: [{ fixtureId: fixture.id, homeScore: 1, awayScore: 1 }], corrections: { [fixture.id]: 'e2e: test a differing score' } } });
       posts = await load();
       expect(byId(1).verdict).toBe('DIFFERS');
 

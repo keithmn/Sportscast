@@ -32,12 +32,20 @@ function nairobiDateInput(date = new Date()) {
 
 // ---------- score rows ----------
 
-function scoreRowHtml(f, competitionId) {
-  const finished = f.status === 'FINISHED' && f.homeScore != null;
-  const status = finished ? 'FINISHED' : f.status === 'POSTPONED' ? 'POSTPONED' : '';
+const DECIDED_LABELS = { '': 'In normal time', EXTRA_TIME: 'After extra time', PENALTIES: 'On penalties', AWARDED: 'Awarded by the league', WALKOVER: 'Walkover' };
+
+function scoreRowHtml(f, competitionId, { provisional = false } = {}) {
+  const finished = (f.status === 'FINISHED' || f.status === 'ABANDONED') && f.homeScore != null;
+  const status = f.status === 'FINISHED' && f.homeScore != null ? 'FINISHED' : ['POSTPONED', 'ABANDONED'].includes(f.status) ? f.status : '';
+  // A provisional row (a correspondent's score) starts "changed" — saving
+  // it is the editor's confirmation — with its own Confirm tick.
+  const orig = provisional ? { home: '', away: '', status: '' } : { home: finished ? f.homeScore : '', away: finished ? f.awayScore : '', status };
+  const decided = f.decidedBy || '';
   return `
-    <div class="result-row ${finished ? 'done' : ''}" data-fixture-id="${f.id}" data-competition-id="${competitionId}"
-         data-orig-home="${finished ? f.homeScore : ''}" data-orig-away="${finished ? f.awayScore : ''}" data-orig-status="${status}">
+    <div class="result-row ${finished && !provisional ? 'done' : ''}" data-fixture-id="${f.id}" data-competition-id="${competitionId}"
+         data-orig-home="${orig.home}" data-orig-away="${orig.away}" data-orig-status="${orig.status}"
+         data-orig-decided="${provisional ? '~' : decided}" data-orig-hp="${f.homePenalties ?? ''}" data-orig-ap="${f.awayPenalties ?? ''}"
+         data-published="${f.status === 'FINISHED' && !f.resultProvisional && !provisional ? '1' : ''}" ${provisional ? 'data-provisional="1"' : ''}>
       <span class="team home">${escapeHtml(f.homeTeam)}</span>
       <input type="number" min="0" max="999" inputmode="numeric" data-score="home" value="${finished ? f.homeScore : ''}" aria-label="${escapeHtml(f.homeTeam)} score">
       <span class="dash">–</span>
@@ -48,10 +56,26 @@ function scoreRowHtml(f, competitionId) {
         <option value="" ${status === '' ? 'selected' : ''}>Not played yet</option>
         <option value="FINISHED" ${status === 'FINISHED' ? 'selected' : ''}>Full time</option>
         <option value="POSTPONED" ${status === 'POSTPONED' ? 'selected' : ''}>Postponed</option>
+        <option value="ABANDONED" ${status === 'ABANDONED' ? 'selected' : ''}>Abandoned</option>
       </select>
       <label class="new-date" ${status === 'POSTPONED' ? '' : 'hidden'}>New date, if known
         <input type="datetime-local" class="row-new-kickoff" aria-label="New date for ${escapeHtml(f.homeTeam)} v ${escapeHtml(f.awayTeam)}">
       </label>
+      <details class="row-more" ${decided || f.resultNote ? 'open' : ''}>
+        <summary>${provisional ? 'Provisional — reported by a correspondent' : 'Penalties, extra time, note…'}</summary>
+        <div class="row-more-body">
+          <label>How it was decided
+            <select class="row-decided">${Object.entries(DECIDED_LABELS).map(([k, l]) => `<option value="${k}" ${k === decided ? 'selected' : ''}>${l}</option>`).join('')}</select>
+          </label>
+          <span class="row-pens" ${decided === 'PENALTIES' ? '' : 'hidden'}>Shoot-out
+            <input type="number" min="0" max="50" inputmode="numeric" class="row-hp" value="${f.homePenalties ?? ''}" aria-label="${escapeHtml(f.homeTeam)} penalties"> –
+            <input type="number" min="0" max="50" inputmode="numeric" class="row-ap" value="${f.awayPenalties ?? ''}" aria-label="${escapeHtml(f.awayTeam)} penalties">
+          </span>
+          <label class="row-note-label">Note (shown on the match page)
+            <input type="text" class="row-note" maxlength="200" value="${escapeHtml(f.resultNote || '')}" placeholder="e.g. Abandoned at 1–0, floodlight failure">
+          </label>
+        </div>
+      </details>
     </div>`;
 }
 
@@ -60,10 +84,16 @@ function rowState(row) {
   const away = row.querySelector('[data-score="away"]').value.trim();
   const status = row.querySelector('.row-status').value;
   const newKickoff = row.querySelector('.row-new-kickoff').value;
-  const changed = status === 'POSTPONED'
-    ? row.dataset.origStatus !== 'POSTPONED' || Boolean(newKickoff)
-    : (home !== '' || away !== '') && (home !== row.dataset.origHome || away !== row.dataset.origAway || row.dataset.origStatus !== 'FINISHED');
-  return { home, away, status, changed, newKickoff };
+  const decided = row.querySelector('.row-decided').value;
+  const hp = row.querySelector('.row-hp').value.trim();
+  const ap = row.querySelector('.row-ap').value.trim();
+  const note = row.querySelector('.row-note').value.trim();
+  const outcomeChanged = decided !== row.dataset.origDecided || (decided === 'PENALTIES' && (hp !== row.dataset.origHp || ap !== row.dataset.origAp));
+  let changed;
+  if (status === 'POSTPONED') changed = row.dataset.origStatus !== 'POSTPONED' || Boolean(newKickoff);
+  else if (status === 'ABANDONED') changed = row.dataset.origStatus !== 'ABANDONED' || home !== row.dataset.origHome || away !== row.dataset.origAway;
+  else changed = (home !== '' || away !== '') && (home !== row.dataset.origHome || away !== row.dataset.origAway || row.dataset.origStatus !== 'FINISHED' || outcomeChanged);
+  return { home, away, status, changed, newKickoff, decided, hp, ap, note };
 }
 
 function refreshSavebar() {
@@ -89,6 +119,8 @@ function syncCopies(source) {
     row.querySelector('.row-status').value = source.querySelector('.row-status').value;
     row.querySelector('.row-new-kickoff').value = source.querySelector('.row-new-kickoff').value;
     row.querySelector('.new-date').hidden = source.querySelector('.new-date').hidden;
+    ['.row-decided', '.row-hp', '.row-ap', '.row-note'].forEach((sel) => { row.querySelector(sel).value = source.querySelector(sel).value; });
+    row.querySelector('.row-pens').hidden = source.querySelector('.row-pens').hidden;
   });
 }
 
@@ -99,6 +131,9 @@ function onRowInput(e) {
     const { home, away } = rowState(row);
     const select = row.querySelector('.row-status');
     if (home !== '' && away !== '') select.value = 'FINISHED';
+  }
+  if (e.target.matches('.row-decided')) {
+    row.querySelector('.row-pens').hidden = e.target.value !== 'PENALTIES';
   }
   if (e.target.matches('.row-status')) {
     row.querySelector('.new-date').hidden = e.target.value !== 'POSTPONED';
@@ -114,21 +149,35 @@ function onRowInput(e) {
 async function saveAll() {
   const btn = document.getElementById('savebar-btn');
   const problems = [];
+  const correctionReasons = {};
   const byCompetition = new Map();
   const seen = new Set();
   document.querySelectorAll('.result-row').forEach((row) => {
-    const { home, away, status, changed, newKickoff } = rowState(row);
+    const { home, away, status, changed, newKickoff, decided, hp, ap, note } = rowState(row);
     if (!changed || seen.has(row.dataset.fixtureId)) return;
     seen.add(row.dataset.fixtureId);
     const teams = `${row.querySelector('.team.home').textContent} v ${row.querySelectorAll('.team')[1].textContent}`;
     let result;
     if (status === 'POSTPONED') {
       result = { fixtureId: row.dataset.fixtureId, status: 'POSTPONED', ...(newKickoff ? { kickoff: newKickoff } : {}) };
+    } else if (status === 'ABANDONED') {
+      if ((home === '') !== (away === '')) { problems.push(`${teams}: give both scores at abandonment, or neither`); return; }
+      result = { fixtureId: row.dataset.fixtureId, status: 'ABANDONED', resultNote: note, ...(home !== '' ? { homeScore: Number(home), awayScore: Number(away) } : {}) };
     } else if (home === '' || away === '') {
       problems.push(`${teams}: enter both scores`);
       return;
     } else {
-      result = { fixtureId: row.dataset.fixtureId, homeScore: Number(home), awayScore: Number(away) };
+      result = {
+        fixtureId: row.dataset.fixtureId, homeScore: Number(home), awayScore: Number(away), resultNote: note,
+        ...(decided ? { decidedBy: decided } : {}),
+        ...(decided === 'PENALTIES' ? { homePenalties: Number(hp), awayPenalties: Number(ap) } : {}),
+      };
+    }
+    // Changing a result that's already public is a correction: ask why.
+    if (row.dataset.published === '1' && status !== 'POSTPONED') {
+      const reason = prompt(`${teams} is already published as ${row.dataset.origHome}–${row.dataset.origAway}. Why are you changing it? (shown on the match page)`);
+      if (!reason || !reason.trim()) { problems.push(`${teams}: not changed — a reason is needed to correct a published result`); return; }
+      correctionReasons[row.dataset.fixtureId] = reason.trim();
     }
     if (!byCompetition.has(row.dataset.competitionId)) byCompetition.set(row.dataset.competitionId, []);
     byCompetition.get(row.dataset.competitionId).push(result);
@@ -142,12 +191,18 @@ async function saveAll() {
   const failed = [];
   for (const [competitionId, results] of byCompetition) {
     const name = competitionById.get(competitionId)?.name || 'Competition';
-    try {
-      await api(`/api/competitions/${competitionId}/fixtures/results`, { method: 'PUT', body: JSON.stringify({ results, sourceUrl }) });
-      saved.push({ competitionId, name, count: results.length });
-    } catch (err) {
-      failed.push(`${name}: ${err.message}`);
+    const send = (confirm) => fetch(`/api/competitions/${competitionId}/fixtures/results`, {
+      method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ results, sourceUrl, corrections: correctionReasons, confirm }),
+    }).then(async (r) => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) }));
+    let out = await send(false);
+    // Unusual scores: show the warnings, save only if the editor agrees.
+    if (out.status === 409 && out.data.needsConfirm) {
+      if (confirm(`Please check before saving ${name}:\n\n• ${out.data.warnings.join('\n• ')}\n\nSave anyway?`)) out = await send(true);
+      else { failed.push(`${name}: not saved — check the scores`); continue; }
     }
+    if (out.ok) saved.push({ competitionId, name, count: results.length, pending: out.data.pending, provisional: out.data.provisional });
+    else failed.push(`${name}: ${out.data.error || `HTTP ${out.status}`}`);
   }
   btn.disabled = false;
   btn.textContent = 'Save results';
@@ -176,9 +231,11 @@ function showSavedNote(saved) {
   el.innerHTML = `
     <div class="results-note ok" role="status">
       Saved: ${saved.map((s) => `${escapeHtml(s.name)} (${s.count})`).join(', ')}.
+      ${saved.some((s) => s.provisional) ? ' They show as provisional until an editor confirms them.' : ''}
+      ${saved.some((s) => s.pending) ? ` ${saved.reduce((n, s) => n + (s.pending || 0), 0)} correction(s) wait for a second editor to approve (Dashboard).` : ''}
     </div>
     <div class="panel-actions">
-      ${saved.filter((s) => TABLE_FROM_RESULTS.has(competitionById.get(s.competitionId)?.sport?.slug)).map((s) => `
+      ${(isCorrespondent() ? [] : saved).filter((s) => TABLE_FROM_RESULTS.has(competitionById.get(s.competitionId)?.sport?.slug)).map((s) => `
         <button type="button" class="btn-outline-sm rebuild-btn" data-competition-id="${s.competitionId}">Rebuild ${escapeHtml(s.name)} table</button>`).join('')}
     </div>`;
   el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -199,7 +256,39 @@ async function rebuildTable(competitionId, button) {
 
 // ---------- waiting for a result ----------
 
+function isCorrespondent() {
+  return currentUser && currentUser.role === 'CORRESPONDENT';
+}
+
+// Editors: correspondents' scores to confirm, above the overdue games.
+async function loadProvisional() {
+  const el = document.getElementById('provisional-list');
+  if (!el || isCorrespondent()) return;
+  const { fixtures } = await api('/api/fixtures/provisional').catch(() => ({ fixtures: [] }));
+  document.getElementById('provisional-section').hidden = !fixtures.length;
+  el.innerHTML = fixtures.map((f) => `<span class="results-comp-label">${escapeHtml(f.competition.name)}</span>${scoreRowHtml(f, f.competition.id, { provisional: true })}`).join('');
+  refreshSavebar();
+}
+
+async function loadPendingCorrections() {
+  const el = document.getElementById('pending-corrections');
+  if (!el || isCorrespondent()) return;
+  const { corrections } = await api('/api/competitions/corrections/pending').catch(() => ({ corrections: [] }));
+  document.getElementById('pending-corrections-section').hidden = !corrections.length;
+  el.innerHTML = corrections.map((c) => `
+    <div class="pending-correction" data-correction-id="${c.id}">
+      <strong>${escapeHtml(c.fixture.homeTeam)} v ${escapeHtml(c.fixture.awayTeam)}</strong> · ${escapeHtml(c.fixture.competition.name)}<br>
+      ${c.beforeHome}–${c.beforeAway} → <strong>${c.afterHome}–${c.afterAway}</strong> · by ${escapeHtml(c.userName)}: "${escapeHtml(c.reason || '')}"
+      <div class="panel-actions">
+        <button type="button" class="btn-outline-sm correction-approve" ${c.userName === currentUser.name ? 'disabled title="Another editor has to approve your own correction"' : ''}>Approve</button>
+        <button type="button" class="btn-outline-sm correction-reject">Reject</button>
+      </div>
+    </div>`).join('');
+}
+
 async function loadWaiting() {
+  loadProvisional();
+  loadPendingCorrections();
   const el = document.getElementById('waiting-list');
   try {
     const { fixtures } = await api('/api/fixtures/overdue');
@@ -271,7 +360,7 @@ function renderPanel() {
   const inRound = c.fixtures
     .filter((f) => (f.round || '') === panelRound)
     .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
-  const tableNote = TABLE_FROM_RESULTS.has(c.sport.slug)
+  const tableNote = isCorrespondent() ? '' : TABLE_FROM_RESULTS.has(c.sport.slug)
     ? `<button type="button" class="btn-outline-sm rebuild-btn" data-competition-id="${c.id}">Rebuild table from results</button>`
     : `<span class="results-help">${escapeHtml(c.sport.name)} tables aren't worked out from scores alone — update the table on the <a href="/admin/competitions.html">Competitions</a> page.</span>`;
 
@@ -336,10 +425,17 @@ async function addGames() {
   const btn = document.getElementById('add-games-btn');
   btn.disabled = true;
   try {
-    const { created } = await api(`/api/competitions/${c.id}/games`, {
-      method: 'POST',
-      body: JSON.stringify({ games, sourceUrl: document.getElementById('source-url').value.trim() }),
-    });
+    const send = (confirmIt) => fetch(`/api/competitions/${c.id}/games`, {
+      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ games, sourceUrl: document.getElementById('source-url').value.trim(), confirm: confirmIt }),
+    }).then(async (r) => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) }));
+    let out = await send(false);
+    if (out.status === 409 && out.data.needsConfirm) {
+      if (!confirm(`Please check:\n\n• ${out.data.warnings.join('\n• ')}\n\nAdd anyway?`)) { btn.disabled = false; return; }
+      out = await send(true);
+    }
+    if (!out.ok) throw new Error(out.data.error || `HTTP ${out.status}`);
+    const { created } = out.data;
     const round = games[0].round || panelRound;
     await Promise.all([openCompetition(c.slug, round), loadWaiting()]);
     showSavedNote([{ competitionId: c.id, name: c.name, count: created }]);
@@ -369,11 +465,14 @@ function competitionOptionsHtml(waitingCounts) {
 async function initResultsPage() {
   const user = await requireLogin();
   if (!user) return;
-  if (!canManageArticles(user)) {
+  if (!canManageArticles(user) && user.role !== 'CORRESPONDENT') {
     document.getElementById('access-denied').style.display = 'block';
     return;
   }
   document.getElementById('results-app').style.display = 'block';
+  if (user.role === 'CORRESPONDENT') {
+    document.getElementById('correspondent-note').hidden = false;
+  }
   ['team-options', 'venue-options'].forEach((id) => {
     const list = document.createElement('datalist');
     list.id = id;
@@ -386,7 +485,7 @@ async function initResultsPage() {
     api('/api/fixtures/overdue').catch(() => ({ fixtures: [] })),
   ]);
   // Every competition on the site, Kenyan ones first within each sport.
-  competitions = all;
+  competitions = user.role === 'CORRESPONDENT' ? all.filter((c) => (user.competitionIds || []).includes(c.id)) : all;
   competitions.forEach((c) => competitionById.set(c.id, c));
   document.getElementById('venue-options').innerHTML = venues.map((v) => `<option value="${escapeHtml(v.name)}">`).join('');
   const waitingCounts = new Map();
@@ -400,6 +499,14 @@ async function initResultsPage() {
   app.addEventListener('click', (e) => {
     const chip = e.target.closest('.round-chips button');
     if (chip) { panelRound = chip.dataset.round; renderPanel(); return; }
+    const decision = e.target.closest('.correction-approve, .correction-reject');
+    if (decision) {
+      const id = decision.closest('.pending-correction').dataset.correctionId;
+      api(`/api/competitions/corrections/${id}/${decision.matches('.correction-approve') ? 'approve' : 'reject'}`, { method: 'POST' })
+        .then(() => Promise.all([loadWaiting(), panelCompetition ? openCompetition(panelCompetition.slug, panelRound) : null]))
+        .catch((err) => alert(err.message));
+      return;
+    }
     const rebuild = e.target.closest('.rebuild-btn');
     if (rebuild) { rebuildTable(rebuild.dataset.competitionId, rebuild); return; }
     if (e.target.closest('#add-row-btn')) {

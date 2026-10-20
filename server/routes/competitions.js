@@ -8,6 +8,7 @@ const { getOrCreateCurrentSeason } = require('../lib/seasonResolution');
 const { resolveVenue } = require('../lib/venueResolution');
 const { pointsRuleFor, computeTable } = require('../lib/pointsRules');
 const { JURISDICTIONS, FORMATS, TEAM_TYPES, classificationFor, parseClassification } = require('../lib/competitionClassification');
+const { outcomeProblem, sanityWarnings, newGameWarnings, outcomeSuffix, isScore } = require('../lib/resultRules');
 const { sendPushToFollowers } = require('../lib/push');
 
 const router = express.Router();
@@ -36,8 +37,9 @@ function parseKickoff(value) {
 // competition. Sync-job-sourced results (API-fed leagues) aren't wired
 // yet — see BLUEPRINT.md's entry for why that's a deliberate, separate
 // scoping decision, not an oversight.
-function notifyFixtureResult(fixture) {
+function notifyFixtureResult(fixture, { correction = false } = {}) {
   if (fixture.homeScore == null || fixture.awayScore == null) return; // never announce a score we don't have
+  if (fixture.resultProvisional || fixture.status !== 'FINISHED') return; // only confirmed results
   (async () => {
     const [competition, clubs] = await Promise.all([
       prisma.competition.findUnique({ where: { id: fixture.competitionId }, select: { slug: true, name: true } }),
@@ -48,7 +50,7 @@ function notifyFixtureResult(fixture) {
       ...clubs.map((c) => ({ entityType: 'club', entitySlug: c.slug })),
     ];
     await sendPushToFollowers(targets, {
-      title: `Full-time: ${fixture.homeTeam} ${fixture.homeScore}-${fixture.awayScore} ${fixture.awayTeam}`,
+      title: `${correction ? 'Correction — full-time' : 'Full-time'}: ${fixture.homeTeam} ${fixture.homeScore}-${fixture.awayScore} ${fixture.awayTeam}${outcomeSuffix(fixture)}`,
       body: competition ? competition.name : 'Result posted',
       url: `/match.html?id=${fixture.id}`,
     });
@@ -70,6 +72,17 @@ function sourceUrlOrError(value) {
   const url = String(value).trim();
   if (!/^https?:\/\/[^\s]+$/i.test(url) || url.length > 500) return new Error('The source link must be a full web address starting with http:// or https://');
   return url;
+}
+
+// Results entry: editors for every competition; a CORRESPONDENT only for
+// the competitions they report on (and their scores stay provisional).
+function requireResultsAccess(req, res, next) {
+  const user = req.session.user;
+  if (!user) return res.status(401).json({ error: 'Not authenticated' });
+  if (user.mustChangePassword) return res.status(403).json({ error: 'Set your own password first (Account page).', mustChangePassword: true });
+  if (['ADMIN', 'EDITOR'].includes(user.role)) return next();
+  if (user.role === 'CORRESPONDENT' && (user.competitionIds || []).includes(req.params.id)) return next();
+  return res.status(403).json({ error: "You can't enter results for this competition" });
 }
 
 function logChange(entityType, entityId, action, summary, userName) {
@@ -164,10 +177,12 @@ router.get('/:slug', async (req, res) => {
   });
   if (!competition || (!competition.isActive && !isEditor(req))) return res.status(404).json({ error: 'Competition not found' });
 
-  const seasons = await prisma.competitionSeason.findMany({
+  const allSeasons = await prisma.competitionSeason.findMany({
     where: { competitionId: competition.id },
     orderBy: { createdAt: 'desc' },
   });
+  // A planned season (not started yet) is for editors only.
+  const seasons = isEditor(req) ? allSeasons : allSeasons.filter((s) => s.isCurrent || !s.startsOn || s.startsOn <= new Date());
   const currentSeason = seasons.find((s) => s.isCurrent) || null;
   const requestedSeasonId = req.query.season && seasons.some((s) => s.id === req.query.season)
     ? req.query.season
@@ -294,10 +309,19 @@ router.get('/:id/seasons', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
 // nothing else to wire up for that to take effect. The just-archived
 // season's data is untouched and stays reachable via the public ?season=
 // selector.
+// A season with a startsOn in the future is PLANNED (2026-10-19): it's
+// created but not current, so the public page keeps showing the season
+// being played; the nightly rolloverSeasons job makes it current on its
+// start date. Without startsOn it becomes current at once, as before.
 router.post('/:id/seasons', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const { label } = req.body;
   if (!label || !label.trim()) return res.status(400).json({ error: 'label is required' });
   const trimmedLabel = label.trim();
+  const startsOn = req.body.startsOn ? parseKickoff(`${String(req.body.startsOn).slice(0, 10)}T00:00`) : null;
+  const endsOn = req.body.endsOn ? parseKickoff(`${String(req.body.endsOn).slice(0, 10)}T23:59`) : null;
+  if ((startsOn && Number.isNaN(startsOn.getTime())) || (endsOn && Number.isNaN(endsOn.getTime()))) return res.status(400).json({ error: "The season dates aren't valid" });
+  if (startsOn && endsOn && endsOn <= startsOn) return res.status(400).json({ error: 'The season has to end after it starts' });
+  const planned = startsOn && startsOn.getTime() > Date.now();
 
   const competition = await prisma.competition.findUnique({ where: { id: req.params.id } });
   if (!competition) return res.status(404).json({ error: 'Competition not found' });
@@ -307,12 +331,39 @@ router.post('/:id/seasons', requireRole('ADMIN', 'EDITOR'), async (req, res) => 
   });
   if (existing) return res.status(409).json({ error: `A season labeled "${trimmedLabel}" already exists for this competition.` });
 
+  if (planned) {
+    const season = await prisma.competitionSeason.create({ data: { competitionId: req.params.id, label: trimmedLabel, isCurrent: false, startsOn, endsOn } });
+    await logChange('COMPETITION', competition.id, 'UPDATE', `Planned season "${season.label}" for "${competition.name}" — starts ${fmtDate(startsOn)}`, req.session.user.name);
+    return res.status(201).json({ season, planned: true });
+  }
   const [, season] = await prisma.$transaction([
     prisma.competitionSeason.updateMany({ where: { competitionId: req.params.id, isCurrent: true }, data: { isCurrent: false } }),
-    prisma.competitionSeason.create({ data: { competitionId: req.params.id, label: trimmedLabel, isCurrent: true } }),
+    prisma.competitionSeason.create({ data: { competitionId: req.params.id, label: trimmedLabel, isCurrent: true, startsOn, endsOn } }),
   ]);
   await logChange('COMPETITION', competition.id, 'UPDATE', `Started new season "${season.label}" for "${competition.name}"`, req.session.user.name);
-  res.status(201).json({ season });
+  res.status(201).json({ season, planned: false });
+});
+
+// ---- Admin: rename a season or set its dates ----
+router.put('/seasons/:seasonId', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const season = await prisma.competitionSeason.findUnique({ where: { id: req.params.seasonId } });
+  if (!season) return res.status(404).json({ error: 'Season not found' });
+  const data = {};
+  if (req.body.label !== undefined) {
+    const label = String(req.body.label).trim();
+    if (!label) return res.status(400).json({ error: 'A season needs a name, e.g. 2026/27' });
+    const clash = await prisma.competitionSeason.findUnique({ where: { competitionId_label: { competitionId: season.competitionId, label } } });
+    if (clash && clash.id !== season.id) return res.status(409).json({ error: `There's already a season called "${label}"` });
+    data.label = label;
+  }
+  for (const [field, time] of [['startsOn', '00:00'], ['endsOn', '23:59']]) {
+    if (req.body[field] === undefined) continue;
+    data[field] = req.body[field] ? parseKickoff(`${String(req.body[field]).slice(0, 10)}T${time}`) : null;
+    if (data[field] && Number.isNaN(data[field].getTime())) return res.status(400).json({ error: "The season dates aren't valid" });
+  }
+  const updated = await prisma.competitionSeason.update({ where: { id: season.id }, data });
+  await logChange('COMPETITION', season.competitionId, 'UPDATE', `Season "${updated.label}" updated`, req.session.user.name);
+  res.json({ season: updated });
 });
 
 // True when two squashed names differ by at most one or two letters
@@ -590,6 +641,20 @@ router.put('/fixtures/:fixtureId', requireRole('ADMIN', 'EDITOR'), async (req, r
   });
 
   const isNewlyFinished = status === 'FINISHED' && existing.status !== 'FINISHED';
+  // Editing a published score here is a correction too: recorded, shown
+  // on the match page, and followers are told.
+  const corrected = existing.status === 'FINISHED' && !existing.resultProvisional && fixture.status === 'FINISHED'
+    && (fixture.homeScore !== existing.homeScore || fixture.awayScore !== existing.awayScore);
+  if (corrected) {
+    await prisma.fixtureCorrection.create({
+      data: {
+        fixtureId: fixture.id, userName: req.session.user.name, reason: String(req.body.correctionReason || 'Edited on the Competitions page').slice(0, 300),
+        beforeHome: existing.homeScore, beforeAway: existing.awayScore, beforeStatus: existing.status,
+        afterHome: fixture.homeScore, afterAway: fixture.awayScore, afterStatus: fixture.status,
+      },
+    });
+    notifyFixtureResult(fixture, { correction: true });
+  }
   let summary;
   if (isNewlyPostponed) {
     summary = `Postponed ${fixture.homeTeam} vs ${fixture.awayTeam}: ${fmtDate(existing.kickoff)} → ${fmtDate(newKickoff)}`;
@@ -614,7 +679,7 @@ router.put('/fixtures/:fixtureId', requireRole('ADMIN', 'EDITOR'), async (req, r
 // fixture. Every game is checked before any is created, and a game that
 // already exists (same teams, same Nairobi day) is refused so it can't be
 // entered twice — its score goes in the round list instead.
-router.post('/:id/games', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+router.post('/:id/games', requireResultsAccess, async (req, res) => {
   const { games } = req.body;
   if (!Array.isArray(games) || !games.length) return res.status(400).json({ error: 'Add at least one game' });
   if (games.length > 40) return res.status(400).json({ error: 'At most 40 games at a time' });
@@ -659,6 +724,18 @@ router.post('/:id/games', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   if (errors.length) return res.status(400).json({ error: errors.join('; ') });
 
   const season = await getOrCreateCurrentSeason(prisma, competition.id);
+  if (!req.body.confirm) {
+    const sport = await prisma.sport.findUnique({ where: { id: competition.sportId } });
+    const warnings = [];
+    for (const g of clean) {
+      const dayStart = new Date(`${nairobiDay(g.kickoff)}T00:00:00+03:00`);
+      const sameDay = await prisma.fixture.findMany({ where: { competitionId: competition.id, kickoff: { gte: dayStart, lt: new Date(dayStart.getTime() + 86400000) } }, select: { homeTeam: true, awayTeam: true } });
+      warnings.push(...newGameWarnings(g, sameDay));
+      if (g.homeScore !== null) warnings.push(...sanityWarnings(g, g, sport ? sport.slug : ''));
+    }
+    if (warnings.length) return res.status(409).json({ needsConfirm: true, warnings, error: warnings.join(' ') });
+  }
+  const isCorrespondent = req.session.user.role === 'CORRESPONDENT';
   // resolveVenue's cache is the venue list itself (it appends new ones),
   // so a misspelt venue typed twice in one save is created once.
   const venueCache = await prisma.venue.findMany({ select: { id: true, name: true } });
@@ -684,12 +761,13 @@ router.post('/:id/games', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
         venueId: venueResult.venueId,
         round: detailText(g.round) ?? null,
         sourceUrl: finished ? sourceUrl : null,
+        resultProvisional: finished && isCorrespondent,
       },
     });
     await logChange('FIXTURE', fixture.id, 'CREATE', finished
       ? `Added result: ${g.homeTeam} ${g.homeScore}-${g.awayScore} ${g.awayTeam}, ${fmtDate(g.kickoff)}`
       : `Added fixture: ${g.homeTeam} vs ${g.awayTeam}, ${fmtDate(g.kickoff)}`, req.session.user.name);
-    if (finished) notifyFixtureResult(fixture);
+    if (finished && !isCorrespondent) notifyFixtureResult(fixture);
     created.push(fixture);
   }
   res.status(201).json({ created: created.length, fixtures: created });
@@ -701,69 +779,200 @@ router.post('/:id/games', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
 // transaction — all saved or none, so a typo can't leave a round half
 // entered. Same semantics as the single-fixture PUT above for each row:
 // marks it FINISHED, logs the result, and sends the same full-time push.
-// A row may instead be { fixtureId, status: 'POSTPONED' } (no scores).
-// An optional top-level sourceUrl — the official page or report the
-// scores were confirmed from — is stored on every finished row, and the
-// public match page links it.
-router.put('/:id/fixtures/results', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+// Each row: { fixtureId, homeScore, awayScore } for a full-time result,
+// optionally with decidedBy (EXTRA_TIME | PENALTIES | AWARDED | WALKOVER),
+// homePenalties/awayPenalties and resultNote; or { fixtureId, status:
+// 'POSTPONED', kickoff? } (kickoff = the new date, if known); or
+// { fixtureId, status: 'ABANDONED', homeScore?, awayScore?, resultNote }.
+// Top level: sourceUrl (stored on finished rows, linked from the match
+// page), confirm (true = save despite the warnings below),
+// corrections ({ [fixtureId]: reason } — required when changing a result
+// that's already published).
+//
+// - Unusual scores, a result before kick-off etc. come back as 409
+//   { needsConfirm, warnings } until sent again with confirm: true.
+// - Changing a published result is a correction: recorded (who, before,
+//   after, why), shown on the match page, and followers are told. With
+//   CORRECTIONS_NEED_SECOND_EDITOR=true it waits for another editor.
+// - A CORRESPONDENT's results are provisional: shown as such, no push,
+//   kept out of rebuilt tables, until an editor saves them again.
+router.put('/:id/fixtures/results', requireResultsAccess, async (req, res) => {
   const { results } = req.body;
   if (!Array.isArray(results) || !results.length) {
     return res.status(400).json({ error: 'results must be a non-empty array' });
   }
   const sourceUrl = sourceUrlOrError(req.body.sourceUrl);
   if (sourceUrl instanceof Error) return res.status(400).json({ error: sourceUrl.message });
+  const corrections = req.body.corrections || {};
+  const isCorrespondent = req.session.user.role === 'CORRESPONDENT';
+  const secondEditor = process.env.CORRECTIONS_NEED_SECOND_EDITOR === 'true';
+
   const errors = [];
-  results.forEach((r, i) => {
-    const ok = (n) => Number.isInteger(n) && n >= 0 && n <= 999;
-    if (!r.fixtureId) errors.push(`Row ${i + 1}: missing fixtureId`);
-    else if (r.status !== undefined && !['FINISHED', 'POSTPONED'].includes(r.status)) errors.push(`Row ${i + 1}: status must be FINISHED or POSTPONED`);
-    else if (r.status !== 'POSTPONED' && (!ok(r.homeScore) || !ok(r.awayScore))) errors.push(`Row ${i + 1}: scores must be whole numbers from 0 to 999`);
-    else if (r.status === 'POSTPONED' && r.kickoff && Number.isNaN(parseKickoff(r.kickoff).getTime())) errors.push(`Row ${i + 1}: the new date isn't valid`);
-  });
-  // The same fixture twice in one save would update it twice, log it twice
-  // and send followers two full-time notifications (possibly with
-  // different scores) — refuse instead of guessing which row is meant.
   const seenIds = new Set();
   results.forEach((r, i) => {
-    if (r.fixtureId && seenIds.has(r.fixtureId)) errors.push(`Row ${i + 1}: the same fixture appears more than once`);
+    const row = `Row ${i + 1}`;
+    if (!r.fixtureId) { errors.push(`${row}: missing fixtureId`); return; }
+    if (seenIds.has(r.fixtureId)) errors.push(`${row}: the same fixture appears more than once`);
     seenIds.add(r.fixtureId);
+    const status = r.status || 'FINISHED';
+    if (!['FINISHED', 'POSTPONED', 'ABANDONED'].includes(status)) { errors.push(`${row}: status must be FINISHED, POSTPONED or ABANDONED`); return; }
+    if (status === 'FINISHED' && (!isScore(r.homeScore) || !isScore(r.awayScore))) errors.push(`${row}: scores must be whole numbers from 0 to 999`);
+    if (status === 'ABANDONED' && (r.homeScore != null || r.awayScore != null) && (!isScore(r.homeScore) || !isScore(r.awayScore))) errors.push(`${row}: the score when it was abandoned must be two whole numbers, or none`);
+    if (status === 'POSTPONED' && r.kickoff && Number.isNaN(parseKickoff(r.kickoff).getTime())) errors.push(`${row}: the new date isn't valid`);
+    if (status === 'FINISHED') { const problem = outcomeProblem(r); if (problem) errors.push(`${row}: ${problem}`); }
+    if (r.resultNote && String(r.resultNote).length > 200) errors.push(`${row}: keep the note under 200 characters`);
   });
   if (errors.length) return res.status(400).json({ error: errors.join('; ') });
 
   const ids = results.map((r) => r.fixtureId);
-  const existing = await prisma.fixture.findMany({ where: { id: { in: ids }, competitionId: req.params.id } });
+  const existing = await prisma.fixture.findMany({ where: { id: { in: ids }, competitionId: req.params.id }, include: { competition: { include: { sport: true } } } });
   if (existing.length !== ids.length) {
     return res.status(400).json({ error: 'One or more fixtures were not found in this competition — reload the page and try again.' });
   }
   const byId = new Map(existing.map((f) => [f.id, f]));
 
-  const updated = await prisma.$transaction(results.map((r) => prisma.fixture.update({
-    where: { id: r.fixtureId },
-    // Postponed with a new date: the game moves to it, and the date it was
-    // first set for is kept so the site can say "was 25 Oct — now 1 Nov".
-    data: r.status === 'POSTPONED'
-      ? {
-        status: 'POSTPONED', homeScore: null, awayScore: null,
-        originalKickoff: byId.get(r.fixtureId).originalKickoff || byId.get(r.fixtureId).kickoff,
-        ...(r.kickoff ? { kickoff: parseKickoff(r.kickoff) } : {}),
-      }
-      : { homeScore: r.homeScore, awayScore: r.awayScore, status: 'FINISHED', ...(sourceUrl ? { sourceUrl } : {}) },
-  })));
+  // A correction = changing a published, confirmed result.
+  const isCorrection = (r, before) => before.status === 'FINISHED' && !before.resultProvisional && (
+    (r.status || 'FINISHED') !== 'FINISHED' || r.homeScore !== before.homeScore || r.awayScore !== before.awayScore
+    || (r.decidedBy || null) !== before.decidedBy || (r.homePenalties ?? null) !== before.homePenalties || (r.awayPenalties ?? null) !== before.awayPenalties);
+  const missingReasons = results.filter((r) => isCorrection(r, byId.get(r.fixtureId)) && !String(corrections[r.fixtureId] || '').trim());
+  if (missingReasons.length) {
+    return res.status(400).json({ error: `Say why you're changing ${missingReasons.map((r) => { const f = byId.get(r.fixtureId); return `${f.homeTeam} ${f.homeScore}–${f.awayScore} ${f.awayTeam}`; }).join(', ')} — it's already published.`, needsReason: missingReasons.map((r) => r.fixtureId) });
+  }
+  if (isCorrespondent && results.some((r) => isCorrection(r, byId.get(r.fixtureId)))) {
+    return res.status(403).json({ error: 'A published result can only be changed by an editor — tell the newsroom what is wrong.' });
+  }
 
-  for (const fixture of updated) {
-    const before = byId.get(fixture.id);
-    if (fixture.status === 'POSTPONED') {
-      const moved = fixture.kickoff.getTime() !== before.kickoff.getTime();
-      if (before.status !== 'POSTPONED' || moved) await logChange('FIXTURE', fixture.id, 'UPDATE', `Postponed: ${fixture.homeTeam} vs ${fixture.awayTeam}${moved ? ` — now ${fmtDate(fixture.kickoff)}` : ' — new date not known yet'}`, req.session.user.name);
+  if (!req.body.confirm) {
+    const warnings = results.flatMap((r) => ((r.status || 'FINISHED') === 'FINISHED' ? sanityWarnings(byId.get(r.fixtureId), r, byId.get(r.fixtureId).competition.sport.slug) : []));
+    if (warnings.length) return res.status(409).json({ needsConfirm: true, warnings, error: warnings.join(' ') });
+  }
+
+  const now = new Date();
+  const ops = [];
+  const outcomes = []; // { fixtureId, kind } for logging and pushes after the write
+  for (const r of results) {
+    const before = byId.get(r.fixtureId);
+    const status = r.status || 'FINISHED';
+    if (status === 'POSTPONED') {
+      ops.push(prisma.fixture.update({
+        where: { id: before.id },
+        data: {
+          status: 'POSTPONED', homeScore: null, awayScore: null, decidedBy: null, homePenalties: null, awayPenalties: null, resultProvisional: false,
+          originalKickoff: before.originalKickoff || before.kickoff,
+          ...(r.kickoff ? { kickoff: parseKickoff(r.kickoff) } : {}),
+        },
+      }));
+      outcomes.push({ id: before.id, kind: 'POSTPONED' });
       continue;
     }
-    const isNew = before.status !== 'FINISHED';
-    const changed = before.homeScore !== fixture.homeScore || before.awayScore !== fixture.awayScore;
-    if (!isNew && !changed) continue;
-    await logChange('FIXTURE', fixture.id, 'UPDATE', `Result: ${fixture.homeTeam} ${fixture.homeScore}-${fixture.awayScore} ${fixture.awayTeam}`, req.session.user.name);
-    if (isNew) notifyFixtureResult(fixture);
+    const after = {
+      status,
+      homeScore: r.homeScore ?? null,
+      awayScore: r.awayScore ?? null,
+      decidedBy: status === 'FINISHED' ? (r.decidedBy || null) : null,
+      homePenalties: r.decidedBy === 'PENALTIES' ? r.homePenalties : null,
+      awayPenalties: r.decidedBy === 'PENALTIES' ? r.awayPenalties : null,
+      resultNote: r.resultNote !== undefined ? (String(r.resultNote).trim() || null) : before.resultNote,
+      resultProvisional: isCorrespondent,
+      ...(sourceUrl && status === 'FINISHED' ? { sourceUrl } : {}),
+    };
+    if (isCorrection(r, before)) {
+      const record = {
+        fixtureId: before.id, userName: req.session.user.name, reason: String(corrections[before.id]).trim().slice(0, 300),
+        beforeHome: before.homeScore, beforeAway: before.awayScore, beforeStatus: before.status,
+        afterHome: after.homeScore, afterAway: after.awayScore, afterStatus: after.status,
+        afterDecidedBy: after.decidedBy, afterHomePenalties: after.homePenalties, afterAwayPenalties: after.awayPenalties,
+      };
+      if (secondEditor) {
+        ops.push(prisma.fixtureCorrection.create({ data: { ...record, status: 'PENDING' } }));
+        outcomes.push({ id: before.id, kind: 'CORRECTION_PENDING' });
+        continue; // the published score stays until another editor approves
+      }
+      ops.push(prisma.fixtureCorrection.create({ data: record }));
+      outcomes.push({ id: before.id, kind: 'CORRECTION' });
+    } else if (before.status === 'FINISHED' && before.resultProvisional && !isCorrespondent) {
+      outcomes.push({ id: before.id, kind: 'CONFIRMED' }); // an editor confirming a correspondent's score
+    } else if (before.status !== status || before.homeScore !== after.homeScore || before.awayScore !== after.awayScore) {
+      outcomes.push({ id: before.id, kind: status === 'ABANDONED' ? 'ABANDONED' : isCorrespondent ? 'PROVISIONAL' : 'RESULT' });
+    }
+    ops.push(prisma.fixture.update({ where: { id: before.id }, data: after }));
   }
-  res.json({ saved: updated.length });
+  await prisma.$transaction(ops);
+
+  const updated = await prisma.fixture.findMany({ where: { id: { in: ids } } });
+  const byIdAfter = new Map(updated.map((f) => [f.id, f]));
+  for (const { id, kind } of outcomes) {
+    const f = byIdAfter.get(id);
+    const before = byId.get(id);
+    const score = `${f.homeTeam} ${f.homeScore}-${f.awayScore} ${f.awayTeam}${outcomeSuffix(f)}`;
+    const who = req.session.user.name;
+    if (kind === 'POSTPONED') {
+      const moved = f.kickoff.getTime() !== before.kickoff.getTime();
+      if (before.status !== 'POSTPONED' || moved) await logChange('FIXTURE', id, 'UPDATE', `Postponed: ${f.homeTeam} vs ${f.awayTeam}${moved ? ` — now ${fmtDate(f.kickoff)}` : ' — new date not known yet'}`, who);
+    } else if (kind === 'RESULT' || kind === 'CONFIRMED') {
+      await logChange('FIXTURE', id, 'UPDATE', `${kind === 'CONFIRMED' ? 'Confirmed result' : 'Result'}: ${score}`, who);
+      notifyFixtureResult(f);
+    } else if (kind === 'PROVISIONAL') {
+      await logChange('FIXTURE', id, 'UPDATE', `Provisional result (correspondent): ${score}`, who);
+    } else if (kind === 'ABANDONED') {
+      await logChange('FIXTURE', id, 'UPDATE', `Abandoned: ${f.homeTeam} vs ${f.awayTeam}${f.homeScore != null ? ` at ${f.homeScore}-${f.awayScore}` : ''}`, who);
+    } else if (kind === 'CORRECTION') {
+      await logChange('FIXTURE', id, 'UPDATE', `Corrected: ${before.homeScore}-${before.awayScore} → ${score} (${corrections[id]})`, who);
+      notifyFixtureResult(f, { correction: true });
+    } else if (kind === 'CORRECTION_PENDING') {
+      await logChange('FIXTURE', id, 'UPDATE', `Correction waiting for a second editor: ${before.homeTeam} ${before.homeScore}-${before.awayScore} → ${results.find((r) => r.fixtureId === id).homeScore}-${results.find((r) => r.fixtureId === id).awayScore}`, who);
+    }
+  }
+  res.json({ saved: results.length, pending: outcomes.filter((o) => o.kind === 'CORRECTION_PENDING').length, provisional: isCorrespondent });
+});
+
+// ---- Corrections: the list, undo, and the second-editor approval ----
+router.get('/corrections/pending', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const corrections = await prisma.fixtureCorrection.findMany({
+    where: { status: 'PENDING' },
+    include: { fixture: { select: { id: true, homeTeam: true, awayTeam: true, kickoff: true, competition: { select: { id: true, name: true, slug: true } } } } },
+    orderBy: { createdAt: 'asc' },
+  });
+  res.json({ corrections });
+});
+
+async function applyCorrection(correction, data, userName, summary) {
+  const f = await prisma.fixture.update({ where: { id: correction.fixtureId }, data });
+  await logChange('FIXTURE', f.id, 'UPDATE', summary(f), userName);
+  return f;
+}
+
+router.post('/corrections/:id/approve', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const c = await prisma.fixtureCorrection.findUnique({ where: { id: req.params.id } });
+  if (!c || c.status !== 'PENDING') return res.status(404).json({ error: 'No pending correction with that id' });
+  if (c.userName === req.session.user.name) return res.status(403).json({ error: 'A different editor has to approve your correction' });
+  const f = await applyCorrection(c, {
+    status: c.afterStatus, homeScore: c.afterHome, awayScore: c.afterAway,
+    decidedBy: c.afterDecidedBy, homePenalties: c.afterHomePenalties, awayPenalties: c.afterAwayPenalties, resultProvisional: false,
+  }, req.session.user.name, (fx) => `Approved correction: ${c.beforeHome}-${c.beforeAway} → ${fx.homeTeam} ${fx.homeScore}-${fx.awayScore} ${fx.awayTeam} (${c.reason})`);
+  await prisma.fixtureCorrection.update({ where: { id: c.id }, data: { status: 'APPLIED', decidedBy: req.session.user.name, decidedAt: new Date() } });
+  notifyFixtureResult(f, { correction: true });
+  res.json({ ok: true });
+});
+
+router.post('/corrections/:id/reject', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const c = await prisma.fixtureCorrection.findUnique({ where: { id: req.params.id } });
+  if (!c || c.status !== 'PENDING') return res.status(404).json({ error: 'No pending correction with that id' });
+  await prisma.fixtureCorrection.update({ where: { id: c.id }, data: { status: 'REJECTED', decidedBy: req.session.user.name, decidedAt: new Date() } });
+  await logChange('FIXTURE', c.fixtureId, 'UPDATE', `Rejected correction to ${c.afterHome}-${c.afterAway}`, req.session.user.name);
+  res.json({ ok: true });
+});
+
+// Undo an applied correction: the result goes back to what it was.
+router.post('/corrections/:id/revert', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const c = await prisma.fixtureCorrection.findUnique({ where: { id: req.params.id } });
+  if (!c || c.status !== 'APPLIED' || c.revertedAt) return res.status(404).json({ error: 'Nothing to undo for that correction' });
+  const f = await applyCorrection(c, { status: c.beforeStatus, homeScore: c.beforeHome, awayScore: c.beforeAway }, req.session.user.name,
+    (fx) => `Undid correction: back to ${fx.homeTeam} ${fx.homeScore}-${fx.awayScore} ${fx.awayTeam}`);
+  await prisma.fixtureCorrection.update({ where: { id: c.id }, data: { revertedAt: new Date(), status: 'REVERTED' } });
+  notifyFixtureResult(f, { correction: true });
+  res.json({ ok: true });
 });
 
 // ---- Admin: rebuild the current season's table from its results ----
@@ -785,7 +994,7 @@ router.post('/:id/standings/recalculate', requireRole('ADMIN', 'EDITOR'), async 
   }
   const season = await getOrCreateCurrentSeason(prisma, competition.id);
   const fixtures = await prisma.fixture.findMany({
-    where: { competitionId: competition.id, seasonId: season.id, status: 'FINISHED', homeScore: { not: null }, awayScore: { not: null } },
+    where: { competitionId: competition.id, seasonId: season.id, status: 'FINISHED', resultProvisional: false, homeScore: { not: null }, awayScore: { not: null } },
   });
   if (!fixtures.length) return res.status(400).json({ error: 'No finished fixtures with scores in the current season yet.' });
 

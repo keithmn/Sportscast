@@ -3,6 +3,7 @@ const prisma = require('../db');
 const { slugify } = require('../utils/slugify');
 const { requireRole, isEditor } = require('../middleware/auth');
 const { fetchCanonicalTeam, verifyCanonicalTeam, fetchCanonicalAthlete, verifyCanonicalAthlete } = require('../lib/canonicalData');
+const { aliasKey, normalizeTeamName, relinkUnlinkedFixtures } = require('../lib/clubResolution');
 
 const router = express.Router();
 
@@ -51,31 +52,139 @@ router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   if (!name || !competitionId) return res.status(400).json({ error: 'name and competitionId are required' });
   const competition = await prisma.competition.findUnique({ where: { id: competitionId } });
   if (!competition) return res.status(400).json({ error: 'Competition not found' });
+  const slug = slugify(`${name}-${competition.slug}`);
+  if (await prisma.club.findUnique({ where: { slug } })) {
+    return res.status(409).json({ error: `${name} is already in ${competition.name}` });
+  }
   const club = await prisma.club.create({
-    data: { name, slug: slugify(`${name}-${competition.slug}`), competitionId, crestUrl: crestUrl || null, venue: venue || null, owner: owner || null, source: 'MANUAL' },
+    data: { name, slug, competitionId, crestUrl: crestUrl || null, venue: venue || null, owner: owner || null, source: 'MANUAL' },
   });
-  res.status(201).json({ club });
+  const linked = await relinkUnlinkedFixtures(prisma);
+  res.status(201).json({ club, linked });
 });
 
 // ---- Admin: update a club ----
+// competitionId moves the club (promotion/relegation) and keeps its
+// players, staff, follows and story tags. A rename keeps the old name as
+// an alias, so fixtures written the old way still link.
 router.put('/:id', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
-  const { name, crestUrl, venue, owner } = req.body;
+  const { name, crestUrl, venue, owner, competitionId } = req.body;
   const existing = await prisma.club.findUnique({ where: { id: req.params.id } });
   if (!existing) return res.status(404).json({ error: 'Club not found' });
+  const newName = name !== undefined ? String(name).trim() : existing.name;
+  if (!newName) return res.status(400).json({ error: 'A club needs a name' });
+  if (crestUrl && !/^(https?:\/\/|\/)/i.test(String(crestUrl).trim())) return res.status(400).json({ error: 'The crest must be a web address (https://…) or an uploaded image path' });
+  if (competitionId && competitionId !== existing.competitionId && !(await prisma.competition.findUnique({ where: { id: competitionId } }))) {
+    return res.status(400).json({ error: 'Competition not found' });
+  }
   const club = await prisma.club.update({
     where: { id: req.params.id },
     data: {
-      name: name ?? existing.name,
-      crestUrl: crestUrl !== undefined ? (crestUrl || null) : existing.crestUrl,
-      venue: venue !== undefined ? (venue || null) : existing.venue,
-      owner: owner !== undefined ? (owner || null) : existing.owner,
+      name: newName,
+      crestUrl: crestUrl !== undefined ? (String(crestUrl).trim() || null) : existing.crestUrl,
+      venue: venue !== undefined ? (String(venue).trim() || null) : existing.venue,
+      owner: owner !== undefined ? (String(owner).trim() || null) : existing.owner,
+      ...(competitionId ? { competitionId } : {}),
     },
   });
-  res.json({ club });
+  if (newName !== existing.name) {
+    const key = aliasKey(existing.name);
+    if (key && key !== aliasKey(newName)) {
+      await prisma.clubAlias.upsert({ where: { clubId_key: { clubId: club.id, key } }, create: { clubId: club.id, name: existing.name, key }, update: {} });
+    }
+  }
+  const linked = await relinkUnlinkedFixtures(prisma);
+  res.json({ club, linked });
+});
+
+// ---- Admin: a club's other names ----
+router.get('/:id/aliases', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const aliases = await prisma.clubAlias.findMany({ where: { clubId: req.params.id }, orderBy: { name: 'asc' } });
+  res.json({ aliases });
+});
+
+router.post('/:id/aliases', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const name = String(req.body.name || '').trim();
+  const key = aliasKey(name);
+  if (!key) return res.status(400).json({ error: 'Type the other name' });
+  const club = await prisma.club.findUnique({ where: { id: req.params.id }, include: { competition: { select: { sportId: true } } } });
+  if (!club) return res.status(404).json({ error: 'Club not found' });
+  // The same name can't mean two different clubs in one sport.
+  const clash = await prisma.clubAlias.findFirst({ where: { key, clubId: { not: club.id }, club: { competition: { sportId: club.competition.sportId } } }, include: { club: true } });
+  if (clash) return res.status(409).json({ error: `"${name}" already means ${clash.club.name}` });
+  const alias = await prisma.clubAlias.upsert({ where: { clubId_key: { clubId: club.id, key } }, create: { clubId: club.id, name, key }, update: { name } });
+  const linked = await relinkUnlinkedFixtures(prisma);
+  res.status(201).json({ alias, linked });
+});
+
+router.delete('/aliases/:aliasId', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  await prisma.clubAlias.delete({ where: { id: req.params.aliasId } });
+  res.json({ ok: true });
+});
+
+// ---- Admin: team names in Kenyan fixtures that aren't linked to a club,
+// with likely matches — the work list for one-identity-per-club. ----
+router.get('/admin/unlinked', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const fixtures = await prisma.fixture.findMany({
+    where: { competition: { region: 'KENYA', isActive: true }, OR: [{ homeClubId: null }, { awayClubId: null }] },
+    select: { homeTeam: true, awayTeam: true, homeClubId: true, awayClubId: true, competition: { select: { id: true, name: true, sportId: true } } },
+  });
+  const names = new Map();
+  fixtures.forEach((f) => {
+    [[f.homeTeam, f.homeClubId], [f.awayTeam, f.awayClubId]].forEach(([team, clubId]) => {
+      if (!team || clubId) return;
+      const k = `${f.competition.id}|${team}`;
+      if (!names.has(k)) names.set(k, { team, competition: f.competition, games: 0 });
+      names.get(k).games += 1;
+    });
+  });
+  const clubs = await prisma.club.findMany({ where: { competition: { region: 'KENYA' } }, select: { id: true, name: true, competition: { select: { name: true, sportId: true } } } });
+  const words = (n) => normalizeTeamName(n).split(' ').filter((w) => w.length >= 3);
+  const list = [...names.values()].map((u) => {
+    const mine = words(u.team);
+    const suggestions = clubs
+      .filter((c) => c.competition.sportId === u.competition.sportId)
+      .map((c) => ({ id: c.id, name: c.name, competition: c.competition.name, shared: words(c.name).filter((w) => mine.includes(w)).length }))
+      .filter((c) => c.shared > 0 || aliasKey(c.name).startsWith(aliasKey(u.team).slice(0, 4)))
+      .sort((a, b) => b.shared - a.shared)
+      .slice(0, 3);
+    return { team: u.team, competition: { id: u.competition.id, name: u.competition.name }, games: u.games, suggestions };
+  }).sort((a, b) => b.games - a.games);
+  res.json({ unlinked: list });
+});
+
+// ---- Admin: merge a duplicate club into another ----
+// Everything moves to the club kept — fixtures, players, staff, sponsors,
+// story tags and follows — and the duplicate's name becomes an alias.
+router.post('/:id/merge', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const from = await prisma.club.findUnique({ where: { id: req.params.id }, include: { articles: { select: { id: true } } } });
+  const into = await prisma.club.findUnique({ where: { id: String(req.body.intoId || '') } });
+  if (!from || !into) return res.status(404).json({ error: 'Club not found' });
+  if (from.id === into.id) return res.status(400).json({ error: 'Choose a different club to merge into' });
+  const key = aliasKey(from.name);
+  await prisma.$transaction([
+    prisma.fixture.updateMany({ where: { homeClubId: from.id }, data: { homeClubId: into.id } }),
+    prisma.fixture.updateMany({ where: { awayClubId: from.id }, data: { awayClubId: into.id } }),
+    prisma.player.updateMany({ where: { clubId: from.id }, data: { clubId: into.id } }),
+    prisma.staff.updateMany({ where: { clubId: from.id }, data: { clubId: into.id } }),
+    prisma.sponsor.updateMany({ where: { clubId: from.id }, data: { clubId: into.id } }),
+    prisma.clubAlias.updateMany({ where: { clubId: from.id, key: { notIn: (await prisma.clubAlias.findMany({ where: { clubId: into.id }, select: { key: true } })).map((a) => a.key) } }, data: { clubId: into.id } }),
+    prisma.follow.updateMany({ where: { entityType: 'club', entitySlug: from.slug }, data: { entitySlug: into.slug, name: into.name, href: `/club.html?slug=${encodeURIComponent(into.slug)}` } }),
+    ...from.articles.map((a) => prisma.article.update({ where: { id: a.id }, data: { clubs: { disconnect: { id: from.id }, connect: { id: into.id } } } })),
+  ]);
+  await prisma.clubAlias.deleteMany({ where: { clubId: from.id } });
+  await prisma.club.delete({ where: { id: from.id } });
+  if (key && key !== aliasKey(into.name)) {
+    await prisma.clubAlias.upsert({ where: { clubId_key: { clubId: into.id, key } }, create: { clubId: into.id, name: from.name, key }, update: {} });
+  }
+  const linked = await relinkUnlinkedFixtures(prisma);
+  res.json({ ok: true, into: into.slug, linked });
 });
 
 // ---- Admin: delete a club (and its players/staff/sponsors) ----
-router.delete('/:id', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+// Deleting a club and its whole squad is for admins only (2026-10-19);
+// to fix a duplicate, merge it instead.
+router.delete('/:id', requireRole('ADMIN'), async (req, res) => {
   await prisma.player.deleteMany({ where: { clubId: req.params.id } });
   await prisma.staff.deleteMany({ where: { clubId: req.params.id } });
   await prisma.sponsor.deleteMany({ where: { clubId: req.params.id } });
@@ -164,10 +273,16 @@ router.get('/players/:slug', async (req, res) => {
 router.put('/players/:playerId', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const existing = await prisma.player.findUnique({ where: { id: req.params.playerId } });
   if (!existing) return res.status(404).json({ error: 'Player not found' });
-  const { name, position, nationality, age, photoUrl } = req.body;
+  const { name, position, nationality, age, photoUrl, clubId } = req.body;
+  // clubId moves the player (a transfer) and keeps their page, follows and
+  // story tags — before this a transfer meant deleting and re-adding them.
+  if (clubId && clubId !== existing.clubId && !(await prisma.club.findUnique({ where: { id: clubId } }))) {
+    return res.status(400).json({ error: 'Club not found' });
+  }
   const player = await prisma.player.update({
     where: { id: req.params.playerId },
     data: {
+      ...(clubId ? { clubId } : {}),
       name: name ?? existing.name,
       position: position !== undefined ? (position || null) : existing.position,
       nationality: nationality !== undefined ? (nationality || null) : existing.nationality,

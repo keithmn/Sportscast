@@ -35,6 +35,20 @@ function pointsAdjustment(row, sportSlug) {
   return row.points - (row.won * rule.win + row.drawn * rule.draw + row.lost * rule.loss);
 }
 
+// "Final table · 2025/26" above a table whose season is over — a past
+// season, or the current one after its end date — so a finished table
+// isn't read as the live one (the NSL showed last season's final table as
+// "current"). Planned seasons are never shown publicly.
+function seasonTableLabel(detail) {
+  const seasons = detail.seasons || [];
+  const season = seasons.find((x) => x.id === detail.viewingSeasonId) || seasons.find((x) => x.isCurrent);
+  if (!season) return '';
+  const ended = !season.isCurrent || (season.endsOn && new Date(season.endsOn).getTime() < Date.now());
+  return ended
+    ? `<p class="season-table-label"><strong>Final table</strong> · ${escapeHtml(season.label)}</p>`
+    : (season.label && season.label !== 'Current Season' ? `<p class="season-table-label">${escapeHtml(season.label)}</p>` : '');
+}
+
 function standingsTableHtml(standings, sportSlug) {
   if (!standings.length) {
     return '<p class="empty-state">Standings haven\'t been entered for this competition yet.</p>';
@@ -88,8 +102,8 @@ function fixtureRowHtml(f) {
   // misleading rather than just unknown. Show the date instead whenever
   // there's no real score to show, regardless of status.
   const hasRealScore = f.homeScore != null || f.awayScore != null;
-  const scoreOrTime = f.status === 'FINISHED' && hasRealScore
-    ? `<span class="fixture-score">${f.homeScore ?? 0} – ${f.awayScore ?? 0}</span>`
+  const scoreOrTime = (f.status === 'FINISHED' || f.status === 'ABANDONED') && hasRealScore
+    ? `<span class="fixture-score">${f.homeScore ?? 0} – ${f.awayScore ?? 0}${outcomeText(f) ? ` <span class="fixture-outcome">${escapeHtml(outcomeText(f))}</span>` : ''}</span>`
     : `<span class="fixture-meta">${formatDate(f.kickoff)}</span>`;
   const postponedNote = f.status === 'POSTPONED'
     ? `<div class="fixture-meta" style="margin-top:0.2rem;">${escapeHtml(postponedText(f))}</div>`

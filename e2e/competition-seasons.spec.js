@@ -46,7 +46,8 @@ test.describe('Competition seasons', () => {
     const card = page.locator('.card', { has: page.locator(`text=${competition.name}`) });
     await card.locator('.new-season-label').fill('Season Two');
     await card.locator('.start-season-btn').click();
-    await expect(card.locator('text=Season Two')).toBeVisible({ timeout: 10000 }); // loadCompetitions() re-render after the write resolves
+    // loadCompetitions() re-renders after the write; the current season's name is an editable box since 2026-10-19.
+    await expect(card.locator('.season-edit-row .season-label').first()).toHaveValue('Season Two', { timeout: 10000 });
 
     detail = await page.request.get(`/api/competitions/${competition.slug}`).then((r) => r.json());
     expect(detail.competition.seasons).toHaveLength(2);

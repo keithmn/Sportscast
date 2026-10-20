@@ -147,13 +147,15 @@ router.get('/missing-reports', requireRole('ADMIN', 'EDITOR'), async (req, res) 
 // (last 30 days) and still not FINISHED or POSTPONED. The dashboard's
 // "enter these results" list; the public pages show these as "Result
 // pending" until then. ----
-router.get('/overdue', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+// Correspondents see only their own competitions'.
+router.get('/overdue', requireRole('ADMIN', 'EDITOR', 'CORRESPONDENT'), async (req, res) => {
   const now = Date.now();
+  const scope = req.session.user.role === 'CORRESPONDENT' ? { id: { in: req.session.user.competitionIds || [] } } : {};
   const fixtures = await prisma.fixture.findMany({
     where: {
       status: { in: ['SCHEDULED', 'LIVE'] },
       kickoff: { lt: new Date(now - 3 * 60 * 60 * 1000), gte: new Date(now - 30 * 24 * 60 * 60 * 1000) },
-      competition: { region: 'KENYA', isActive: true },
+      competition: { region: 'KENYA', isActive: true, ...scope },
     },
     include: { competition: { select: { id: true, name: true, slug: true } } },
     orderBy: { kickoff: 'asc' },
@@ -190,6 +192,16 @@ router.get('/round-gaps', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
     }
   }
   res.json({ gaps });
+});
+
+// ---- Admin: correspondents' results waiting for an editor to confirm ----
+router.get('/provisional', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const fixtures = await prisma.fixture.findMany({
+    where: { resultProvisional: true, status: 'FINISHED' },
+    include: { competition: { select: { id: true, name: true, slug: true } } },
+    orderBy: { kickoff: 'asc' },
+  });
+  res.json({ fixtures });
 });
 
 router.get('/missing-info', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
@@ -246,6 +258,8 @@ router.get('/:id', async (req, res) => {
       homeClub: { select: { id: true, name: true, slug: true, crestUrl: true, venue: true } },
       awayClub: { select: { id: true, name: true, slug: true, crestUrl: true } },
       venue: { select: { id: true, name: true, slug: true, city: true } },
+      // Published corrections (2026-10-19): the match page says what changed.
+      corrections: { where: { status: 'APPLIED', revertedAt: null }, select: { id: true, beforeHome: true, beforeAway: true, beforeStatus: true, reason: true, createdAt: true }, orderBy: { createdAt: 'asc' } },
     },
   });
   // Hidden competitions (Competition.isActive false) 404 publicly, same as

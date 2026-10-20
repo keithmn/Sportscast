@@ -134,17 +134,31 @@ function wireCanonicalFixturePanel(panel, fixtureId) {
 // workflow this needs, only recording it and moving forward.
 function seasonSectionHtml(competition, seasons) {
   const current = seasons.find((s) => s.isCurrent);
-  const past = seasons.filter((s) => !s.isCurrent);
+  const now = Date.now();
+  const planned = seasons.filter((s) => !s.isCurrent && s.startsOn && new Date(s.startsOn).getTime() > now);
+  const past = seasons.filter((s) => !s.isCurrent && !planned.includes(s));
+  const day = (d) => (d ? new Date(new Date(d).getTime() + 3 * 3600000).toISOString().slice(0, 10) : '');
+  const seasonRow = (season, tag) => `
+    <div class="season-edit-row" data-season-id="${season.id}">
+      <span class="season-tag">${tag}</span>
+      <input type="text" class="season-label" value="${escapeHtml(season.label)}" aria-label="Season name" style="max-width:170px;">
+      <label class="hint-inline">Starts <input type="date" class="season-starts" value="${day(season.startsOn)}"></label>
+      <label class="hint-inline">Ends <input type="date" class="season-ends" value="${day(season.endsOn)}"></label>
+      <button type="button" class="btn-outline-sm save-season-btn">Save</button>
+    </div>`;
   return `
-    <div style="margin-top:1.25rem; padding:0.75rem 1rem; border:1px solid var(--border); border-radius:6px;">
-      <span class="section-label" style="font-size:0.68rem;">Season</span>
-      <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; margin-top:0.35rem;">
-        <span style="font-weight:600;">${current ? escapeHtml(current.label) : '(none yet — set on first fixture or standings entry)'}</span>
-        <input type="text" class="new-season-label" data-competition-id="${competition.id}" placeholder="New season label, e.g. 2026/27" style="max-width:220px;">
-        <button type="button" class="btn-outline-sm start-season-btn" data-competition-id="${competition.id}">Start New Season</button>
+    <div class="season-box">
+      <span class="section-label" style="font-size:0.68rem;">Seasons</span>
+      ${current ? seasonRow(current, 'Current') : '<p class="hint-inline">No season yet — one is created with the first fixture or table entry.</p>'}
+      ${planned.map((p) => seasonRow(p, 'Planned')).join('')}
+      <div class="season-new">
+        <input type="text" class="new-season-label" data-competition-id="${competition.id}" placeholder="Next season, e.g. 2026/27" style="max-width:200px;">
+        <label class="hint-inline">Starts <input type="date" class="new-season-starts" data-competition-id="${competition.id}"></label>
+        <button type="button" class="btn-outline-sm start-season-btn" data-competition-id="${competition.id}">Plan next season</button>
         <span class="form-error start-season-error" data-competition-id="${competition.id}" style="display:none;"></span>
       </div>
-      ${past.length ? `<p class="source-note" style="margin-top:0.5rem;">Past seasons (view-only, standings/fixtures preserved): ${past.map((s) => escapeHtml(s.label)).join(', ')}</p>` : ''}
+      <p class="hint-inline">With a start date in the future, the new season switches on by itself that day and the site keeps showing the current one until then. With no start date it starts now — and the public table empties until results come in.</p>
+      ${past.length ? `<p class="source-note" style="margin-top:0.5rem;">Past seasons (kept, viewable on the site): ${past.map((p) => escapeHtml(p.label)).join(', ')}</p>` : ''}
     </div>`;
 }
 
@@ -403,15 +417,36 @@ async function loadCompetitions() {
       const errorEl = root.querySelector(`.start-season-error[data-competition-id="${competitionId}"]`);
       errorEl.style.display = 'none';
       const label = input.value.trim();
-      if (!label) return;
-      if (!confirm(`Start "${label}" as the new current season? Standings/fixture entry will switch to it immediately; the previous season's data stays intact and viewable.`)) return;
+      const startsOn = root.querySelector(`.new-season-starts[data-competition-id="${competitionId}"]`).value;
+      if (!label) { errorEl.textContent = 'Give the season a name, e.g. 2026/27'; errorEl.style.display = 'block'; return; }
+      const future = startsOn && new Date(`${startsOn}T00:00:00+03:00`).getTime() > Date.now();
+      const question = future
+        ? `Plan "${label}" to start on ${startsOn}? It switches on by itself that day; until then the site keeps showing the current season.`
+        : `Start "${label}" now? It becomes the current season immediately: the public table and fixtures for this competition will be empty until results come in. The previous season stays viewable.`;
+      if (!confirm(question)) return;
       try {
-        await api(`/api/competitions/${competitionId}/seasons`, { method: 'POST', body: JSON.stringify({ label }) });
+        await api(`/api/competitions/${competitionId}/seasons`, { method: 'POST', body: JSON.stringify({ label, startsOn: startsOn || undefined }) });
         loadCompetitions();
         loadChangeLog();
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
+      }
+    });
+  });
+
+  root.querySelectorAll('.save-season-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const row = btn.closest('.season-edit-row');
+      try {
+        await api(`/api/competitions/seasons/${row.dataset.seasonId}`, {
+          method: 'PUT',
+          body: JSON.stringify({ label: row.querySelector('.season-label').value, startsOn: row.querySelector('.season-starts').value || null, endsOn: row.querySelector('.season-ends').value || null }),
+        });
+        btn.textContent = 'Saved';
+        loadChangeLog();
+      } catch (err) {
+        alert(err.message);
       }
     });
   });

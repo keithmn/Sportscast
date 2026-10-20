@@ -91,8 +91,11 @@ test.describe('Fixture match details (venue, round, broadcaster)', () => {
     });
     expect(res.status()).toBe(400);
     expect((await res.json()).error).toContain('more than once');
-    // Basketball-sized scores are accepted.
-    const ok = await page.request.put(`/api/competitions/${kpl.id}/fixtures/results`, { data: { results: [{ fixtureId: fixture.id, homeScore: 102, awayScore: 87 }] } });
+    // Basketball-sized scores are accepted — in a football league only after
+    // the editor confirms the "unusually high score" warning (2026-10-19).
+    const warned = await page.request.put(`/api/competitions/${kpl.id}/fixtures/results`, { data: { results: [{ fixtureId: fixture.id, homeScore: 102, awayScore: 87 }] } });
+    expect(warned.status()).toBe(409);
+    const ok = await page.request.put(`/api/competitions/${kpl.id}/fixtures/results`, { data: { results: [{ fixtureId: fixture.id, homeScore: 102, awayScore: 87 }], confirm: true } });
     expect(ok.status()).toBe(200);
     await page.request.delete(`/api/competitions/fixtures/${fixture.id}`);
   });

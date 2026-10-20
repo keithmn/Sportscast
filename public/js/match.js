@@ -107,11 +107,17 @@ async function loadMatch() {
   const hasRealScore = canonicalHasScore || fixture.homeScore != null || fixture.awayScore != null;
   const displayHomeScore = canonicalHasScore ? canonical.homeScore : fixture.homeScore;
   const displayAwayScore = canonicalHasScore ? canonical.awayScore : fixture.awayScore;
-  const scoreHtml = (canonicalHasScore || fixture.status === 'FINISHED') && hasRealScore
-    ? `<p style="font-size:2rem; font-weight:800; margin:1rem 0;">${displayHomeScore ?? 0} – ${displayAwayScore ?? 0}</p>
+  const outcome = canonicalHasScore ? '' : outcomeText(fixture);
+  const scoreHtml = (canonicalHasScore || fixture.status === 'FINISHED' || fixture.status === 'ABANDONED') && hasRealScore
+    ? `<p style="font-size:2rem; font-weight:800; margin:1rem 0;">${displayHomeScore ?? 0} – ${displayAwayScore ?? 0}${outcome ? ` <span class="fixture-outcome" style="font-size:1rem;">${escapeHtml(outcome)}</span>` : ''}</p>
+       ${fixture.resultProvisional && !canonicalHasScore ? '<p class="source-note">Provisional — reported from the ground, being confirmed.</p>' : ''}
+       ${fixture.status === 'ABANDONED' ? `<p class="source-note">Abandoned${fixture.resultNote ? ` — ${escapeHtml(fixture.resultNote)}` : ''}</p>` : ''}
        ${canonicalHasScore ? '<p class="source-note">Verified via the Underdawgs Sports Data platform</p>' : ''}`
     : `<p class="empty-state">${fixture.status === 'POSTPONED' ? 'Postponed' : fixtureDisplayStatus(fixture).key === 'PENDING' ? 'Result pending — we\'re confirming the score' : 'Not started yet'}</p>`;
 
+  // Corrections are shown, not hidden: what it was, when and why.
+  const correctionsNote = (fixture.corrections || []).map((c) => `<p class="source-note correction-note">Corrected ${escapeHtml(formatDate(c.createdAt))}: was ${c.beforeHome ?? '–'}–${c.beforeAway ?? '–'}${c.reason ? ` (${escapeHtml(c.reason)})` : ''}</p>`).join('');
+  const resultNoteHtml = fixture.resultNote && fixture.status !== 'ABANDONED' ? `<p class="source-note">${escapeHtml(fixture.resultNote)}</p>` : '';
   const postponedNote = fixture.status === 'POSTPONED'
     ? `<p class="source-note">${escapeHtml(postponedText(fixture))}</p>`
     : '';
@@ -129,6 +135,8 @@ async function loadMatch() {
     </div>
 
     ${scoreHtml}
+    ${correctionsNote}
+    ${resultNoteHtml}
     <p class="sub">${formatDate(fixture.kickoff)} · ${(() => { const st = fixtureDisplayStatus(fixture); return `<span class="fixture-status ${escapeHtml(st.key)}">${escapeHtml(st.label)}</span>`; })()}</p>
     ${(() => { const d = fixtureDetailParts(fixture); return d.length ? `<p class="sub fixture-details-hub">${d.map(escapeHtml).join(' · ')}</p>` : ''; })()}
     ${postponedNote}

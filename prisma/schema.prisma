@@ -414,6 +414,11 @@ model CompetitionSeason {
   competition   Competition   @relation(fields: [competitionId], references: [id])
   label         String
   isCurrent     Boolean       @default(false)
+  // Planned season dates (2026-10-19). On startsOn the nightly season job
+  // makes this the current season; after endsOn the public table says
+  // "Final table".
+  startsOn      DateTime?
+  endsOn        DateTime?
   createdAt     DateTime      @default(now())
   standings     StandingRow[]
   fixtures      Fixture[]
@@ -445,7 +450,19 @@ model Fixture {
   originalKickoff DateTime? // set once, the first time a fixture is postponed — so "was X, now Y" can be shown, not just the new date
   homeScore       Int?
   awayScore       Int?
-  status          String             @default("SCHEDULED") // SCHEDULED | LIVE | FINISHED | POSTPONED
+  status          String             @default("SCHEDULED") // SCHEDULED | LIVE | FINISHED | POSTPONED | ABANDONED
+  // How a FINISHED game was decided (2026-10-19), when not simply in normal
+  // time: EXTRA_TIME, PENALTIES (shoot-out in homePenalties/awayPenalties —
+  // the score stays the score after play), AWARDED (a result the league
+  // awarded, e.g. 2-0 for a forfeit) or WALKOVER. Null = normal time.
+  decidedBy       String?
+  homePenalties   Int?
+  awayPenalties   Int?
+  resultNote      String? // short public note, e.g. "Abandoned at 1-0 (floodlights)"
+  // A correspondent's score, not yet confirmed by an editor: shown as
+  // "Provisional", no full-time push, kept out of rebuilt tables.
+  resultProvisional Boolean          @default(false)
+  corrections     FixtureCorrection[]
   // Match details added 2026-10-17 — all optional, filled from the
   // federation's fixtures page or the newsroom's own research. A fixture
   // with no venueId shows the home club's usual ground (Club.venue),
@@ -617,7 +634,54 @@ model Club {
   articles      Article[]   @relation("ArticleClubTags")
   homeFixtures  Fixture[]   @relation("FixtureHomeClub")
   awayFixtures  Fixture[]   @relation("FixtureAwayClub")
+  aliases       ClubAlias[]
   createdAt     DateTime    @default(now())
+}
+
+// Other names a club appears under in fixtures, tables and posts —
+// "KCB" for Kenya Commercial Bank, "3K FC" for 3K (2026-10-19). Club
+// matching (server/lib/clubResolution.js) checks these as well as the
+// club's own name, so one club is one identity however it's written.
+model ClubAlias {
+  id     String @id @default(cuid())
+  clubId String
+  club   Club   @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  name   String // as written; matched case- and punctuation-insensitively
+  key    String // normalised name used for matching (lib/clubResolution.js norm())
+
+  @@unique([clubId, key])
+  @@index([key])
+}
+
+// Every change to a result after it was published (2026-10-19): who, when,
+// what it was, why. The match page shows "Corrected"; an editor can undo
+// one from the admin.
+model FixtureCorrection {
+  id          String    @id @default(cuid())
+  fixtureId   String
+  fixture     Fixture   @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+  beforeHome  Int?
+  beforeAway  Int?
+  beforeStatus String
+  afterHome   Int?
+  afterAway   Int?
+  afterStatus String
+  reason      String?
+  userName    String
+  createdAt   DateTime  @default(now())
+  revertedAt  DateTime?
+  // APPLIED, or — when CORRECTIONS_NEED_SECOND_EDITOR=true — PENDING until
+  // a different editor approves it (the site keeps the old score until
+  // then), or REJECTED.
+  status      String    @default("APPLIED")
+  decidedBy   String? // who approved or rejected a pending correction
+  decidedAt   DateTime?
+  afterDecidedBy String? // the decidedBy/penalties the correction sets, applied on approval
+  afterHomePenalties Int?
+  afterAwayPenalties Int?
+
+  @@index([fixtureId, createdAt])
+  @@index([status])
 }
 
 // The technical bench — coach, assistants, etc. Mirrors Player's shape
