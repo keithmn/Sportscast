@@ -76,6 +76,7 @@ async function loadSportPage() {
   const sportName = sport ? sport.name : slug;
 
   document.title = `${sportName} — The Sportscast`;
+  setEditorLinks([{ href: '/admin/results.html', label: 'Enter results' }, { href: '/admin/articles.html', label: 'Write a story' }]);
 
   renderSecondaryNav(root, { sportSlug: slug, sportName, competition: null, club: null }, qs('tab'), loadOverviewTab);
 }

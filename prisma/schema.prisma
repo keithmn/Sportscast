@@ -879,3 +879,22 @@ model WatchedPost {
 
   @@index([accountId, postedAt])
 }
+
+// One row per scheduled-job run (2026-10-19) — server/lib/jobRuns.js wraps
+// every cron job in server/index.js. Before this a failing job only wrote
+// to the server log, so a sync or backup could stop for days unnoticed.
+// The admin dashboard shows the latest run of each job and recent
+// failures; ALERT_WEBHOOK_URL, when set, is told about each failure.
+// Rows older than 30 days are pruned by the backup job.
+model JobRun {
+  id         String    @id @default(cuid())
+  job        String // e.g. "syncLeagues", "backupDatabase"
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  status     String    @default("RUNNING") // RUNNING | OK | ERROR
+  error      String?
+  durationMs Int?
+  detail     String? // short note from the job, e.g. a backup's file name and size
+
+  @@index([job, startedAt])
+}

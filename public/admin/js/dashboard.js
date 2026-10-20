@@ -12,7 +12,7 @@ async function loadDashboard() {
   const cards = [];
 
   if (canManageArticles(user)) {
-    const [{ articles }, { items }, { submissions }, { sources }, { fixtures: todayFixtures }, { fixtures: missingReports }, { clips: pendingClips }, { fixtures: missingInfo }, { fixtures: overdue }, { gaps: roundGaps }] = await Promise.all([
+    const [{ articles }, { items }, { submissions }, { sources }, { fixtures: todayFixtures }, { fixtures: missingReports }, { clips: pendingClips }, { fixtures: missingInfo }, { fixtures: overdue }, { gaps: roundGaps }, health] = await Promise.all([
       api('/api/articles/admin/all'),
       api('/api/monitoring?status=NEW'),
       api('/api/submissions'),
@@ -23,7 +23,35 @@ async function loadDashboard() {
       api('/api/fixtures/missing-info'),
       api('/api/fixtures/overdue'),
       api('/api/fixtures/round-gaps'),
+      api('/api/health/details').catch(() => null),
     ]);
+
+    // System: scheduled jobs and backups (server/routes/health.js). Red and
+    // first when a job failed in the last day or the backup is overdue;
+    // otherwise a quiet card at the end.
+    if (health) {
+      const ago = (d) => {
+        if (!d) return 'never';
+        const h = Math.round((Date.now() - new Date(d).getTime()) / 3600000);
+        return h < 1 ? 'under an hour ago' : h < 48 ? `${h}h ago` : formatDate(d);
+      };
+      const failedJobs = [...new Set(health.failures.map((f) => f.job))];
+      const problems = [
+        ...failedJobs.map((j) => `${j} failed (${ago(health.failures.find((f) => f.job === j).startedAt)})`),
+        ...(health.backupOverdue ? [`last backup ${ago(health.lastBackup && health.lastBackup.startedAt)}`] : []),
+      ];
+      const notes = [
+        health.lastBackup ? `Last backup ${ago(health.lastBackup.startedAt)}${health.offsiteBackupConfigured ? ', off-site copy on' : ' — no off-site copy yet'}.` : 'No backup has run yet.',
+        health.alertsConfigured ? 'Failure alerts on.' : 'Failure alerts not set up (ALERT_WEBHOOK_URL).',
+      ];
+      const card = `
+        <div class="card system-card" style="cursor:default;${problems.length ? ' border-left-color:var(--danger);' : ''}">
+          <span class="card-eyebrow"${problems.length ? ' style="color:var(--danger);"' : ''}>System</span>
+          <h3 class="card-title">${problems.length ? escapeHtml(problems.join(' · ')) : 'All scheduled jobs OK'}</h3>
+          <p class="card-desc">${escapeHtml(notes.join(' '))} ${health.jobs.length} jobs tracked.</p>
+        </div>`;
+      if (problems.length) alertCards.push(card); else cards.push(card);
+    }
 
     const failedSources = sources.filter((s) => s.isActive && s.syncStatus === 'ERROR');
     if (failedSources.length) {

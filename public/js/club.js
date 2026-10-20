@@ -174,6 +174,7 @@ async function loadClub() {
 
   const { club } = await api(`/api/clubs/${encodeURIComponent(slug)}`);
   document.title = `${club.name} — The Sportscast`;
+  setEditorLinks([{ href: '/admin/clubs.html', label: 'Edit club & squad' }]);
 
   const isKenyan = club.competition.region === 'KENYA';
   root.innerHTML = `${isKenyan ? profileHeaderHtml(club) : simpleHeaderHtml(club)}<div id="club-hub-strip"></div><div id="club-tab-root"></div>`;

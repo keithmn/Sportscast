@@ -1,0 +1,43 @@
+name: Uptime
+
+# Checks the live site every 15 minutes (2026-10-19). When the check
+# fails, the run fails, and GitHub emails whoever last edited this file
+# (and anyone watching the repo with Actions notifications on) — so an
+# outage like the Railway trial lapse can't go unnoticed for days.
+#
+# Turned on by one repository variable: Settings -> Secrets and variables
+# -> Actions -> Variables -> New variable: UPTIME_URL = the live site's
+# address, e.g. https://sportscast-production-c267.up.railway.app
+# Until it is set, every run is skipped (green), so it doesn't alert while
+# the site is deliberately offline.
+#
+# GitHub pauses scheduled workflows after 60 days with no commits; any
+# push turns it back on.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    if: ${{ vars.UPTIME_URL != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Site and database respond
+        run: |
+          url="${{ vars.UPTIME_URL }}"
+          for attempt in 1 2 3; do
+            body=$(curl -fsS --max-time 20 "$url/api/health" || true)
+            if echo "$body" | grep -q '"ok":true'; then
+              echo "Up: $body"
+              exit 0
+            fi
+            echo "Attempt $attempt failed: ${body:-no response}"
+            sleep 20
+          done
+          echo "::error::The Sportscast is down — $url/api/health did not answer ok three times in a minute."
+          exit 1
+      - name: Home page loads
+        run: curl -fsS --max-time 20 -o /dev/null -w "Home page HTTP %{http_code}\n" "${{ vars.UPTIME_URL }}/"

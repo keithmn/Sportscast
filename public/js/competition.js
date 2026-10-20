@@ -22,6 +22,10 @@ async function loadCompetitionPage() {
 
   const competition = await fetchCompetitionDetail(slug, qs('season'));
   document.title = `${competition.name} — The Sportscast`;
+  setEditorLinks([
+    { href: `/admin/results.html?competition=${encodeURIComponent(competition.slug)}`, label: 'Enter results' },
+    { href: '/admin/competitions.html', label: 'Table & settings' },
+  ]);
 
   root.innerHTML = `
     <header class="page-header">

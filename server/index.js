@@ -18,6 +18,7 @@ const rateLimit = require('express-rate-limit');
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
 const cron = require('node-cron');
+const { runJob } = require('./lib/jobRuns');
 
 const authRoutes = require('./routes/auth');
 const fanAuthRoutes = require('./routes/fanAuth');
@@ -38,6 +39,8 @@ const playerRoutes = require('./routes/players');
 const sourceRoutes = require('./routes/sources');
 const monitoringRoutes = require('./routes/monitoring');
 const watchRoutes = require('./routes/watch');
+const healthRoutes = require('./routes/health');
+const { backupDatabase } = require('./jobs/backupDatabase');
 const showRoutes = require('./routes/shows');
 const followRoutes = require('./routes/follows');
 const pushRoutes = require('./routes/push');
@@ -194,6 +197,7 @@ app.use('/api/players', playerRoutes);
 app.use('/api/sources', sourceRoutes);
 app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/watch', watchRoutes); // X watch — internal only, see routes/watch.js
+app.use('/api/health', healthRoutes);
 app.use('/api/shows', showRoutes);
 app.use('/api/follows', followRoutes);
 app.use('/api/push', pushRoutes);
@@ -237,7 +241,7 @@ app.listen(PORT, () => {
 // to leave scheduled even before that key exists.
 const SYNC_INTERVAL_CRON = process.env.SYNC_INTERVAL_CRON || '*/30 * * * *';
 cron.schedule(SYNC_INTERVAL_CRON, () => {
-  syncLeagues().catch((err) => console.error('[syncLeagues] Unhandled error:', err));
+  runJob('syncLeagues', () => syncLeagues());
 });
 
 // Squad rosters change far less often than scores — once a day is plenty,
@@ -245,7 +249,7 @@ cron.schedule(SYNC_INTERVAL_CRON, () => {
 // run that touches several competitions' full squads.
 const SQUAD_SYNC_CRON = process.env.SQUAD_SYNC_CRON || '0 3 * * *';
 cron.schedule(SQUAD_SYNC_CRON, () => {
-  syncSquads().catch((err) => console.error('[syncSquads] Unhandled error:', err));
+  runJob('syncSquads', () => syncSquads());
 });
 
 // Kenya Cup standings, scraped from kenyacup.co.ke (no real API exists) —
@@ -253,7 +257,7 @@ cron.schedule(SQUAD_SYNC_CRON, () => {
 // "confirmed permission," and rugby doesn't play midweek anyway.
 const KENYA_CUP_SYNC_CRON = process.env.KENYA_CUP_SYNC_CRON || '0 4 * * *';
 cron.schedule(KENYA_CUP_SYNC_CRON, () => {
-  syncKenyaCup().catch((err) => console.error('[syncKenyaCup] Unhandled error:', err));
+  runJob('syncKenyaCup', () => syncKenyaCup());
 });
 
 // International fixtures (Six Nations, EuroLeague, world-title boxing, PDC
@@ -262,7 +266,7 @@ cron.schedule(KENYA_CUP_SYNC_CRON, () => {
 // any rate limit.
 const THESPORTSDB_SYNC_CRON = process.env.THESPORTSDB_SYNC_CRON || '30 4 * * *';
 cron.schedule(THESPORTSDB_SYNC_CRON, () => {
-  syncTheSportsDB().catch((err) => console.error('[syncTheSportsDB] Unhandled error:', err));
+  runJob('syncTheSportsDB', () => syncTheSportsDB());
 });
 
 // NBA fixtures via balldontlie.io — added alongside TheSportsDB's EuroLeague
@@ -272,7 +276,7 @@ cron.schedule(THESPORTSDB_SYNC_CRON, () => {
 // TheSportsDB slot purely so the two never overlap on a shared host.
 const BALLDONTLIE_SYNC_CRON = process.env.BALLDONTLIE_SYNC_CRON || '35 4 * * *';
 cron.schedule(BALLDONTLIE_SYNC_CRON, () => {
-  syncBallDontLie().catch((err) => console.error('[syncBallDontLie] Unhandled error:', err));
+  runJob('syncBallDontLie', () => syncBallDontLie());
 });
 
 // Monitoring engine (internal newsroom leads dashboard — see
@@ -282,12 +286,12 @@ cron.schedule(BALLDONTLIE_SYNC_CRON, () => {
 // so it runs less frequently and just picks up whatever fetch has queued.
 const MONITORING_FETCH_CRON = process.env.MONITORING_FETCH_CRON || '*/20 * * * *';
 cron.schedule(MONITORING_FETCH_CRON, () => {
-  runMonitoringFetch().catch((err) => console.error('[runMonitoringFetch] Unhandled error:', err));
+  runJob('runMonitoringFetch', () => runMonitoringFetch());
 });
 
 const MONITORING_ENRICH_CRON = process.env.MONITORING_ENRICH_CRON || '*/10 * * * *';
 cron.schedule(MONITORING_ENRICH_CRON, () => {
-  runMonitoringEnrich().catch((err) => console.error('[runMonitoringEnrich] Unhandled error:', err));
+  runJob('runMonitoringEnrich', () => runMonitoringEnrich());
 });
 
 // Wave 4 — scheduled article publishing. Every 2 minutes is plenty for a
@@ -295,16 +299,19 @@ cron.schedule(MONITORING_ENRICH_CRON, () => {
 // keeps this well clear of any real rate limit, since it's purely local.
 const PUBLISH_SCHEDULED_CRON = process.env.PUBLISH_SCHEDULED_CRON || '*/2 * * * *';
 cron.schedule(PUBLISH_SCHEDULED_CRON, () => {
-  publishScheduled().catch((err) => console.error('[publishScheduled] Unhandled error:', err));
+  runJob('publishScheduled', () => publishScheduled());
 });
 
 // Wave 5 — raw show recordings safety net (see cleanupRawRecordings.js's
 // own header comment). Hourly is plenty given the 48h retention window.
 const CLEANUP_RAW_RECORDINGS_CRON = process.env.CLEANUP_RAW_RECORDINGS_CRON || '15 * * * *';
 cron.schedule(CLEANUP_RAW_RECORDINGS_CRON, () => {
-  try {
-    cleanupRawRecordings(rawRecordingsDir);
-  } catch (err) {
-    console.error('[cleanupRawRecordings] Unhandled error:', err);
-  }
+  runJob('cleanupRawRecordings', async () => { cleanupRawRecordings(rawRecordingsDir); });
+});
+
+// Nightly database backup (server/jobs/backupDatabase.js) — 23:30 UTC is
+// 02:30 in Nairobi, the quietest hour. Restore: scripts/restore-backup.js.
+const BACKUP_CRON = process.env.BACKUP_CRON || '30 23 * * *';
+cron.schedule(BACKUP_CRON, () => {
+  runJob('backupDatabase', () => backupDatabase());
 });

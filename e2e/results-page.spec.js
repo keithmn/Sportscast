@@ -84,6 +84,23 @@ test.describe('Results page', () => {
     }
   });
 
+  test('a logged-in editor gets edit shortcuts on public pages; visitors do not', async ({ page, browser }) => {
+    await page.goto('/admin/results.html'); // any admin page remembers this browser as an editor's
+    await page.goto('/competition.html?slug=kenyan-premier-league');
+    const bar = page.locator('#editor-bar');
+    await expect(bar).toBeVisible();
+    await expect(bar.locator('a', { hasText: 'Enter results' })).toHaveAttribute('href', '/admin/results.html?competition=kenyan-premier-league');
+    await bar.locator('a', { hasText: 'Enter results' }).click();
+    await expect(page.locator('#competition-select')).toHaveValue('kenyan-premier-league');
+
+    const visitor = await browser.newContext();
+    const anon = await visitor.newPage();
+    await anon.goto('/competition.html?slug=kenyan-premier-league');
+    await expect(anon.locator('.page-title')).toBeVisible();
+    await expect(anon.locator('#editor-bar')).toHaveCount(0);
+    await visitor.close();
+  });
+
   test('a near-duplicate competition name is refused unless confirmed', async ({ page }) => {
     const { sports } = await page.request.get('/api/sports').then((r) => r.json());
     const football = sports.find((s) => s.name === 'Football');

@@ -5,6 +5,12 @@ let currentUser = null;
 
 async function requireLogin() {
   const { user } = await api('/api/auth/me');
+  // Remembered so the public site knows to show this browser the editor
+  // bar (site.js) without asking the server on every visitor's page view.
+  try {
+    if (user && ['ADMIN', 'EDITOR'].includes(user.role)) localStorage.setItem('sc-editor', '1');
+    else localStorage.removeItem('sc-editor');
+  } catch { /* private mode: no editor bar, nothing else changes */ }
   if (!user) {
     window.location.href = '/admin/index.html';
     return null;
@@ -18,6 +24,7 @@ async function requireLogin() {
     logoutLink.addEventListener('click', async (e) => {
       e.preventDefault();
       await api('/api/auth/logout', { method: 'POST' });
+      try { localStorage.removeItem('sc-editor'); } catch { /* ignore */ }
       window.location.href = '/admin/index.html';
     });
   }

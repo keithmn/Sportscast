@@ -1,7 +1,7 @@
 {
   "name": "underdoggs-sports-cast",
   "version": "1.0.0",
-  "description": "Underdoggs Sports Cast — CMS, articles, and Kenyan sports database backend",
+  "description": "Underdoggs Sports Cast \u2014 CMS, articles, and Kenyan sports database backend",
   "private": true,
   "scripts": {
     "dev": "node server/index.js",
@@ -15,7 +15,13 @@
     "sync:kenyacup": "node server/jobs/syncKenyaCup.js",
     "sync:thesportsdb": "node server/jobs/syncTheSportsDB.js",
     "sync:balldontlie": "node server/jobs/syncBallDontLie.js",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "backup": "node server/jobs/backupDatabase.js",
+    "restore": "node scripts/restore-backup.js",
+    "predeploy": "playwright test",
+    "deploy": "railway up --service sportscast --environment production --detach",
+    "predeploy:staging": "playwright test",
+    "deploy:staging": "railway up --service sportscast --environment staging --detach"
   },
   "engines": {
     "node": "24.x"

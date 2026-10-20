@@ -61,6 +61,55 @@ function crestHtml(name, crestUrl, size = 28) {
   return `<img loading="lazy" src="${escapeHtml(crestUrl)}" alt="" style="${style} object-fit:contain;" onerror="this.outerHTML=this.dataset.fallback" data-fallback="${escapeHtml(badge)}">`;
 }
 
+// ---- Editor bar (2026-10-19) ----
+// A logged-in editor browsing the public site gets a slim bar with
+// shortcuts to the admin screen that edits what they're looking at. Only
+// a browser that has been into the admin (localStorage 'sc-editor', set
+// by admin/js/guard.js) checks the session, so ordinary visitors make no
+// extra request. Pages add their own shortcuts with setEditorLinks().
+let editorBarLinks = [];
+let editorBarUser = null;
+
+function renderEditorBar() {
+  if (!editorBarUser) return;
+  let bar = document.getElementById('editor-bar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'editor-bar';
+    bar.className = 'editor-bar';
+    bar.setAttribute('role', 'region');
+    bar.setAttribute('aria-label', 'Editor shortcuts');
+    document.body.appendChild(bar);
+    document.body.classList.add('has-editor-bar');
+  }
+  const own = editorBarLinks.length ? editorBarLinks : [{ href: '/admin/results.html', label: 'Enter results' }];
+  const links = [...own, { href: '/admin/dashboard.html', label: 'Newsroom' }];
+  bar.innerHTML = `
+    <span class="editor-bar-who">Editing as ${escapeHtml(editorBarUser.name)}</span>
+    ${links.map((l) => `<a href="${escapeHtml(l.href)}">${escapeHtml(l.label)}</a>`).join('')}`;
+}
+
+function setEditorLinks(links) {
+  editorBarLinks = links || [];
+  renderEditorBar();
+}
+
+async function initEditorBar() {
+  let flagged = false;
+  try { flagged = localStorage.getItem('sc-editor') === '1'; } catch { flagged = false; }
+  if (!flagged || window.location.pathname.startsWith('/admin/')) return;
+  try {
+    const { user } = await api('/api/auth/me');
+    if (user && ['ADMIN', 'EDITOR'].includes(user.role)) {
+      editorBarUser = user;
+      renderEditorBar();
+    } else {
+      localStorage.removeItem('sc-editor');
+    }
+  } catch { /* offline or logged out — no bar */ }
+}
+document.addEventListener('DOMContentLoaded', initEditorBar);
+
 function formatDate(dateStr) {
   if (!dateStr) return '';
   return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });

@@ -513,6 +513,11 @@ table.data-table th.num { text-align: center; }
 .article-cover { width: 100%; max-height: 420px; object-fit: cover; margin: 2rem 0; }
 .video-embed { position: relative; width: 100%; padding-top: 56.25%; margin: 2rem 0; background: var(--bg-surface); }
 .video-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.editor-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 1rem; padding: 0.55rem var(--px) calc(0.55rem + env(safe-area-inset-bottom, 0px)); background: var(--sc-black, #1d1a17); color: #f4efe6; font-size: 0.82rem; border-top: 2px solid var(--brand-gold); }
+.editor-bar a { color: var(--brand-gold); font-weight: 700; text-decoration: none; }
+.editor-bar a:hover, .editor-bar a:focus-visible { text-decoration: underline; }
+.editor-bar-who { opacity: 0.75; margin-right: auto; }
+body.has-editor-bar { padding-bottom: 3.5rem; }
 .crest-badge { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 50%; background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 800; letter-spacing: 0.02em; line-height: 1; }
 .collapsed-competitions { display: flex; flex-direction: column; border-top: 1px solid var(--border); }
 .collapsed-competition { border-bottom: 1px solid var(--border); }
@@ -560,12 +565,15 @@ table.data-table th.num { text-align: center; }
 .admin-sidebar a { display: block; padding: 0.6rem 0.75rem; font-size: var(--text-small); color: var(--text-secondary); border-left: 3px solid transparent; }
 .admin-sidebar a:hover, .admin-sidebar a.active { color: var(--text-primary); border-left-color: var(--brand-gold); background: var(--bg-elevated); }
 .admin-main { flex: 1; padding: 2rem var(--px); max-width: 1100px; }
+.admin-nav-logo { margin-bottom: 1.5rem; }
+.admin-nav-sub { font-family: 'Nunito', sans-serif; font-size: 0.7rem; color: var(--text-secondary); display: block; margin-top: 0.35rem; }
+.admin-nav-group { display: block; margin: 1.1rem 0 0.25rem 0.75rem; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-secondary); opacity: 0.7; }
 /* Phones (2026-10-19): the sidebar becomes a scrolling strip of links above
    the page instead of a 220px column squeezing it. */
 @media (max-width: 760px) {
   .admin-shell { flex-direction: column; }
   .admin-sidebar { width: auto; display: flex; gap: 0.25rem; overflow-x: auto; padding: 0.5rem; border-right: none; border-bottom: 1px solid var(--border); -webkit-overflow-scrolling: touch; }
-  .admin-sidebar .nav-logo { display: none; }
+  .admin-sidebar .nav-logo, .admin-nav-group { display: none; }
   .admin-sidebar a { flex-shrink: 0; white-space: nowrap; border-left: none; border-bottom: 3px solid transparent; padding: 0.5rem 0.7rem; }
   .admin-sidebar a:hover, .admin-sidebar a.active { border-bottom-color: var(--brand-gold); }
   .admin-main { padding: 1.25rem var(--px) 6rem; }

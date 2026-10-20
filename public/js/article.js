@@ -15,6 +15,7 @@ async function loadArticle() {
   }
 
   document.title = `${article.title} — The Sportscast`;
+  setEditorLinks([{ href: '/admin/articles.html', label: 'Edit stories' }]);
   if (article.coverImageUrl) document.getElementById('og-image')?.setAttribute('content', article.coverImageUrl);
 
   const bodyHtml = article.body
