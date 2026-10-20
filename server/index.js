@@ -1,3 +1,6 @@
+// Must come first: async route errors reach the error handler instead of
+// crashing the process (see the file).
+const { errorStatus } = require('./lib/asyncErrors');
 require('dotenv').config();
 
 // Polyfill: undici (pulled in transitively by cheerio, used by
@@ -19,6 +22,7 @@ const session = require('express-session');
 const FileStore = require('session-file-store')(session);
 const cron = require('node-cron');
 const { runJob } = require('./lib/jobRuns');
+const { sendAlert } = require('./lib/alerts');
 
 const authRoutes = require('./routes/auth');
 const fanAuthRoutes = require('./routes/fanAuth');
@@ -142,12 +146,17 @@ app.use(helmet({
 
 app.use(express.json());
 app.use(session({
-  store: new FileStore({ path: sessionsDir, logFn: () => {}, retries: 0 }),
+  // ttl matches the cookie: the store's own default (1 hour) was ending
+  // sessions mid-match-day, and a fixed 8-hour cookie logged editors out
+  // while they typed. rolling: every request extends both, so a session
+  // only ends after 12 hours of not using the admin.
+  store: new FileStore({ path: sessionsDir, logFn: () => {}, retries: 0, ttl: 12 * 60 * 60 }),
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
+  rolling: true,
   cookie: {
-    maxAge: 1000 * 60 * 60 * 8,
+    maxAge: 1000 * 60 * 60 * 12,
     secure: !!process.env.RAILWAY_ENVIRONMENT,
     sameSite: 'lax',
   },
@@ -226,8 +235,18 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use('/uploads', express.static(uploadsDir));
 
 app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ error: 'Internal server error' });
+  const [status, message] = errorStatus(err);
+  if (status === 500) console.error(err);
+  else console.warn(`[${req.method} ${req.originalUrl}] ${status}: ${err.code || err.type || ''} ${err.message.split('\n').slice(-1)[0]}`);
+  if (res.headersSent) return next(err);
+  res.status(status).json({ error: message });
+});
+
+// Last line of defence: a stray rejected promise outside a route is
+// logged and alerted, not allowed to stop the server.
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+  sendAlert('unhandledRejection', `an unhandled error reached the top level: ${String(reason && reason.message ? reason.message : reason).slice(0, 300)}`);
 });
 
 const PORT = process.env.PORT || 3000;

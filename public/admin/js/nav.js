@@ -42,6 +42,7 @@ function renderAdminNav() {
       ${group.items.map(link).join('')}`).join('')}
     <span class="admin-nav-group">Site</span>
     <a href="/index.html">View site</a>
+    <a href="/admin/account.html"${here === '/admin/account.html' ? ' class="active" aria-current="page"' : ''}>Account &amp; team</a>
     <a href="#" id="logout-link">Log out</a>`;
 }
 

@@ -13,6 +13,11 @@ function requireRole(...roles) {
     if (!roles.includes(req.session.user.role)) {
       return res.status(403).json({ error: 'Not authorized for this action' });
     }
+    // A new account, or the published demo password in production: set
+    // your own password (Account page) before doing anything else.
+    if (req.session.user.mustChangePassword) {
+      return res.status(403).json({ error: 'Set your own password first (Account page).', mustChangePassword: true });
+    }
     next();
   };
 }

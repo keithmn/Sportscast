@@ -66,7 +66,7 @@ function clubBlockHtml(club) {
         <div id="players-rows-${club.id}">
           ${club.players.map(playerRowHtml).join('') || '<p class="empty-state" style="padding:0.5rem 0;">No players yet.</p>'}
         </div>
-        ${club.source === 'MANUAL' ? `
+        ${club.source !== 'API' ? `
           <div class="player-row-grid" style="margin-top:0.75rem;">
             <input type="text" placeholder="Player name" data-new-player="name">
             <input type="text" placeholder="Position" data-new-player="position">
@@ -77,7 +77,7 @@ function clubBlockHtml(club) {
           </div>` : '<p class="empty-state" style="padding:0.5rem 0;">Synced from Wikidata — edits here won\'t stick past the next sync.</p>'}
       </div>
 
-      ${club.source === 'MANUAL' ? `
+      ${club.source !== 'API' ? `
         <div style="margin-top:1.25rem;">
           <span class="section-label" style="font-size:0.68rem;">Coach &amp; Staff</span>
           <div id="staff-rows-${club.id}">

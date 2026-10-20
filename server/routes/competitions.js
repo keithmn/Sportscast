@@ -37,6 +37,7 @@ function parseKickoff(value) {
 // yet — see BLUEPRINT.md's entry for why that's a deliberate, separate
 // scoping decision, not an oversight.
 function notifyFixtureResult(fixture) {
+  if (fixture.homeScore == null || fixture.awayScore == null) return; // never announce a score we don't have
   (async () => {
     const [competition, clubs] = await Promise.all([
       prisma.competition.findUnique({ where: { id: fixture.competitionId }, select: { slug: true, name: true } }),
@@ -47,7 +48,7 @@ function notifyFixtureResult(fixture) {
       ...clubs.map((c) => ({ entityType: 'club', entitySlug: c.slug })),
     ];
     await sendPushToFollowers(targets, {
-      title: `Full-time: ${fixture.homeTeam} ${fixture.homeScore ?? 0}-${fixture.awayScore ?? 0} ${fixture.awayTeam}`,
+      title: `Full-time: ${fixture.homeTeam} ${fixture.homeScore}-${fixture.awayScore} ${fixture.awayTeam}`,
       body: competition ? competition.name : 'Result posted',
       url: `/match.html?id=${fixture.id}`,
     });
@@ -367,6 +368,15 @@ router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
 // get Club/Player data.
 router.put('/:id/sync-squads', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const { syncSquads } = req.body;
+  // Squad sync rebuilds squads from Wikidata for clubs matched by name.
+  // On a newsroom-run Kenyan competition it would overwrite (and for
+  // name matches like "AFC Leopards", wipe) squads editors entered, so
+  // it's only for API-sourced competitions.
+  const target = await prisma.competition.findUnique({ where: { id: req.params.id } });
+  if (!target) return res.status(404).json({ error: 'Competition not found' });
+  if (syncSquads && target.source !== 'API') {
+    return res.status(400).json({ error: "Squad sync is only for competitions synced from an outside feed — it would overwrite this competition's hand-entered squads." });
+  }
   const competition = await prisma.competition.update({
     where: { id: req.params.id },
     data: { syncSquads: Boolean(syncSquads) },
@@ -540,6 +550,17 @@ router.put('/fixtures/:fixtureId', requireRole('ADMIN', 'EDITOR'), async (req, r
 
   const { homeTeam, awayTeam, kickoff, homeScore, awayScore, status, venue, round, broadcaster, sourceUrl } = req.body;
   const newKickoff = kickoff ? parseKickoff(kickoff) : existing.kickoff;
+  if (Number.isNaN(newKickoff.getTime())) return res.status(400).json({ error: "The kick-off date isn't valid" });
+  // A full-time result needs both scores — "Full time" with empty boxes
+  // used to save a scoreless result and push "0-0" to followers.
+  const finalStatus = status ?? existing.status;
+  const finalHome = homeScore !== undefined ? homeScore : existing.homeScore;
+  const finalAway = awayScore !== undefined ? awayScore : existing.awayScore;
+  const scoreOk = (n) => n === null || (Number.isInteger(n) && n >= 0 && n <= 999);
+  if (!scoreOk(finalHome) || !scoreOk(finalAway)) return res.status(400).json({ error: 'Scores must be whole numbers from 0 to 999' });
+  if (finalStatus === 'FINISHED' && (finalHome === null || finalAway === null)) {
+    return res.status(400).json({ error: 'A full-time result needs both scores' });
+  }
   const venueResult = venue !== undefined ? await resolveVenue(prisma, venue) : null;
   const isNewlyPostponed = status === 'POSTPONED' && existing.status !== 'POSTPONED';
   const newHomeTeam = homeTeam ?? existing.homeTeam;
@@ -573,7 +594,7 @@ router.put('/fixtures/:fixtureId', requireRole('ADMIN', 'EDITOR'), async (req, r
   if (isNewlyPostponed) {
     summary = `Postponed ${fixture.homeTeam} vs ${fixture.awayTeam}: ${fmtDate(existing.kickoff)} → ${fmtDate(newKickoff)}`;
   } else if (isNewlyFinished) {
-    summary = `Result: ${fixture.homeTeam} ${fixture.homeScore ?? 0}-${fixture.awayScore ?? 0} ${fixture.awayTeam}`;
+    summary = `Result: ${fixture.homeTeam} ${fixture.homeScore}-${fixture.awayScore} ${fixture.awayTeam}`;
   } else {
     summary = `Updated fixture: ${fixture.homeTeam} vs ${fixture.awayTeam}`;
   }
@@ -697,6 +718,7 @@ router.put('/:id/fixtures/results', requireRole('ADMIN', 'EDITOR'), async (req, 
     if (!r.fixtureId) errors.push(`Row ${i + 1}: missing fixtureId`);
     else if (r.status !== undefined && !['FINISHED', 'POSTPONED'].includes(r.status)) errors.push(`Row ${i + 1}: status must be FINISHED or POSTPONED`);
     else if (r.status !== 'POSTPONED' && (!ok(r.homeScore) || !ok(r.awayScore))) errors.push(`Row ${i + 1}: scores must be whole numbers from 0 to 999`);
+    else if (r.status === 'POSTPONED' && r.kickoff && Number.isNaN(parseKickoff(r.kickoff).getTime())) errors.push(`Row ${i + 1}: the new date isn't valid`);
   });
   // The same fixture twice in one save would update it twice, log it twice
   // and send followers two full-time notifications (possibly with
@@ -717,15 +739,22 @@ router.put('/:id/fixtures/results', requireRole('ADMIN', 'EDITOR'), async (req, 
 
   const updated = await prisma.$transaction(results.map((r) => prisma.fixture.update({
     where: { id: r.fixtureId },
+    // Postponed with a new date: the game moves to it, and the date it was
+    // first set for is kept so the site can say "was 25 Oct — now 1 Nov".
     data: r.status === 'POSTPONED'
-      ? { status: 'POSTPONED', homeScore: null, awayScore: null, originalKickoff: byId.get(r.fixtureId).originalKickoff || byId.get(r.fixtureId).kickoff }
+      ? {
+        status: 'POSTPONED', homeScore: null, awayScore: null,
+        originalKickoff: byId.get(r.fixtureId).originalKickoff || byId.get(r.fixtureId).kickoff,
+        ...(r.kickoff ? { kickoff: parseKickoff(r.kickoff) } : {}),
+      }
       : { homeScore: r.homeScore, awayScore: r.awayScore, status: 'FINISHED', ...(sourceUrl ? { sourceUrl } : {}) },
   })));
 
   for (const fixture of updated) {
     const before = byId.get(fixture.id);
     if (fixture.status === 'POSTPONED') {
-      if (before.status !== 'POSTPONED') await logChange('FIXTURE', fixture.id, 'UPDATE', `Postponed: ${fixture.homeTeam} vs ${fixture.awayTeam}`, req.session.user.name);
+      const moved = fixture.kickoff.getTime() !== before.kickoff.getTime();
+      if (before.status !== 'POSTPONED' || moved) await logChange('FIXTURE', fixture.id, 'UPDATE', `Postponed: ${fixture.homeTeam} vs ${fixture.awayTeam}${moved ? ` — now ${fmtDate(fixture.kickoff)}` : ' — new date not known yet'}`, req.session.user.name);
       continue;
     }
     const isNew = before.status !== 'FINISHED';

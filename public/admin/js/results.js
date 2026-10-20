@@ -49,6 +49,9 @@ function scoreRowHtml(f, competitionId) {
         <option value="FINISHED" ${status === 'FINISHED' ? 'selected' : ''}>Full time</option>
         <option value="POSTPONED" ${status === 'POSTPONED' ? 'selected' : ''}>Postponed</option>
       </select>
+      <label class="new-date" ${status === 'POSTPONED' ? '' : 'hidden'}>New date, if known
+        <input type="datetime-local" class="row-new-kickoff" aria-label="New date for ${escapeHtml(f.homeTeam)} v ${escapeHtml(f.awayTeam)}">
+      </label>
     </div>`;
 }
 
@@ -56,10 +59,11 @@ function rowState(row) {
   const home = row.querySelector('[data-score="home"]').value.trim();
   const away = row.querySelector('[data-score="away"]').value.trim();
   const status = row.querySelector('.row-status').value;
+  const newKickoff = row.querySelector('.row-new-kickoff').value;
   const changed = status === 'POSTPONED'
-    ? row.dataset.origStatus !== 'POSTPONED'
+    ? row.dataset.origStatus !== 'POSTPONED' || Boolean(newKickoff)
     : (home !== '' || away !== '') && (home !== row.dataset.origHome || away !== row.dataset.origAway || row.dataset.origStatus !== 'FINISHED');
-  return { home, away, status, changed };
+  return { home, away, status, changed, newKickoff };
 }
 
 function refreshSavebar() {
@@ -83,6 +87,8 @@ function syncCopies(source) {
     row.querySelector('[data-score="home"]').value = source.querySelector('[data-score="home"]').value;
     row.querySelector('[data-score="away"]').value = source.querySelector('[data-score="away"]').value;
     row.querySelector('.row-status').value = source.querySelector('.row-status').value;
+    row.querySelector('.row-new-kickoff').value = source.querySelector('.row-new-kickoff').value;
+    row.querySelector('.new-date').hidden = source.querySelector('.new-date').hidden;
   });
 }
 
@@ -94,9 +100,12 @@ function onRowInput(e) {
     const select = row.querySelector('.row-status');
     if (home !== '' && away !== '') select.value = 'FINISHED';
   }
-  if (e.target.matches('.row-status') && e.target.value === 'POSTPONED') {
-    row.querySelector('[data-score="home"]').value = '';
-    row.querySelector('[data-score="away"]').value = '';
+  if (e.target.matches('.row-status')) {
+    row.querySelector('.new-date').hidden = e.target.value !== 'POSTPONED';
+    if (e.target.value === 'POSTPONED') {
+      row.querySelector('[data-score="home"]').value = '';
+      row.querySelector('[data-score="away"]').value = '';
+    }
   }
   syncCopies(row);
   refreshSavebar();
@@ -108,13 +117,13 @@ async function saveAll() {
   const byCompetition = new Map();
   const seen = new Set();
   document.querySelectorAll('.result-row').forEach((row) => {
-    const { home, away, status, changed } = rowState(row);
+    const { home, away, status, changed, newKickoff } = rowState(row);
     if (!changed || seen.has(row.dataset.fixtureId)) return;
     seen.add(row.dataset.fixtureId);
     const teams = `${row.querySelector('.team.home').textContent} v ${row.querySelectorAll('.team')[1].textContent}`;
     let result;
     if (status === 'POSTPONED') {
-      result = { fixtureId: row.dataset.fixtureId, status: 'POSTPONED' };
+      result = { fixtureId: row.dataset.fixtureId, status: 'POSTPONED', ...(newKickoff ? { kickoff: newKickoff } : {}) };
     } else if (home === '' || away === '') {
       problems.push(`${teams}: enter both scores`);
       return;
@@ -142,6 +151,13 @@ async function saveAll() {
   }
   btn.disabled = false;
   btn.textContent = 'Save results';
+  // Logged out while typing (the session ended): keep every score on
+  // screen — reloading the lists would wipe them — and say how to finish.
+  if (failed.some((f) => /Not authenticated|Set your own password/.test(f))) {
+    window.open('/admin/index.html', '_blank', 'noopener');
+    alert('Your login has ended, so nothing was saved — your scores are still here.\n\nSign in again in the tab that just opened, then come back to this tab and press Save results again.');
+    return;
+  }
   if (failed.length) alert(`Not saved:\n${failed.join('\n')}`);
   await Promise.all([loadWaiting(), panelCompetition ? openCompetition(panelCompetition.slug, panelRound) : null]);
   showSavedNote(saved);

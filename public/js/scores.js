@@ -91,8 +91,8 @@ function fixtureRowHtml(f) {
   const scoreOrTime = f.status === 'FINISHED' && hasRealScore
     ? `<span class="fixture-score">${f.homeScore ?? 0} – ${f.awayScore ?? 0}</span>`
     : `<span class="fixture-meta">${formatDate(f.kickoff)}</span>`;
-  const postponedNote = f.status === 'POSTPONED' && f.originalKickoff
-    ? `<div class="fixture-meta" style="margin-top:0.2rem;">Was ${formatDate(f.originalKickoff)} — now ${formatDate(f.kickoff)}</div>`
+  const postponedNote = f.status === 'POSTPONED'
+    ? `<div class="fixture-meta" style="margin-top:0.2rem;">${escapeHtml(postponedText(f))}</div>`
     : '';
   // Most fixtures are two-sided (X vs Y); a few synced competitions (PDC
   // Darts tournament-day events) have no real "away" side at all — see

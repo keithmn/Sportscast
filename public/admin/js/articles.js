@@ -251,17 +251,14 @@ function resetForm() {
   if (recordingStatusPollTimer) clearInterval(recordingStatusPollTimer);
 }
 
-// datetime-local has no timezone of its own — same convention already used
-// for Fixture.kickoff entry (server/routes/competitions.js's admin form):
-// the raw string is sent as-is and parsed server-side with `new Date(...)`,
-// interpreted in whatever timezone the server runs in. Not solved here,
-// deliberately consistent with the existing, pre-existing kickoff behavior
-// rather than inventing a new timezone convention for just this one field.
+// datetime-local has no timezone of its own. Scheduled times mean Nairobi
+// time: the server reads a timezone-less value as +03:00
+// (server/lib/nairobiTime.js — before 2026-10-19 it read it as the
+// server's own UTC, so stories went out 3 hours late on Railway), and this
+// shows a stored time in Nairobi time whatever the editor's phone is set to.
 function isoToLocalInputValue(iso) {
   if (!iso) return '';
-  const d = new Date(iso);
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return new Date(new Date(iso).getTime() + 3 * 60 * 60 * 1000).toISOString().slice(0, 16);
 }
 
 function showCoverImagePreview(url) {

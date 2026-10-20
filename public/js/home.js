@@ -64,10 +64,15 @@ async function loadLeadAndEditorial() {
   const r1 = document.getElementById('stories-r1');
   const r2 = document.getElementById('stories-r2');
 
-  let { articles } = await api('/api/articles?isBrief=false&featured=true&limit=6');
-  if (!articles.length) {
-    ({ articles } = await api('/api/articles?isBrief=false&limit=6'));
-  }
+  // The featured story leads; the latest stories fill the rest. (Asking
+  // for featured=true alone returned only the one featured story, so
+  // featuring a story emptied the rest of the homepage.)
+  const [{ articles: featured }, { articles: latest }] = await Promise.all([
+    api('/api/articles?isBrief=false&featured=true&limit=1'),
+    api('/api/articles?isBrief=false&limit=7'),
+  ]);
+  const leadStory = featured[0] || latest[0];
+  const articles = leadStory ? [leadStory, ...latest.filter((a) => a.id !== leadStory.id)].slice(0, 7) : [];
   if (!articles.length) {
     document.getElementById('lead-section').style.display = 'none';
     editorialSection.style.display = 'none';

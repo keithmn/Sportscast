@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account — The Sportscast Newsroom</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&family=Nunito:wght@400;600;700;900&family=Anton&display=swap" rel="stylesheet">
+  <link rel="icon" href="/brand/favicon/favicon-32.png" sizes="32x32">
+  <link rel="icon" href="/brand/favicon/favicon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="/brand/favicon/favicon-180.png">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="admin-sidebar" id="admin-nav" aria-label="Newsroom"></aside>
+    <main class="admin-main">
+      <div class="admin-topbar">
+        <h1 class="page-title" style="font-size:1.75rem;">Account &amp; team</h1>
+        <span id="whoami" class="page-sub"></span>
+      </div>
+      <div id="account-app" style="display:none;">
+        <div class="form-error account-banner" id="must-change" hidden>Set your own password to continue — the one you signed in with is temporary or published.</div>
+
+        <section class="account-section">
+          <h2 class="results-heading">Your password</h2>
+          <form id="password-form" class="account-form">
+            <div class="form-field"><label for="pw-current">Current password</label><input type="password" id="pw-current" autocomplete="current-password" required></div>
+            <div class="form-field"><label for="pw-next">New password <span class="hint">(at least 10 characters)</span></label><input type="password" id="pw-next" autocomplete="new-password" minlength="10" required></div>
+            <div class="form-field"><label for="pw-confirm">New password again</label><input type="password" id="pw-confirm" autocomplete="new-password" required></div>
+            <button type="submit" class="btn-red">Change password</button>
+            <p class="form-error" id="pw-error" hidden></p>
+            <p class="form-success" id="pw-ok" hidden>Password changed.</p>
+          </form>
+        </section>
+
+        <section class="account-section">
+          <h2 class="results-heading">Two-step login</h2>
+          <div id="totp-panel"></div>
+        </section>
+
+        <section class="account-section" id="team-section" hidden>
+          <h2 class="results-heading">Team</h2>
+          <p class="hint">Everyone gets their own login, so the change log shows who entered what. A new person gets a one-time link to set their password — send it to them on WhatsApp or by email. Correspondents can only enter results, for the competitions you tick, and their results stay provisional until an editor confirms them.</p>
+          <div id="team-list"></div>
+          <h3 class="team-subhead">Add a person</h3>
+          <form id="add-person-form" class="account-form">
+            <div class="form-field"><label for="np-name">Name</label><input type="text" id="np-name" required></div>
+            <div class="form-field"><label for="np-email">Email</label><input type="email" id="np-email" required></div>
+            <div class="form-field"><label for="np-role">Role</label>
+              <select id="np-role">
+                <option value="EDITOR">Editor — the whole newsroom</option>
+                <option value="CORRESPONDENT">Correspondent — results only</option>
+                <option value="ADMIN">Admin — everything, including the team</option>
+              </select>
+            </div>
+            <div class="form-field" id="np-comps-field" hidden><label for="np-comps">Competitions they report on</label><select id="np-comps" multiple size="6"></select></div>
+            <button type="submit" class="btn-red">Add and get their link</button>
+            <p class="form-error" id="np-error" hidden></p>
+          </form>
+          <div id="link-box"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <style>
+    .account-section { max-width: 640px; margin-bottom: 2.75rem; }
+    .account-form { display: grid; gap: 0.9rem; }
+    .account-banner { padding: 0.75rem 1rem; border: 1px solid var(--danger); margin-bottom: 1.5rem; }
+    .hint { color: var(--text-secondary); font-size: 0.85rem; font-weight: 400; }
+    .team-subhead { font-size: 1rem; margin: 1.75rem 0 0.75rem; }
+    .totp-key { font-family: ui-monospace, Menlo, monospace; font-size: 1.05rem; letter-spacing: 0.08em; padding: 0.6rem 0.8rem; background: var(--bg-surface); border: 1px solid var(--border); overflow-wrap: anywhere; }
+    .person { border-bottom: 1px solid var(--border); padding: 0.85rem 0; display: grid; gap: 0.5rem; }
+    .person-head { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: baseline; }
+    .person-head strong { font-size: 1rem; }
+    .person-meta { color: var(--text-secondary); font-size: 0.8rem; }
+    .person-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+    .person-actions select { font-size: 0.85rem; padding: 0.35rem; background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-primary); }
+    .person.inactive { opacity: 0.55; }
+    .link-share { margin-top: 1rem; padding: 1rem; border: 1px solid var(--brand-gold); display: grid; gap: 0.6rem; }
+    .link-share input { width: 100%; font-size: 0.8rem; }
+  </style>
+  <script src="/js/site.js"></script>
+  <script src="/admin/js/nav.js"></script>
+  <script src="/admin/js/guard.js"></script>
+  <script src="/admin/js/account.js"></script>
+</body>
+</html>

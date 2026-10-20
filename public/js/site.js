@@ -110,6 +110,17 @@ async function initEditorBar() {
 }
 document.addEventListener('DOMContentLoaded', initEditorBar);
 
+// What a reader is told about a postponed game: its new date when one is
+// set, otherwise that the new date isn't known yet (not "Was 25 Oct — now
+// 25 Oct").
+function postponedText(f) {
+  if (f.status !== 'POSTPONED') return '';
+  const moved = f.originalKickoff && new Date(f.originalKickoff).getTime() !== new Date(f.kickoff).getTime();
+  return moved
+    ? `Postponed from ${formatDate(f.originalKickoff)} — now ${formatDate(f.kickoff)}`
+    : 'Postponed — new date to be confirmed';
+}
+
 function formatDate(dateStr) {
   if (!dateStr) return '';
   return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });

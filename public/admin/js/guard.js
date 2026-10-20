@@ -15,6 +15,11 @@ async function requireLogin() {
     window.location.href = '/admin/index.html';
     return null;
   }
+  // A new account or the published demo password: set your own first.
+  if (user.mustChangePassword && !window.location.pathname.endsWith('/admin/account.html')) {
+    window.location.href = '/admin/account.html';
+    return null;
+  }
   currentUser = user;
   const who = document.getElementById('whoami');
   if (who) who.textContent = `${user.name} · ${user.role}`;

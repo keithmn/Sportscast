@@ -10,13 +10,48 @@ datasource db {
 // ===================== AUTH =====================
 
 model User {
-  id            String          @id @default(cuid())
-  name          String
-  email         String          @unique
-  passwordHash  String
-  role          String // ADMIN | EDITOR
-  createdAt     DateTime        @default(now())
-  reviewedItems MonitoredItem[]
+  id                 String               @id @default(cuid())
+  name               String
+  email              String               @unique
+  passwordHash       String
+  // ADMIN — everything, including the team. EDITOR — the whole newsroom.
+  // CORRESPONDENT (2026-10-19) — enters results only, for the competitions
+  // in `competitions`, and those results stay provisional until an editor
+  // confirms them.
+  role               String
+  isActive           Boolean              @default(true) // false = can't log in; kept so the ChangeLog still names them
+  mustChangePassword Boolean              @default(false) // set for new accounts and the seeded default password in production
+  totpSecret         String? // base32, two-step login (server/lib/totp.js)
+  totpEnabled        Boolean              @default(false)
+  lastLoginAt        DateTime?
+  passwordChangedAt  DateTime?
+  createdAt          DateTime             @default(now())
+  reviewedItems      MonitoredItem[]
+  competitions       UserCompetition[]
+  resetTokens        PasswordResetToken[]
+}
+
+// The competitions a CORRESPONDENT may enter results for.
+model UserCompetition {
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+
+  @@id([userId, competitionId])
+}
+
+// One-time links an ADMIN creates to set or reset someone's password
+// (there's no email sending; the link is shared directly). Only a hash of
+// the token is stored; it works once, for 24 hours.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 }
 
 // ===================== CMS / ARTICLES (Phase 1) =====================
@@ -327,6 +362,7 @@ model Competition {
   // leagues (EPL, Bundesliga, NBA, ...) were switched off because they
   // were overshadowing Kenyan competitions.
   isActive         Boolean             @default(true)
+  correspondents   UserCompetition[]
   standings        StandingRow[]
   fixtures         Fixture[]
   seasons          CompetitionSeason[]

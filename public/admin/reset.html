@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Set your password — The Sportscast Newsroom</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&family=Nunito:wght@400;600;700;900&family=Anton&display=swap" rel="stylesheet">
+  <link rel="icon" href="/brand/favicon/favicon-32.png" sizes="32x32">
+  <link rel="icon" href="/brand/favicon/favicon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="/brand/favicon/favicon-180.png">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+  <div class="login-shell">
+    <div class="login-card">
+      <h1 class="page-title" style="font-size:1.75rem; margin-bottom:0.25rem;">Set your password</h1>
+      <p class="page-sub" style="margin-bottom:1.5rem;" id="reset-intro">Choose a password for The Sportscast newsroom.</p>
+      <form id="reset-form" class="form-grid">
+        <div class="form-field">
+          <label for="new-password">New password <span style="color:var(--text-secondary); font-weight:400;">(at least 10 characters)</span></label>
+          <input type="password" id="new-password" autocomplete="new-password" minlength="10" required>
+        </div>
+        <div class="form-field">
+          <label for="confirm-password">The same again</label>
+          <input type="password" id="confirm-password" autocomplete="new-password" required>
+        </div>
+        <p class="form-error" id="reset-error" style="display:none;"></p>
+        <button type="submit" class="btn-red">Set password</button>
+      </form>
+      <p class="form-success" id="reset-done" hidden>Done. <a href="/admin/index.html">Sign in</a> with your email and the new password.</p>
+    </div>
+  </div>
+  <script src="/js/site.js"></script>
+  <script>
+    const token = new URLSearchParams(window.location.search).get('token');
+    const errorEl = document.getElementById('reset-error');
+    if (!token) {
+      errorEl.textContent = 'This page needs the link an admin sent you.';
+      errorEl.style.display = 'block';
+      document.getElementById('reset-form').hidden = true;
+    }
+    document.getElementById('reset-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorEl.style.display = 'none';
+      const password = document.getElementById('new-password').value;
+      if (password !== document.getElementById('confirm-password').value) {
+        errorEl.textContent = "The two passwords don't match.";
+        errorEl.style.display = 'block';
+        return;
+      }
+      try {
+        await api('/api/auth/reset', { method: 'POST', body: JSON.stringify({ token, password }) });
+        e.target.hidden = true;
+        document.getElementById('reset-done').hidden = false;
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+      }
+    });
+  </script>
+</body>
+</html>

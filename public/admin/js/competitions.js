@@ -207,10 +207,10 @@ function competitionBlockHtml(competition, teamNames, seasons) {
 
       ${seasonSectionHtml(competition, seasons)}
 
-      <label class="checkbox-row" style="margin-top:0.75rem;">
+      ${competition.source === 'API' ? `<label class="checkbox-row" style="margin-top:0.75rem;">
         <input type="checkbox" class="sync-squads-toggle" data-competition-id="${competition.id}" ${competition.syncSquads ? 'checked' : ''}>
         <span style="font-size:0.85rem;">Sync club/player rosters for this competition (Wikidata, once daily — needs standings entered first)</span>
-      </label>
+      </label>` : ''}
 
       ${canonicalLinkWidgetHtml('competition', competition.id, competition.canonicalCompetition)}
 

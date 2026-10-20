@@ -112,8 +112,8 @@ async function loadMatch() {
        ${canonicalHasScore ? '<p class="source-note">Verified via the Underdawgs Sports Data platform</p>' : ''}`
     : `<p class="empty-state">${fixture.status === 'POSTPONED' ? 'Postponed' : fixtureDisplayStatus(fixture).key === 'PENDING' ? 'Result pending — we\'re confirming the score' : 'Not started yet'}</p>`;
 
-  const postponedNote = fixture.status === 'POSTPONED' && fixture.originalKickoff
-    ? `<p class="source-note">Was ${formatDate(fixture.originalKickoff)} — now ${formatDate(fixture.kickoff)}</p>`
+  const postponedNote = fixture.status === 'POSTPONED'
+    ? `<p class="source-note">${escapeHtml(postponedText(fixture))}</p>`
     : '';
 
   root.innerHTML = `

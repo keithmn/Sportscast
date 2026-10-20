@@ -1,4 +1,5 @@
 const express = require('express');
+const { parseNairobi } = require('../lib/nairobiTime');
 const prisma = require('../db');
 const { slugify } = require('../utils/slugify');
 const { requireRole } = require('../middleware/auth');
@@ -90,7 +91,7 @@ const articleInclude = {
 // (DRAFT/PUBLISHED) doesn't touch it. Returns an error string, or null if valid.
 function validateScheduling(status, scheduledAt) {
   if (status !== 'SCHEDULED') return null;
-  if (!scheduledAt || Number.isNaN(new Date(scheduledAt).getTime())) {
+  if (!scheduledAt || Number.isNaN(parseNairobi(scheduledAt).getTime())) {
     return 'A valid scheduledAt date/time is required to schedule an article.';
   }
   return null;
@@ -267,7 +268,7 @@ router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
       authorId,
       tags: tagIds && tagIds.length ? { connect: tagIds.map((id) => ({ id })) } : undefined,
       status: publishedStatus,
-      scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
+      scheduledAt: scheduledAt ? parseNairobi(scheduledAt) : null,
       fixtureId: fixtureId || null,
       featured: !!featured,
       contentType: contentType === 'VIDEO_POST' ? 'VIDEO_POST' : 'ARTICLE',
@@ -334,7 +335,7 @@ router.put('/:id', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
       authorId: authorId ?? existing.authorId,
       tags: tagIds ? { set: tagIds.map((id) => ({ id })) } : undefined,
       status: resolvedStatus,
-      scheduledAt: scheduledAt !== undefined ? (scheduledAt ? new Date(scheduledAt) : null) : existing.scheduledAt,
+      scheduledAt: scheduledAt !== undefined ? (scheduledAt ? parseNairobi(scheduledAt) : null) : existing.scheduledAt,
       fixtureId: fixtureId !== undefined ? (fixtureId || null) : existing.fixtureId,
       featured: featured !== undefined ? !!featured : existing.featured,
       contentType: contentType ?? existing.contentType,
