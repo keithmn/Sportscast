@@ -7,8 +7,10 @@
 //   Team and gets a one-time setup link to send them (there's no email
 //   sending); the same for a forgotten password.
 // - Two-step login (authenticator app codes) is optional per person.
-// - In production, the seeded default password can't be kept: logging in
-//   with it forces a change before anything else (mustChangePassword).
+// - In production, the seeded demo password never signs anyone in. It's
+//   public in the repo, so letting it in — even only to force a change —
+//   would hand the account to whoever got there first. The owner sets a
+//   real password with a one-time link from scripts/reset-link.js instead.
 
 const crypto = require('crypto');
 const express = require('express');
@@ -16,15 +18,14 @@ const bcrypt = require('bcryptjs');
 const prisma = require('../db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const totp = require('../lib/totp');
+const { RESET_HOURS, hashToken, createResetLink } = require('../lib/resetTokens');
 
 const router = express.Router();
 
 const ROLES = ['ADMIN', 'EDITOR', 'CORRESPONDENT'];
 // The password prisma/seed.js gives the demo accounts — public in the repo.
 const SEED_PASSWORD = 'underdoggs2026';
-const RESET_HOURS = 24;
-const isProduction = () => Boolean(process.env.RAILWAY_ENVIRONMENT) || process.env.NODE_ENV === 'production' || process.env.ENFORCE_PASSWORD_CHANGE === '1';
-const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+const refuseDemoPassword = () => Boolean(process.env.RAILWAY_ENVIRONMENT) || process.env.NODE_ENV === 'production' || process.env.REFUSE_DEMO_PASSWORD === '1';
 
 function passwordProblem(password, user) {
   if (typeof password !== 'string' || password.length < 10) return 'Use at least 10 characters.';
@@ -45,11 +46,7 @@ async function sessionUser(user) {
   };
 }
 
-async function newResetLink(req, userId) {
-  const token = crypto.randomBytes(24).toString('base64url');
-  await prisma.passwordResetToken.create({ data: { userId, tokenHash: hashToken(token), expiresAt: new Date(Date.now() + RESET_HOURS * 3600000) } });
-  return `${req.protocol}://${req.get('host')}/admin/reset.html?token=${token}`;
-}
+const newResetLink = (req, userId) => createResetLink(`${req.protocol}://${req.get('host')}`, userId);
 
 // ---- Login ----
 // Two-step accounts answer { needCode: true } to a correct password with
@@ -62,12 +59,14 @@ router.post('/login', async (req, res) => {
   if (!user || !user.isActive || !(await bcrypt.compare(password, user.passwordHash))) {
     return res.status(401).json({ error: 'Invalid email or password' });
   }
+  if (refuseDemoPassword() && password === SEED_PASSWORD) {
+    return res.status(403).json({ error: 'This account still has the published demo password, so it can’t sign in. Set your own password with a one-time link: run "npm run reset-link -- <your email>" on the server (see JOB_RUNBOOK.md).' });
+  }
   if (user.totpEnabled) {
     if (!code) return res.status(401).json({ needCode: true, error: 'Enter the 6-digit code from your authenticator app' });
     if (!totp.verify(user.totpSecret, code)) return res.status(401).json({ needCode: true, error: "That code didn't match — try the newest one" });
   }
-  const mustChange = user.mustChangePassword || (isProduction() && password === SEED_PASSWORD);
-  const updated = await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date(), mustChangePassword: mustChange } });
+  const updated = await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   req.session.regenerate((err) => {
     if (err) return res.status(500).json({ error: 'Could not start a session — try again' });
     sessionUser(updated).then((u) => {

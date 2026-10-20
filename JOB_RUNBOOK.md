@@ -66,6 +66,19 @@ It checks the backup is a sound SQLite database with the site's tables before to
 
 **Uptime.** `.github/workflows/uptime.yml` checks `/api/health` every 15 minutes and fails, so GitHub emails you, when the site or its database doesn't answer. Turn it on once the site is live by adding the repository variable `UPTIME_URL` (Settings → Secrets and variables → Actions → Variables). `/api/health` is public and only says ok or not; `/api/health/details` (editors only) has the job and backup detail.
 
+## Signing in on production for the first time
+
+The repo is public, so the demo password (`underdoggs2026`) is too. Production refuses it outright: it never signs anyone in, not even to change it (that would give the account to whoever tried it first). The same applies wherever `NODE_ENV=production`, `RAILWAY_ENVIRONMENT` or `REFUSE_DEMO_PASSWORD=1` is set.
+
+To get in — and whenever the only admin is locked out — make a one-time link on the server:
+
+```
+railway ssh --service sportscast --environment production
+npm run reset-link -- admin@underdoggs.co.ke
+```
+
+Open the link it prints (it works once, for 24 hours) and choose a password. Then add everyone else from Account → Team, each with their own login, and switch off the demo `editor@underdoggs.co.ke` account. The link uses `SITE_URL` for the address; pass `--base https://…` to use another.
+
 ## Deploying: tests first, staging before production
 
 - `npm run deploy` runs the whole e2e suite first and deploys to production only if it passes (npm runs `predeploy` automatically). Don't call `railway up` directly.

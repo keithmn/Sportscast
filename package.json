@@ -18,6 +18,7 @@
     "e2e": "playwright test",
     "backup": "node server/jobs/backupDatabase.js",
     "restore": "node scripts/restore-backup.js",
+    "reset-link": "node scripts/reset-link.js",
     "predeploy": "playwright test",
     "deploy": "railway up --service sportscast --environment production --detach",
     "predeploy:staging": "playwright test",

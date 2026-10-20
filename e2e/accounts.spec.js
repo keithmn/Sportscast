@@ -5,7 +5,15 @@ const { test, expect } = require('@playwright/test');
 // server that survives everyday mistakes; no scoreless "full time"; the
 // featured story not emptying the homepage; Nairobi-time scheduling;
 // postponed games with a new date.
+const path = require('path');
+const { execFileSync, spawn } = require('child_process');
 const { codeAt } = require('../server/lib/totp');
+
+const ROOT = path.join(__dirname, '..');
+const DB_PATH = process.env.E2E_DB_PATH || path.join(ROOT, 'prisma', '.e2e-test.db');
+const OFF = '0 0 1 1 *';
+const CRONS = ['BACKUP_CRON', 'BALLDONTLIE_SYNC_CRON', 'CLEANUP_RAW_RECORDINGS_CRON', 'KENYA_CUP_SYNC_CRON', 'MONITORING_ENRICH_CRON', 'MONITORING_FETCH_CRON', 'PUBLISH_SCHEDULED_CRON', 'SEASON_ROLLOVER_CRON', 'SQUAD_SYNC_CRON', 'SYNC_INTERVAL_CRON', 'THESPORTSDB_SYNC_CRON'];
+const nodeEnv = (extra) => ({ ...process.env, DATABASE_URL: `file:${DB_PATH}`, NODE_NO_WARNINGS: '1', ...extra });
 
 async function signIn(page, email = 'admin@underdoggs.co.ke', password = 'underdoggs2026') {
   await page.goto('/admin/index.html');
@@ -24,6 +32,56 @@ test.describe('Accounts', () => {
   test('the login page no longer prints the demo password', async ({ page }) => {
     await page.goto('/admin/index.html');
     await expect(page.locator('body')).not.toContainText('underdoggs2026');
+  });
+
+  // The repo is public, so the demo password is too. In production it must
+  // not sign anyone in — not even to "change it first", which would hand
+  // the account to whoever tried it first.
+  test('in production the demo password signs no one in', async () => {
+    test.setTimeout(60000);
+    const port = 3197;
+    const server = spawn('node', ['server/index.js'], {
+      cwd: ROOT,
+      env: nodeEnv({ PORT: String(port), REFUSE_DEMO_PASSWORD: '1', SESSION_SECRET: 'e2e-production-check', ...Object.fromEntries(CRONS.map((c) => [c, OFF])) }),
+      stdio: 'ignore',
+    });
+    try {
+      const base = `http://localhost:${port}`;
+      for (let i = 0; i < 60; i += 1) {
+        try { if ((await fetch(`${base}/api/health`)).ok) break; } catch { /* still starting */ }
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      const res = await fetch(`${base}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'admin@underdoggs.co.ke', password: 'underdoggs2026' }) });
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body.user).toBeUndefined();
+      expect(body.error).toContain('reset-link');
+      expect(res.headers.get('set-cookie')).toBeNull();
+    } finally {
+      server.kill();
+    }
+  });
+
+  test('when no one can sign in, the server prints a one-time link', async ({ page, browser }) => {
+    await signIn(page);
+    await page.waitForURL('**/admin/dashboard.html');
+    const email = `owner${Date.now()}@example.com`;
+    await page.request.post('/api/auth/users', { data: { name: 'Owner Test', email, role: 'ADMIN' } });
+
+    const out = execFileSync('node', ['scripts/reset-link.js', email, '--base', 'https://example.invalid'], { cwd: ROOT, env: nodeEnv({}), encoding: 'utf8' });
+    const link = new URL(out.match(/https:\/\/example\.invalid\/admin\/reset\.html\?token=\S+/)[0]);
+    const ctx = await browser.newContext();
+    const them = await ctx.newPage();
+    await them.goto(link.pathname + link.search);
+    await them.fill('#new-password', 'owner-pass-2026');
+    await them.fill('#confirm-password', 'owner-pass-2026');
+    await them.click('button:has-text("Set password")');
+    await expect(them.locator('#reset-done')).toBeVisible();
+    await signIn(them, email, 'owner-pass-2026');
+    await them.waitForURL('**/admin/dashboard.html');
+    await ctx.close();
+
+    expect(() => execFileSync('node', ['scripts/reset-link.js', 'nobody@example.invalid'], { cwd: ROOT, env: nodeEnv({}), stdio: 'pipe' })).toThrow();
   });
 
   test('an admin adds a correspondent, who sets a password from the link and can only enter results', async ({ page, browser }) => {
