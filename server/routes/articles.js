@@ -1,4 +1,9 @@
 const express = require('express');
+const path = require('path');
+const { imageProblem } = require('../lib/imageCheck');
+
+// Same folder server/index.js serves /uploads from.
+const UPLOADS_DIR = path.join(path.dirname(path.resolve(path.join(__dirname, '..', '..', 'prisma'), (process.env.DATABASE_URL || 'file:./dev.db').replace(/^file:/, ''))), 'uploads');
 const { parseNairobi } = require('../lib/nairobiTime');
 const prisma = require('../db');
 const { slugify } = require('../utils/slugify');
@@ -252,6 +257,8 @@ router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   const publishedStatus = ['SCHEDULED', 'PUBLISHED'].includes(status) ? status : 'DRAFT';
   const schedulingError = validateScheduling(publishedStatus, scheduledAt);
   if (schedulingError) return res.status(400).json({ error: schedulingError });
+  const coverProblem = await imageProblem(coverImageUrl, UPLOADS_DIR);
+  if (coverProblem) return res.status(400).json({ error: `Cover image: ${coverProblem}` });
 
   let slug = slugify(title);
   const existing = await prisma.article.findUnique({ where: { slug } });
@@ -313,6 +320,10 @@ router.put('/:id', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   } = req.body;
 
   const resolvedStatus = status ?? existing.status;
+  if (coverImageUrl && coverImageUrl !== existing.coverImageUrl) {
+    const coverProblem = await imageProblem(coverImageUrl, UPLOADS_DIR);
+    if (coverProblem) return res.status(400).json({ error: `Cover image: ${coverProblem}` });
+  }
   const schedulingError = validateScheduling(resolvedStatus, scheduledAt !== undefined ? scheduledAt : existing.scheduledAt);
   if (schedulingError) return res.status(400).json({ error: schedulingError });
 

@@ -51,14 +51,34 @@ function itemRowHtml(item) {
 // existing pattern of a toggle revealing more fields inline (e.g.
 // clubs.js's cascading checkboxes) rather than a modal, which nothing else
 // here uses.
-function promoteRowHtml(itemId) {
+// The sport a lead is most likely about, from the AI's tags and the title
+// — so a Gor Mahia lead isn't drafted as an Athletics story (the first
+// sport in the list). The editor can still change it.
+function guessSportId(item) {
+  const text = `${item.aiCategoryTags || ''} ${item.title || ''}`.toLowerCase();
+  const hints = [
+    ['football', /football|soccer|fkf|kpl|premier league|harambee|gor mahia|leopards|tusker|cecafa|afcon|chan\b/],
+    ['rugby', /rugby|kru|kenya cup|shujaa|simbas|sevens/],
+    ['athletics', /athletic|marathon|kipchoge|cross country|track|diamond league/],
+    ['basketball', /basketball|kbf|afrobasket/],
+    ['volleyball', /volleyball|malkia/],
+    ['hockey', /hockey|khu/],
+    ['boxing', /boxing|boxer|hit squad/],
+  ];
+  const hit = hints.find(([, re]) => re.test(text));
+  const sport = hit && allSports.find((sp) => sp.slug === hit[0]);
+  return sport ? sport.id : null;
+}
+
+function promoteRowHtml(itemId, item = {}) {
+  const guess = guessSportId(item);
   return `
     <tr data-promote-row="${itemId}">
       <td colspan="6" style="background:var(--bg-surface);">
         <div class="form-row" style="align-items:flex-end;">
           <div class="form-field">
             <label for="promote-sport-${itemId}">Sport</label>
-            <select id="promote-sport-${itemId}">${allSports.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')}</select>
+            <select id="promote-sport-${itemId}">${allSports.map((s) => `<option value="${s.id}" ${s.id === guess ? 'selected' : ''}>${escapeHtml(s.name)}</option>`).join('')}</select>
           </div>
           <div class="form-field">
             <label for="promote-author-${itemId}">Byline</label>
@@ -102,7 +122,7 @@ async function loadMonitoring() {
   tbody.querySelectorAll('.promote-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const row = tbody.querySelector(`tr[data-row-id="${btn.dataset.id}"]`);
-      row.insertAdjacentHTML('afterend', promoteRowHtml(btn.dataset.id));
+      row.insertAdjacentHTML('afterend', promoteRowHtml(btn.dataset.id, items.find((i) => i.id === btn.dataset.id)));
       wirePromoteRow(btn.dataset.id);
     });
   });

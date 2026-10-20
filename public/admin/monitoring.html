@@ -10,6 +10,13 @@
   <link rel="icon" href="/brand/favicon/favicon-192.png" sizes="192x192">
   <link rel="apple-touch-icon" href="/brand/favicon/favicon-180.png">
   <link rel="stylesheet" href="/css/site.css">
+<style>
+    @media (max-width: 760px) {
+      #monitoring-tbody tr { display: grid; gap: 0.3rem; padding: 0.75rem 0; border-bottom: 1px solid var(--border); }
+      #monitoring-tbody td { display: block; border: none; padding: 0; max-width: none !important; white-space: normal !important; }
+      table:has(#monitoring-tbody) thead { display: none; }
+    }
+</style>
 </head>
 <body>
   <div class="admin-shell">

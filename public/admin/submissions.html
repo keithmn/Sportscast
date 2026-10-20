@@ -10,6 +10,15 @@
   <link rel="icon" href="/brand/favicon/favicon-192.png" sizes="192x192">
   <link rel="apple-touch-icon" href="/brand/favicon/favicon-180.png">
   <link rel="stylesheet" href="/css/site.css">
+<style>
+    .submission-message { max-width: 420px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .submission-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    @media (max-width: 760px) {
+      #submissions-tbody tr { display: grid; gap: 0.3rem; padding: 0.75rem 0; border-bottom: 1px solid var(--border); }
+      #submissions-tbody td { display: block; border: none; padding: 0; max-width: none; }
+      table:has(#submissions-tbody) thead { display: none; }
+    }
+</style>
 </head>
 <body>
   <div class="admin-shell">

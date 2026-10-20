@@ -10,6 +10,19 @@
   <link rel="icon" href="/brand/favicon/favicon-192.png" sizes="192x192">
   <link rel="apple-touch-icon" href="/brand/favicon/favicon-180.png">
   <link rel="stylesheet" href="/css/site.css">
+<style>
+    /* Save stays reachable on a long form (2026-10-20). */
+    .form-savebar { position: sticky; bottom: 0; z-index: 5; background: var(--bg-surface); padding: 0.75rem 0 calc(0.75rem + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--border); }
+    .save-banner { padding: 0.75rem 1rem; border-left: 4px solid var(--success); background: var(--bg-surface); margin-bottom: 1rem; }
+    @media (max-width: 760px) {
+      #articles-tbody tr { display: grid; grid-template-columns: 1fr auto; gap: 0.25rem 0.5rem; padding: 0.75rem 0; border-bottom: 1px solid var(--border); }
+      #articles-tbody td { display: block; padding: 0; border: none; }
+      #articles-tbody td:first-child { grid-column: 1 / -1; font-weight: 700; }
+      #articles-tbody td:last-child { grid-column: 1 / -1; }
+      table:has(#articles-tbody) thead { display: none; }
+      #article-form { padding: 1rem !important; }
+    }
+</style>
 </head>
 <body>
   <div class="admin-shell">
@@ -23,7 +36,8 @@
       <div id="access-denied" style="display:none;" class="empty-state">Your role does not have access to article management.</div>
 
       <div id="articles-app" style="display:none;">
-        <button class="btn-sm-red" id="new-article-btn" style="margin-bottom:1.5rem;">+ New Article</button>
+        <p class="save-banner" id="save-banner" role="status" hidden></p>
+        <button class="btn-sm-red" id="new-article-btn" style="margin-bottom:1.5rem;">+ New story</button>
 
         <form id="article-form" class="form-grid" style="display:none; margin-bottom:3rem; background:var(--bg-surface); padding:1.5rem; border:1px solid var(--border);">
           <input type="hidden" id="article-id">
@@ -239,7 +253,7 @@
             <p class="form-error" id="poll-error" style="display:none;"></p>
           </div>
           <p class="form-error" id="article-form-error" style="display:none;"></p>
-          <div class="form-row">
+          <div class="form-row form-savebar">
             <button type="submit" class="btn-red">Save</button>
             <button type="button" class="btn-outline-sm" id="cancel-edit-btn">Cancel</button>
           </div>

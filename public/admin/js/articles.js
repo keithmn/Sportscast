@@ -105,7 +105,9 @@ function getGuests() {
 function populateCompetitionOptions(sportId) {
   const el = document.getElementById('competitions-checkboxes');
   const previouslyChecked = getSelectedCompetitionIds();
-  const competitions = allCompetitions.filter((c) => c.sportId === sportId);
+  // Kenyan competitions first (KPL before AFCON before the World Cup).
+  const competitions = allCompetitions.filter((c) => c.sportId === sportId)
+    .sort((a, b) => (a.region === 'KENYA' ? 0 : 1) - (b.region === 'KENYA' ? 0 : 1) || (a.tier ?? 99) - (b.tier ?? 99) || a.name.localeCompare(b.name));
   el.innerHTML = competitions.map((c) => `
     <label class="checkbox-row" style="min-width:auto;">
       <input type="checkbox" value="${c.id}" class="competition-checkbox"> ${escapeHtml(c.name)}
@@ -212,6 +214,10 @@ function setSelectedPlayerIds(ids) {
 function resetForm() {
   document.getElementById('article-form').reset();
   document.getElementById('article-id').value = '';
+  // New stories start on Football (the alphabetical first sport was Athletics).
+  const football = allSports.find((sp) => sp.slug === 'football');
+  if (football) document.getElementById('sportId').value = football.id;
+  formDirty = false;
   setSelectedTagIds([]);
   document.getElementById('video-fields').style.display = 'none';
   document.getElementById('article-form-error').style.display = 'none';
@@ -318,9 +324,29 @@ function renderFixtureResults(fixtures) {
       renderFixtureLink(fixture);
       document.getElementById('fixture-search-input').value = '';
       hideFixtureResults();
+      tagFromFixture(fixture.id);
     });
   });
   resultsEl.style.display = 'block';
+}
+
+// Linking a match report tags it for you: the match's sport, competition
+// and both clubs (2026-10-20) — 0 of 13 stories were tagged before, so
+// every competition and club News tab was empty.
+async function tagFromFixture(fixtureId) {
+  try {
+    const { fixture } = await api(`/api/fixtures/${encodeURIComponent(fixtureId)}`);
+    const sportSelect = document.getElementById('sportId');
+    if (sportSelect.value !== fixture.competition.sportId) sportSelect.value = fixture.competition.sportId;
+    populateCompetitionOptions(sportSelect.value);
+    setSelectedCompetitionIds([...new Set([...getSelectedCompetitionIds(), fixture.competition.id])]);
+    await populateClubOptions(getSelectedCompetitionIds());
+    setSelectedClubIds([...new Set([...getSelectedClubIds(), ...[fixture.homeClubId, fixture.awayClubId].filter(Boolean)])]);
+    await populatePlayerOptions(getSelectedClubIds());
+    return fixture;
+  } catch {
+    return null;
+  }
 }
 
 async function searchFixtures(q) {
@@ -821,6 +847,67 @@ function collectFormData() {
   };
 }
 
+// ---- Saving, unsaved changes and drafts (2026-10-20) ----
+let formDirty = false;
+const DRAFT_KEY = 'sc-article-draft';
+
+// After a save: what happened, and a link to see it. Publishing tells
+// followers, so say so.
+function showSavedBanner(article, { wasNew }) {
+  const el = document.getElementById('save-banner');
+  const url = `/article.html?slug=${encodeURIComponent(article.slug)}`;
+  const state = article.status === 'PUBLISHED'
+    ? `Published${wasNew ? ' — followers of its sport, competitions and clubs were notified' : ''}. <a href="${url}" target="_blank" rel="noopener">View on site ↗</a>`
+    : article.status === 'SCHEDULED'
+      ? `Scheduled for ${escapeHtml(new Date(article.scheduledAt).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))} (Nairobi). <a href="${url}" target="_blank" rel="noopener">Preview ↗</a>`
+      : `Saved as a draft. <a href="${url}" target="_blank" rel="noopener">Preview ↗</a>`;
+  el.innerHTML = `<strong>"${escapeHtml(article.title)}"</strong> — ${state}`;
+  el.hidden = false;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function saveDraftLocally() {
+  if (!formDirty || document.getElementById('article-id').value) return; // only unsaved new stories
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ at: Date.now(), data: collectFormData() })); } catch { /* full or private */ }
+}
+
+function offerDraftRestore() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch { saved = null; }
+  if (!saved || !saved.data || (!saved.data.title && !saved.data.body)) return;
+  const when = new Date(saved.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  if (!confirm(`You have an unsaved story from ${when}: "${saved.data.title || '(no title)'}". Bring it back?`)) {
+    try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+    return;
+  }
+  ['title', 'dek', 'body', 'coverImageUrl'].forEach((f) => { if (saved.data[f]) document.getElementById(f).value = saved.data[f]; });
+  if (saved.data.sportId) { document.getElementById('sportId').value = saved.data.sportId; populateCompetitionOptions(saved.data.sportId); }
+  formDirty = true;
+}
+
+// Opens a new story: plain, or a match report for ?fixture=, or a story
+// from a reader tip (?submission=).
+async function openNewStory({ fixtureId, submissionId } = {}) {
+  resetForm();
+  showForm();
+  if (fixtureId) {
+    const fixture = await tagFromFixture(fixtureId);
+    if (fixture) {
+      renderFixtureLink(fixture);
+      const score = fixture.homeScore != null ? ` ${fixture.homeScore}–${fixture.awayScore} ` : ' v ';
+      document.getElementById('title').value = `${fixture.homeTeam}${score}${fixture.awayTeam}`;
+      document.getElementById('dek').value = `${fixture.competition.name} — match report`;
+    }
+  } else if (submissionId) {
+    const { submissions } = await api('/api/submissions').catch(() => ({ submissions: [] }));
+    const tip = submissions.find((x) => x.id === submissionId);
+    if (tip) document.getElementById('body').value = `[Reader tip from ${tip.name || 'a reader'}${tip.email ? `, ${tip.email}` : ''} — check before publishing]\n\n${tip.message || ''}`;
+  } else {
+    offerDraftRestore();
+  }
+  document.getElementById('title').focus();
+}
+
 async function initArticlesPage() {
   const user = await requireLogin();
   if (!user) return;
@@ -845,12 +932,22 @@ async function initArticlesPage() {
   populateHostCheckboxes(allAuthors);
   populateCompetitionOptions(document.getElementById('sportId').value);
 
-  document.getElementById('new-article-btn').addEventListener('click', () => {
-    resetForm();
-    showForm();
-  });
+  document.getElementById('new-article-btn').addEventListener('click', () => openNewStory());
   document.getElementById('cancel-edit-btn').addEventListener('click', () => {
+    if (formDirty && !confirm('Close without saving? Your changes will be lost.')) return;
+    formDirty = false;
+    try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
     document.getElementById('article-form').style.display = 'none';
+  });
+  const form = document.getElementById('article-form');
+  form.addEventListener('input', () => { formDirty = true; });
+  form.addEventListener('change', () => { formDirty = true; });
+  setInterval(saveDraftLocally, 5000);
+  window.addEventListener('beforeunload', (e) => {
+    if (!formDirty) return;
+    saveDraftLocally();
+    e.preventDefault();
+    e.returnValue = '';
   });
   document.getElementById('contentType').addEventListener('change', (e) => {
     document.getElementById('video-fields').style.display = e.target.value === 'VIDEO_POST' ? 'block' : 'none';
@@ -1006,12 +1103,13 @@ async function initArticlesPage() {
       return;
     }
     try {
-      if (id) {
-        await api(`/api/articles/${id}`, { method: 'PUT', body: JSON.stringify(data) });
-      } else {
-        await api('/api/articles', { method: 'POST', body: JSON.stringify(data) });
-      }
+      const { article } = id
+        ? await api(`/api/articles/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+        : await api('/api/articles', { method: 'POST', body: JSON.stringify(data) });
+      formDirty = false;
+      try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
       document.getElementById('article-form').style.display = 'none';
+      showSavedBanner(article, { wasNew: !id });
       loadArticles();
     } catch (err) {
       errorEl.textContent = err.message;
@@ -1019,7 +1117,16 @@ async function initArticlesPage() {
     }
   });
 
-  loadArticles();
+  await loadArticles();
+  // Deep links: ?new=1[&fixture=<id>|&submission=<id>] and ?edit=<id>.
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('edit')) {
+    const { articles } = await api('/api/articles/admin/all');
+    const target = articles.find((a) => a.id === params.get('edit'));
+    if (target) editArticle(target);
+  } else if (params.get('new') || params.get('fixture') || params.get('submission')) {
+    openNewStory({ fixtureId: params.get('fixture'), submissionId: params.get('submission') });
+  }
 }
 
 initArticlesPage();
