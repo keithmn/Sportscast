@@ -31,11 +31,20 @@ function teamSideHtml(name, club) {
 // deliberately plain ("Data:"), never "scraped" — that described how an
 // importer worked, not anything a reader needs.
 function provenanceLineHtml(competition, fixture) {
+  const updated = fixture && fixture.status === 'FINISHED' && fixture.updatedAt
+    ? ` · updated ${escapeHtml(new Date(fixture.updatedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' }))}`
+    : '';
+  const line = provenanceSource(competition, fixture);
+  return line.replace('</p>', `${updated}</p>`);
+}
+
+function provenanceSource(competition, fixture) {
   if (fixture && fixture.sourceUrl) {
     let host = '';
     try { host = new URL(fixture.sourceUrl).hostname.replace(/^www\./, ''); } catch { host = ''; }
     if (host) return `<p class="source-note">Source: <a href="${escapeHtml(fixture.sourceUrl)}" rel="noopener nofollow" target="_blank">${escapeHtml(host)}</a></p>`;
   }
+  if (competition.attribution) return `<p class="source-note">${escapeHtml(competition.attribution)}</p>`;
   if (competition.source === 'API' || competition.source === 'SCRAPED') {
     return `<p class="source-note">Data: ${escapeHtml(competition.externalProvider || 'public sources')}</p>`;
   }

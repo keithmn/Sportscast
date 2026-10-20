@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coverage — The Sportscast Newsroom</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&family=Nunito:wght@400;600;700;900&family=Anton&display=swap" rel="stylesheet">
+  <link rel="icon" href="/brand/favicon/favicon-32.png" sizes="32x32">
+  <link rel="icon" href="/brand/favicon/favicon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="/brand/favicon/favicon-180.png">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="admin-sidebar" id="admin-nav" aria-label="Newsroom"></aside>
+    <main class="admin-main">
+      <div class="admin-topbar">
+        <h1 class="page-title" style="font-size:1.75rem;">Coverage</h1>
+        <span id="whoami" class="page-sub"></span>
+      </div>
+      <div id="access-denied" class="form-error" style="display:none;">You don't have permission to view this.</div>
+      <div id="coverage-app" style="display:none;">
+        <p class="hint">How complete and how fresh each Kenyan competition is: results entered, results on the site within the competition's target, match details for the next two weeks, and stories. Targets are set per competition (Competitions → Settings).</p>
+        <div class="fx-actions">
+          <label for="coverage-days" class="hint">Period</label>
+          <select id="coverage-days"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option></select>
+          <button type="button" class="btn-outline-sm" id="copy-report">Copy as text</button>
+          <span class="hint" id="copy-msg"></span>
+        </div>
+        <div id="coverage-root"><p class="empty-state">Loading…</p></div>
+      </div>
+    </main>
+  </div>
+  <style>
+    .hint { color: var(--text-secondary); font-size: 0.85rem; }
+    .fx-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin: 1rem 0; }
+    .fx-actions select { padding: 0.4rem; background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-primary); }
+    .cov-card { border: 1px solid var(--border); padding: 0.9rem 1rem; margin-bottom: 0.9rem; background: var(--bg-surface); display: grid; gap: 0.5rem; max-width: 820px; }
+    .cov-head { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; align-items: baseline; justify-content: space-between; }
+    .cov-head strong { font-size: 1.05rem; }
+    .cov-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: 0.5rem; }
+    .cov-stat { font-size: 0.8rem; color: var(--text-secondary); }
+    .cov-stat b { display: block; font-size: 1.15rem; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+    .cov-stat.low b { color: var(--danger); }
+    .rights-tag { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--gold-text); }
+  </style>
+  <script src="/js/site.js"></script>
+  <script src="/admin/js/nav.js"></script>
+  <script src="/admin/js/guard.js"></script>
+  <script src="/admin/js/coverage.js"></script>
+</body>
+</html>

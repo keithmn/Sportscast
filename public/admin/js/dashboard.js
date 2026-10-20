@@ -52,7 +52,7 @@ async function loadDashboard() {
   const [
     health, { sources }, { fixtures: overdue }, { fixtures: provisional }, { corrections: pendingCorrections },
     { fixtures: missingInfo }, { fixtures: missingReports }, { gaps: roundGaps }, { submissions }, { items: leads },
-    { posts: xPosts }, { clips: pendingClips }, { articles },
+    { posts: xPosts }, { clips: pendingClips }, { articles }, { mismatches },
   ] = await Promise.all([
     safe(api('/api/health/details'), null),
     safe(api('/api/sources'), { sources: [] }),
@@ -67,6 +67,7 @@ async function loadDashboard() {
     safe(api('/api/watch/posts?status=NEW&attention=1'), { posts: [] }),
     safe(api('/api/episodes/clips/pending'), { clips: [] }),
     safe(api('/api/articles/admin/all'), { articles: [] }),
+    safe(api('/api/articles/admin/score-mismatches'), { mismatches: [] }),
   ]);
 
   const groups = [];
@@ -102,6 +103,7 @@ async function loadDashboard() {
 
   // 4. This week
   const week = [
+    ...mismatches.map((m) => ({ text: `Story disagrees with the result: "${escapeHtml(m.title)}"`, meta: escapeHtml(m.problems[0]), href: `/admin/articles.html?edit=${encodeURIComponent(m.id)}` })),
     ...missingInfo.slice(0, 6).map((f) => ({ text: `${game(f)}: add ${f.missing.join(' and ')}`, meta: `${escapeHtml(f.competition.name)} · ${escapeHtml(formatDate(f.kickoff))}`, href: competitionsHref(f.competition.slug, `&fixture=${encodeURIComponent(f.id)}`) })),
     ...missingReports.slice(0, 6).map((f) => ({ text: `Write the report: ${game(f)} ${f.homeScore}–${f.awayScore}`, meta: escapeHtml(f.competition.name), href: `/admin/articles.html?new=1&fixture=${encodeURIComponent(f.id)}` })),
     ...roundGaps.slice(0, 4).map((g) => ({ text: `${escapeHtml(g.competition.name)} ${escapeHtml(g.round)}: no fixture for ${g.missing.map(escapeHtml).join(', ')}`, meta: 'Add the missing game', href: competitionsHref(g.competition.slug) })),

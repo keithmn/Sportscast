@@ -39,6 +39,18 @@ function pointsAdjustment(row, sportSlug) {
 // season, or the current one after its end date — so a finished table
 // isn't read as the live one (the NSL showed last season's final table as
 // "current"). Planned seasons are never shown publicly.
+// "Updated 18 Oct, 19:42 · Data: Kenya Hockey Union" under a table, so a
+// reader can see it's current and where it comes from.
+function tableStampHtml(detail) {
+  if (!detail || !detail.standings || !detail.standings.length) return '';
+  const when = detail.tableUpdatedAt
+    ? new Date(detail.tableUpdatedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })
+    : null;
+  const source = detail.attribution || (detail.dataSource ? `Source: ${detail.dataSource}` : null);
+  const parts = [when ? `Updated ${when}` : null, source].filter(Boolean);
+  return parts.length ? `<p class="table-stamp">${escapeHtml(parts.join(' · '))}</p>` : '';
+}
+
 function seasonTableLabel(detail) {
   const seasons = detail.seasons || [];
   const season = seasons.find((x) => x.id === detail.viewingSeasonId) || seasons.find((x) => x.isCurrent);
@@ -525,6 +537,7 @@ async function renderGroupedCompetitionsPanel(panelEl, sportCompetitions) {
           <span class="card-eyebrow">${escapeHtml(competitionMetaLine(lead))}</span>
           <h3 class="card-title" style="margin:0.25rem 0 0.75rem;">${escapeHtml(lead.name)}</h3>
           ${standingsTableHtml(lead.standings, lead.sport && lead.sport.slug)}
+          ${tableStampHtml(lead)}
           <a class="btn-link" href="/competition.html?slug=${encodeURIComponent(lead.slug)}">Fixtures, results &amp; more →</a>
         </div>
         ${rest.length ? `<div class="card-grid" style="margin-top:2.5rem;">${rest.map(miniTableCardHtml).join('')}</div>` : ''}`;

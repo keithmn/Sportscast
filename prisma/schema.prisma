@@ -362,6 +362,14 @@ model Competition {
   // leagues (EPL, Bundesliga, NBA, ...) were switched off because they
   // were overshadowing Kenyan competitions.
   isActive         Boolean             @default(true)
+  // Sourcing (2026-10-20) — public-safe. The rights status and internal
+  // notes live in CompetitionRights, which public routes never read.
+  dataSource       String? // where its data comes from, e.g. "footballkenya.org results pages"
+  attribution      String? // the public credit line, e.g. "Data: Kenya Hockey Union"
+  rights           CompetitionRights?
+  // Freshness target: a result should be on the site within this many
+  // hours of kick-off (the coverage report and dashboard measure it).
+  resultTargetHours Int?
   correspondents   UserCompetition[]
   standings        StandingRow[]
   fixtures         Fixture[]
@@ -997,4 +1005,17 @@ model JobRun {
   detail     String? // short note from the job, e.g. a backup's file name and size
 
   @@index([job, startedAt])
+}
+
+// The rights record for a competition's data (2026-10-20), kept apart
+// from Competition so no public route can leak it. status: UNREVIEWED |
+// PERMISSION_PENDING | CLEARED | LEGAL_HOLD. LEGAL_HOLD takes the
+// competition off the public site and keeps it off until cleared.
+model CompetitionRights {
+  competitionId String      @id
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  status        String      @default("UNREVIEWED")
+  notes         String? // permission emails, conditions, legal advice
+  updatedBy     String?
+  updatedAt     DateTime    @updatedAt
 }

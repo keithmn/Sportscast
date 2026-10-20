@@ -1103,9 +1103,19 @@ async function initArticlesPage() {
       return;
     }
     try {
-      const { article } = id
-        ? await api(`/api/articles/${id}`, { method: 'PUT', body: JSON.stringify(data) })
-        : await api('/api/articles', { method: 'POST', body: JSON.stringify(data) });
+      const send = (body) => (id
+        ? api(`/api/articles/${id}`, { method: 'PUT', body: JSON.stringify(body) })
+        : api('/api/articles', { method: 'POST', body: JSON.stringify(body) }));
+      let result;
+      try {
+        result = await send(data);
+      } catch (err) {
+        // The story's score disagrees with the result on the site.
+        if (!/^The story says/.test(err.message)) throw err;
+        if (!confirm(`${err.message}\n\nFix the story (or the result on the Results page) first — or publish anyway?`)) return;
+        result = await send({ ...data, confirm: true });
+      }
+      const { article } = result;
       formDirty = false;
       try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
       document.getElementById('article-form').style.display = 'none';

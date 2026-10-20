@@ -130,9 +130,40 @@ router.get('/', async (req, res) => {
   res.json({ competitions, classification: { jurisdictions: JURISDICTIONS, formats: FORMATS, teamTypes: TEAM_TYPES } });
 });
 
+// ---- Rights record (internal; CompetitionRights) ----
+const RIGHTS_STATUSES = ['UNREVIEWED', 'PERMISSION_PENDING', 'CLEARED', 'LEGAL_HOLD'];
+router.get('/:id/rights', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const rights = await prisma.competitionRights.findUnique({ where: { competitionId: req.params.id } });
+  res.json({ rights: rights || { competitionId: req.params.id, status: 'UNREVIEWED', notes: null }, statuses: RIGHTS_STATUSES });
+});
+
+// Legal decisions are an admin's. LEGAL_HOLD takes the competition off
+// the public site at once; it stays off until the hold is lifted.
+router.put('/:id/rights', requireRole('ADMIN'), async (req, res) => {
+  const competition = await prisma.competition.findUnique({ where: { id: req.params.id } });
+  if (!competition) return res.status(404).json({ error: 'Competition not found' });
+  const status = req.body.status;
+  if (!RIGHTS_STATUSES.includes(status)) return res.status(400).json({ error: `status must be one of ${RIGHTS_STATUSES.join(', ')}` });
+  const notes = req.body.notes !== undefined ? (String(req.body.notes).trim().slice(0, 4000) || null) : undefined;
+  const rights = await prisma.competitionRights.upsert({
+    where: { competitionId: competition.id },
+    create: { competitionId: competition.id, status, notes: notes ?? null, updatedBy: req.session.user.name },
+    update: { status, ...(notes !== undefined ? { notes } : {}), updatedBy: req.session.user.name },
+  });
+  if (status === 'LEGAL_HOLD' && competition.isActive) {
+    await prisma.competition.update({ where: { id: competition.id }, data: { isActive: false } });
+  }
+  await logChange('COMPETITION', competition.id, 'UPDATE', `Rights: ${status.replace('_', ' ').toLowerCase()}${status === 'LEGAL_HOLD' ? ' — taken off the public site' : ''}`, req.session.user.name);
+  res.json({ rights });
+});
+
 // ---- Admin: show/hide a competition on the public site ----
 router.put('/:id/active', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   if (typeof req.body.isActive !== 'boolean') return res.status(400).json({ error: 'isActive must be true or false' });
+  if (req.body.isActive) {
+    const rights = await prisma.competitionRights.findUnique({ where: { competitionId: req.params.id } });
+    if (rights && rights.status === 'LEGAL_HOLD') return res.status(409).json({ error: 'This competition is on legal hold — an admin has to lift the hold (Settings → Rights) before it can be shown.' });
+  }
   const competition = await prisma.competition.update({ where: { id: req.params.id }, data: { isActive: req.body.isActive } });
   await logChange('COMPETITION', competition.id, 'UPDATE', `${competition.isActive ? 'Showed' : 'Hid'} ${competition.name} on the public site`, req.session.user.name);
   res.json({ competition });
@@ -165,6 +196,60 @@ router.get('/changelog', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   res.json({ entries });
 });
 
+// ---- Admin: coverage report — how complete and how fresh each Kenyan
+// competition is over the last ?days= (default 30): results entered,
+// results on time against the competition's target, match details for
+// the next fortnight, stories. On demand; the Coverage page renders it and
+// can copy it as text for WhatsApp. ----
+router.get('/admin/coverage', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const days = Math.min(Math.max(Number(req.query.days) || 30, 7), 120);
+  const now = Date.now();
+  const since = new Date(now - days * 86400000);
+  const ahead = new Date(now + 14 * 86400000);
+  const competitions = await prisma.competition.findMany({
+    where: { region: 'KENYA', isActive: true },
+    include: { sport: { select: { name: true, slug: true } }, rights: { select: { status: true } } },
+  });
+  const rows = [];
+  for (const c of competitions) {
+    const [played, upcoming, stories] = await Promise.all([
+      prisma.fixture.findMany({ where: { competitionId: c.id, kickoff: { gte: since, lt: new Date(now - 3 * 3600000) }, status: { not: 'POSTPONED' } }, select: { id: true, kickoff: true, status: true, homeScore: true } }),
+      prisma.fixture.findMany({ where: { competitionId: c.id, kickoff: { gte: new Date(now), lt: ahead } }, select: { venueId: true, broadcaster: true } }),
+      prisma.article.findMany({ where: { status: 'PUBLISHED', publishedAt: { gte: since }, OR: [{ competitions: { some: { id: c.id } } }, { fixture: { competitionId: c.id } }] }, select: { publishedAt: true } }),
+    ]);
+    if (!played.length && !upcoming.length && !stories.length) continue;
+    const withResult = played.filter((f) => f.status === 'FINISHED' && f.homeScore != null);
+    // When was each result first entered? The first result entry in the change log.
+    const logs = withResult.length ? await prisma.changeLog.findMany({
+      where: { entityType: 'FIXTURE', entityId: { in: withResult.map((f) => f.id) }, OR: [{ summary: { startsWith: 'Result' } }, { summary: { startsWith: 'Added result' } }, { summary: { startsWith: 'Confirmed result' } }] },
+      select: { entityId: true, createdAt: true }, orderBy: { createdAt: 'asc' },
+    }) : [];
+    const firstEntry = new Map();
+    logs.forEach((l) => { if (!firstEntry.has(l.entityId)) firstEntry.set(l.entityId, l.createdAt); });
+    const target = c.resultTargetHours || 12;
+    const timed = withResult.filter((f) => firstEntry.has(f.id));
+    const delays = timed.map((f) => (firstEntry.get(f.id).getTime() - f.kickoff.getTime()) / 3600000);
+    const onTime = delays.filter((h) => h <= target + 2).length; // + the game itself
+    rows.push({
+      competition: { id: c.id, name: c.name, slug: c.slug, sport: c.sport.name },
+      rightsStatus: c.rights ? c.rights.status : 'UNREVIEWED',
+      resultTargetHours: target,
+      played: played.length,
+      withResult: withResult.length,
+      timedResults: timed.length,
+      onTime,
+      medianHoursToResult: delays.length ? Math.round(delays.sort((a, b) => a - b)[Math.floor(delays.length / 2)] * 10) / 10 : null,
+      upcoming: upcoming.length,
+      upcomingWithVenue: upcoming.filter((f) => f.venueId).length,
+      upcomingWithBroadcaster: upcoming.filter((f) => f.broadcaster).length,
+      stories: stories.length,
+      lastStoryAt: stories.length ? stories.map((a) => a.publishedAt).sort((a, b) => b - a)[0] : null,
+    });
+  }
+  rows.sort((a, b) => b.played - a.played || a.competition.name.localeCompare(b.competition.name));
+  res.json({ days, rows });
+});
+
 // ---- Admin: rename a competition or set whether it's Kenyan ----
 // The slug (and so every link and follow) stays the same on a rename.
 router.put('/:id/details', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
@@ -180,8 +265,16 @@ router.put('/:id/details', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
     if (!['KENYA', 'GLOBAL'].includes(req.body.region)) return res.status(400).json({ error: 'region must be KENYA or GLOBAL' });
     data.region = req.body.region;
   }
+  for (const field of ['dataSource', 'attribution']) {
+    if (req.body[field] !== undefined) data[field] = String(req.body[field]).trim().slice(0, 160) || null;
+  }
+  if (req.body.resultTargetHours !== undefined) {
+    const h = req.body.resultTargetHours === '' || req.body.resultTargetHours === null ? null : Number(req.body.resultTargetHours);
+    if (h !== null && (!Number.isInteger(h) || h < 1 || h > 168)) return res.status(400).json({ error: 'The result target is a whole number of hours, 1 to 168' });
+    data.resultTargetHours = h;
+  }
   const competition = await prisma.competition.update({ where: { id: existing.id }, data });
-  await logChange('COMPETITION', competition.id, 'UPDATE', `Details: ${existing.name !== competition.name ? `renamed "${existing.name}" → "${competition.name}"` : ''}${existing.region !== competition.region ? ` ${competition.region === 'KENYA' ? 'marked Kenyan' : 'marked international'}` : ''}`.trim(), req.session.user.name);
+  await logChange('COMPETITION', competition.id, 'UPDATE', `Details: ${existing.name !== competition.name ? `renamed "${existing.name}" → "${competition.name}"` : 'updated'}${existing.region !== competition.region ? ` ${competition.region === 'KENYA' ? 'marked Kenyan' : 'marked international'}` : ''}`.trim(), req.session.user.name);
   res.json({ competition });
 });
 
@@ -235,6 +328,10 @@ router.get('/:slug', async (req, res) => {
   // the admin page shows the "Recalculate table" button only then.
   competition.tableFromResults = !!pointsRuleFor(competition.sport.slug);
   competition.seasons = seasons;
+  // "Updated …" under the table: the newest change to this season's rows.
+  competition.tableUpdatedAt = competition.standings && competition.standings.length
+    ? competition.standings.reduce((latest, r) => (r.updatedAt > latest ? r.updatedAt : latest), competition.standings[0].updatedAt)
+    : null;
   competition.currentSeasonId = currentSeason?.id || null;
   competition.viewingSeasonId = scopeSeasonId;
 

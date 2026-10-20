@@ -12,6 +12,7 @@ const ADMIN_NAV = [
   { label: 'Match day', items: [
     { href: '/admin/results.html', label: 'Results' },
     { href: '/admin/competitions.html', label: 'Competitions' },
+    { href: '/admin/coverage.html', label: 'Coverage' },
   ] },
   { label: 'Stories', items: [
     { href: '/admin/articles.html', label: 'Articles' },

@@ -360,7 +360,14 @@ function renderSettingsTab(body) {
         </div>
       </div>
       <div class="form-row classification-row">${classificationFieldsHtml(c)}</div>
+      <div class="form-row">
+        <div class="form-field"><label for="set-source">Where its data comes from <span class="hint-inline">(internal)</span></label><input type="text" id="set-source" value="${escapeHtml(c.dataSource || '')}" placeholder="footballkenya.org results pages"></div>
+        <div class="form-field"><label for="set-attribution">Credit shown under tables and results</label><input type="text" id="set-attribution" value="${escapeHtml(c.attribution || '')}" placeholder="Data: Kenya Hockey Union"></div>
+        <div class="form-field" style="max-width:11rem;"><label for="set-target">Result on the site within (hours)</label><input type="number" id="set-target" min="1" max="168" value="${c.resultTargetHours ?? ''}" placeholder="12"></div>
+      </div>
       <div class="fx-actions"><button type="button" class="btn-red" id="set-save">Save settings</button><span class="inline-msg" id="set-msg" hidden></span></div>
+
+      <div class="comp-section-box" id="rights-box"><strong>Rights</strong><p class="hint-inline">Loading…</p></div>
 
       <div class="comp-section-box">
         <strong>On the public site</strong>
@@ -380,6 +387,37 @@ function renderSettingsTab(body) {
       </div>
     </div>`;
   wireCanonicalLinkWidgets(body, { endpointFor: (kind, localId) => `/api/competitions/${localId}/canonical-competition`, onChange: () => openCompetition(c.slug, { tab: 'settings' }) });
+  loadRightsBox(c);
+}
+
+const RIGHTS_LABELS = {
+  UNREVIEWED: 'Not reviewed yet',
+  PERMISSION_PENDING: 'Asked for permission / taking advice',
+  CLEARED: 'Cleared to publish',
+  LEGAL_HOLD: 'Legal hold — off the public site',
+};
+
+// Who may publish this competition's data, and on what terms. Internal:
+// stored apart from the competition so no public page can show it.
+async function loadRightsBox(c) {
+  const box = document.getElementById('rights-box');
+  try {
+    const { rights, statuses } = await api(`/api/competitions/${c.id}/rights`);
+    const editable = currentUser && currentUser.role === 'ADMIN';
+    box.innerHTML = `
+      <strong>Rights</strong>
+      <p class="hint-inline">Whether we may publish this competition's results and tables, and on what terms. Legal hold takes it off the public site until lifted. ${editable ? '' : 'Only an admin can change this.'}</p>
+      <div class="form-row">
+        <div class="form-field"><label for="rights-status">Status</label>
+          <select id="rights-status" ${editable ? '' : 'disabled'}>${statuses.map((st) => `<option value="${st}" ${st === rights.status ? 'selected' : ''}>${RIGHTS_LABELS[st] || st}</option>`).join('')}</select>
+        </div>
+      </div>
+      <div class="form-field"><label for="rights-notes">Notes — permissions, conditions, advice</label><textarea id="rights-notes" rows="3" ${editable ? '' : 'readonly'} class="bulk-text" style="font-family:inherit;">${escapeHtml(rights.notes || '')}</textarea></div>
+      ${rights.updatedBy ? `<p class="hint-inline">Last changed by ${escapeHtml(rights.updatedBy)}${rights.updatedAt ? `, ${escapeHtml(formatDate(rights.updatedAt))}` : ''}.</p>` : ''}
+      ${editable ? '<div class="fx-actions"><button type="button" class="btn-outline-sm" id="rights-save">Save rights</button><span class="inline-msg" id="rights-msg" hidden></span></div>' : ''}`;
+  } catch (err) {
+    box.innerHTML = `<strong>Rights</strong><p class="hint-inline">Could not load: ${escapeHtml(err.message)}</p>`;
+  }
 }
 
 // ---------- History tab ----------
@@ -514,12 +552,30 @@ function wirePanelEvents() {
       const classification = {};
       e.target.closest('.comp-settings').querySelectorAll('[data-classification]').forEach((el) => { classification[el.dataset.classification] = el.value; });
       try {
-        await api(`/api/competitions/${c.id}/details`, { method: 'PUT', body: JSON.stringify({ name: document.getElementById('set-name').value, region: document.getElementById('set-region').value }) });
+        await api(`/api/competitions/${c.id}/details`, { method: 'PUT', body: JSON.stringify({
+          name: document.getElementById('set-name').value,
+          region: document.getElementById('set-region').value,
+          dataSource: document.getElementById('set-source').value,
+          attribution: document.getElementById('set-attribution').value,
+          resultTargetHours: document.getElementById('set-target').value,
+        }) });
         await api(`/api/competitions/${c.id}/classification`, { method: 'PUT', body: JSON.stringify(classification) });
         await loadList();
         await openCompetition(c.slug, { tab: 'settings' });
         flash(document.getElementById('set-msg'), 'Settings saved');
       } catch (err) { flash(msg, err.message, true); }
+      return;
+    }
+    if (e.target.id === 'rights-save') {
+      const status = document.getElementById('rights-status').value;
+      if (status === 'LEGAL_HOLD' && !confirm(`Put ${c.name} on legal hold? It comes off the public site straight away and stays off until the hold is lifted.`)) return;
+      try {
+        await api(`/api/competitions/${c.id}/rights`, { method: 'PUT', body: JSON.stringify({ status, notes: document.getElementById('rights-notes').value }) });
+        await loadList();
+        await openCompetition(c.slug, { tab: 'settings' });
+        await loadRightsBox(current.competition); // wait for the redraw, then confirm
+        flash(document.getElementById('rights-msg'), 'Rights saved');
+      } catch (err) { flash(document.getElementById('rights-msg'), err.message, true); }
       return;
     }
     if (e.target.id === 'set-visibility') {

@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const { imageProblem } = require('../lib/imageCheck');
+const { storyScoreProblems } = require('../lib/storyCheck');
 
 // Same folder server/index.js serves /uploads from.
 const UPLOADS_DIR = path.join(path.dirname(path.resolve(path.join(__dirname, '..', '..', 'prisma'), (process.env.DATABASE_URL || 'file:./dev.db').replace(/^file:/, ''))), 'uploads');
@@ -101,6 +102,21 @@ function validateScheduling(status, scheduledAt) {
   }
   return null;
 }
+
+// ---- Admin: published match reports whose scores disagree with the
+// result on the site (a result corrected after the report went out). ----
+router.get('/admin/score-mismatches', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
+  const articles = await prisma.article.findMany({
+    where: { status: 'PUBLISHED', fixtureId: { not: null } },
+    select: { id: true, title: true, dek: true, body: true, slug: true, fixture: true },
+    orderBy: { publishedAt: 'desc' },
+    take: 200,
+  });
+  const mismatches = articles
+    .map((a) => ({ id: a.id, title: a.title, slug: a.slug, problems: storyScoreProblems(a, a.fixture) }))
+    .filter((a) => a.problems.length);
+  res.json({ mismatches });
+});
 
 // ---- Public: list published articles ----
 router.get('/', async (req, res) => {
@@ -259,6 +275,11 @@ router.post('/', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   if (schedulingError) return res.status(400).json({ error: schedulingError });
   const coverProblem = await imageProblem(coverImageUrl, UPLOADS_DIR);
   if (coverProblem) return res.status(400).json({ error: `Cover image: ${coverProblem}` });
+  if (fixtureId && publishedStatus !== 'DRAFT' && !req.body.confirm) {
+    const fixture = await prisma.fixture.findUnique({ where: { id: fixtureId } });
+    const problems = storyScoreProblems({ title, dek, body }, fixture);
+    if (problems.length) return res.status(409).json({ needsConfirm: true, warnings: problems, error: problems.join(' ') });
+  }
 
   let slug = slugify(title);
   const existing = await prisma.article.findUnique({ where: { slug } });
@@ -323,6 +344,12 @@ router.put('/:id', requireRole('ADMIN', 'EDITOR'), async (req, res) => {
   if (coverImageUrl && coverImageUrl !== existing.coverImageUrl) {
     const coverProblem = await imageProblem(coverImageUrl, UPLOADS_DIR);
     if (coverProblem) return res.status(400).json({ error: `Cover image: ${coverProblem}` });
+  }
+  const linkedFixtureId = fixtureId !== undefined ? fixtureId : existing.fixtureId;
+  if (linkedFixtureId && resolvedStatus !== 'DRAFT' && !req.body.confirm) {
+    const fixture = await prisma.fixture.findUnique({ where: { id: linkedFixtureId } });
+    const problems = storyScoreProblems({ title: title ?? existing.title, dek: dek ?? existing.dek, body: body ?? existing.body }, fixture);
+    if (problems.length) return res.status(409).json({ needsConfirm: true, warnings: problems, error: problems.join(' ') });
   }
   const schedulingError = validateScheduling(resolvedStatus, scheduledAt !== undefined ? scheduledAt : existing.scheduledAt);
   if (schedulingError) return res.status(400).json({ error: schedulingError });
